@@ -21,8 +21,9 @@ export async function GET(request: NextRequest) {
           revenue: (quote as Record<string, unknown>).totalRevenue as number ?? null,
           netIncome: (quote as Record<string, unknown>).netIncome as number ?? null,
         };
-      } catch {
-        return { ticker: t, name: t, price: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Not found" };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { ticker: t, name: t, price: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: msg };
       }
     })
   );
