@@ -5,12 +5,11 @@ import { formatCurrency, formatPercent, formatDate } from "@/lib/formatters";
 
 interface Props {
   positions: PortfolioPositionWithData[];
-  onRemove: (id: string) => void;
 }
 
-export default function PortfolioTable({ positions, onRemove }: Props) {
+export default function PortfolioTable({ positions }: Props) {
   if (positions.length === 0) {
-    return <div className="text-center py-12 text-gray-500 text-sm">No positions yet. Add one above.</div>;
+    return <div className="text-center py-12 text-gray-500 text-sm">Loading data...</div>;
   }
 
   const totalInvested = positions.reduce((s, p) => s + p.purchasePrice * p.quantity, 0);
@@ -22,7 +21,7 @@ export default function PortfolioTable({ positions, onRemove }: Props) {
   return (
     <div>
       {/* Summary bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 mt-4">
         {[
           { label: "Total Invested", value: formatCurrency(totalInvested), color: "text-white" },
           { label: "Current Value", value: formatCurrency(totalCurrent), color: "text-white" },
@@ -49,8 +48,7 @@ export default function PortfolioTable({ positions, onRemove }: Props) {
               <th className="pb-2 pr-3 font-medium text-right">Current Price</th>
               <th className="pb-2 pr-3 font-medium text-right">Current Value</th>
               <th className="pb-2 pr-3 font-medium text-right">P&L ($)</th>
-              <th className="pb-2 pr-3 font-medium text-right">P&L (%)</th>
-              <th className="pb-2 font-medium"></th>
+              <th className="pb-2 font-medium text-right">P&L (%)</th>
             </tr>
           </thead>
           <tbody>
@@ -67,8 +65,7 @@ export default function PortfolioTable({ positions, onRemove }: Props) {
                   <td className="py-3 pr-3 text-right text-white">{p.error ? "—" : formatCurrency(p.currentPrice)}</td>
                   <td className="py-3 pr-3 text-right text-white">{p.error ? "—" : formatCurrency(p.currentValue)}</td>
                   <td className={`py-3 pr-3 text-right font-medium ${plColor}`}>{p.error ? "—" : formatCurrency(pl)}</td>
-                  <td className={`py-3 pr-3 text-right font-medium ${plColor}`}>{p.error ? "—" : formatPercent(p.percentReturn)}</td>
-                  <td className="py-3"><button onClick={() => onRemove(p.id)} className="text-gray-500 hover:text-red-400 text-xs transition-colors">Remove</button></td>
+                  <td className={`py-3 text-right font-medium ${plColor}`}>{p.error ? "—" : formatPercent(p.percentReturn)}</td>
                 </tr>
               );
             })}
@@ -83,14 +80,11 @@ export default function PortfolioTable({ positions, onRemove }: Props) {
           const plColor = pl >= 0 ? "text-emerald-400" : "text-red-400";
           return (
             <div key={p.id} className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <span className="font-bold text-emerald-400 text-base">{p.ticker}</span>
-                  <span className="ml-2 text-gray-400 text-sm">{p.quantity} shares</span>
-                </div>
-                <button onClick={() => onRemove(p.id)} className="text-gray-500 hover:text-red-400 text-xs transition-colors">Remove</button>
+              <div className="mb-2">
+                <span className="font-bold text-emerald-400 text-base">{p.ticker}</span>
+                <span className="ml-2 text-gray-400 text-sm">{p.quantity} shares</span>
+                <p className="text-gray-400 text-sm mt-0.5 truncate">{p.name}</p>
               </div>
-              <p className="text-gray-400 text-sm mb-3 truncate">{p.name}</p>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div><span className="text-gray-500">Buy Price</span><p className="text-white font-medium">{formatCurrency(p.purchasePrice)}</p></div>
                 <div><span className="text-gray-500">Current Price</span><p className="text-white font-medium">{p.error ? "—" : formatCurrency(p.currentPrice)}</p></div>

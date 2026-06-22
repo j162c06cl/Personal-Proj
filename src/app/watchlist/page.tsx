@@ -1,41 +1,46 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useWatchlist } from "@/hooks/useWatchlist";
+import { WATCHLIST_PRESETS, WATCHLIST_CATEGORIES } from "@/lib/presets";
 import { WatchlistEntryWithData } from "@/lib/types";
-import AddToWatchlistForm from "@/components/AddToWatchlistForm";
 import WatchlistTable from "@/components/WatchlistTable";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function WatchlistPage() {
-  const { entries, addEntry, removeEntry } = useWatchlist();
   const [enriched, setEnriched] = useState<WatchlistEntryWithData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("MAG 7");
 
   const fetchData = useCallback(async () => {
-    if (entries.length === 0) { setEnriched([]); return; }
     setLoading(true);
     try {
-      const tickers = entries.map((e) => e.ticker).join(",");
+      const tickers = WATCHLIST_PRESETS.map((e) => e.ticker).join(",");
       const res = await fetch(`/api/quote?ticker=${tickers}`);
       const data = await res.json();
       const dataArray = Array.isArray(data) ? data : [data];
       const byTicker = Object.fromEntries(dataArray.map((d: { ticker: string }) => [d.ticker, d]));
-      setEnriched(entries.map((e) => ({ ...e, ...(byTicker[e.ticker] || { price: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Not found" }) })) as WatchlistEntryWithData[]);
+      setEnriched(WATCHLIST_PRESETS.map((e) => ({
+        id: e.ticker,
+        addedAt: "",
+        ...e,
+        ...(byTicker[e.ticker] || { price: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Not found" }),
+      })) as WatchlistEntryWithData[]);
     } catch {
-      setEnriched(entries.map((e) => ({ ...e, price: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Failed" })));
+      setEnriched(WATCHLIST_PRESETS.map((e) => ({ id: e.ticker, addedAt: "", ...e, price: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Failed" })));
     }
     setLoading(false);
-  }, [entries]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const filtered = enriched.filter((e) => e.category === activeCategory);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Watchlist</h1>
-          <p className="text-gray-400 text-sm mt-1">Track stocks and ETFs you're watching</p>
+          <p className="text-gray-400 text-sm mt-1">Live prices for popular stocks and ETFs</p>
         </div>
         <button
           onClick={fetchData}
@@ -49,12 +54,27 @@ export default function WatchlistPage() {
         </button>
       </div>
 
-      <AddToWatchlistForm onAdd={(entry) => { addEntry(entry); }} />
+      {/* Category tabs */}
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {WATCHLIST_CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              activeCategory === cat
+                ? "bg-emerald-600 text-white"
+                : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
 
-      {loading && enriched.length === 0 ? (
+      {loading ? (
         <LoadingSpinner text="Fetching market data..." />
       ) : (
-        <WatchlistTable entries={enriched} onRemove={removeEntry} />
+        <WatchlistTable entries={filtered} />
       )}
     </div>
   );
