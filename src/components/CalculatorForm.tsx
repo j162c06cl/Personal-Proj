@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { SearchResult, CalculatorResult } from "@/lib/types";
+import { useState } from "react";
+import { CalculatorResult } from "@/lib/types";
 
 interface Props {
   onResult: (result: CalculatorResult) => void;
@@ -10,41 +10,28 @@ interface Props {
 
 export default function CalculatorForm({ onResult, onClear }: Props) {
   const [amount, setAmount] = useState("");
-  const [query, setQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
-  const [selected, setSelected] = useState<SearchResult | null>(null);
+  const [ticker, setTicker] = useState("");
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const maxDate = yesterday.toISOString().split("T")[0];
 
-  useEffect(() => {
-    if (selected) return;
-    if (query.length < 1) { setSuggestions([]); return; }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-      const data = await res.json();
-      setSuggestions(data.results || []);
-    }, 300);
-  }, [query, selected]);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     onClear();
-    if (!selected) { setError("Please select a stock from the suggestions."); return; }
+    const t = ticker.trim().toUpperCase();
+    if (!t) { setError("Please enter a ticker symbol (e.g. AAPL, VOO)."); return; }
     if (!amount || parseFloat(amount) <= 0) { setError("Please enter a valid investment amount."); return; }
     if (!date) { setError("Please select a purchase date."); return; }
     if (date >= new Date().toISOString().split("T")[0]) { setError("Purchase date must be in the past."); return; }
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/historical?ticker=${selected.ticker}&from=${date}`);
+      const res = await fetch(`/api/historical?ticker=${encodeURIComponent(t)}&from=${date}`);
       const data = await res.json();
       if (data.error) { setError(data.error); setLoading(false); return; }
 
@@ -55,7 +42,7 @@ export default function CalculatorForm({ onResult, onClear }: Props) {
       const percentReturn = (profitLoss / investmentAmount) * 100;
 
       onResult({
-        ticker: selected.ticker,
+        ticker: t,
         purchaseDate: date,
         actualDate: data.actualDate,
         priceAtPurchase: data.closingPrice,
@@ -88,29 +75,17 @@ export default function CalculatorForm({ onResult, onClear }: Props) {
           />
         </div>
 
-        <div className="relative">
-          <label className="block text-xs text-gray-400 mb-1">Stock / ETF</label>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Ticker Symbol</label>
           <input
             type="text"
-            placeholder="Search ticker or name..."
-            value={selected ? `${selected.ticker} — ${selected.name}` : query}
-            onChange={(e) => { setSelected(null); setQuery(e.target.value); onClear(); }}
-            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+            placeholder="e.g. AAPL, VOO, MSFT"
+            value={ticker}
+            onChange={(e) => { setTicker(e.target.value); onClear(); }}
+            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 uppercase"
+            autoCapitalize="characters"
           />
-          {suggestions.length > 0 && !selected && (
-            <ul className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-lg overflow-hidden">
-              {suggestions.map((s) => (
-                <li
-                  key={s.ticker}
-                  onClick={() => { setSelected(s); setQuery(""); setSuggestions([]); }}
-                  className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-700 flex justify-between"
-                >
-                  <span className="font-medium text-white">{s.ticker}</span>
-                  <span className="text-gray-400 truncate ml-2">{s.name}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <p className="text-xs text-gray-600 mt-1">US stocks and ETFs only. See Watchlist for available tickers.</p>
         </div>
 
         <div>

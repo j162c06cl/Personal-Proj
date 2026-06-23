@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const yahooFinance = require("yahoo-finance2").default;
+
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+async function fetchStooqQuote(ticker: string) {
+  const res = await fetch(
+    `https://stooq.com/q/l/?s=${ticker.toLowerCase()}.us&f=sd2t2ohlcv&e=csv`,
+    { headers: { "User-Agent": UA } }
+  );
+  const text = await res.text();
+  const lines = text.trim().split("\n");
+  if (lines.length < 2) return null;
+  const parts = lines[1].split(",");
+  // CSV: Symbol,Date,Time,Open,High,Low,Close,Volume
+  const open = parseFloat(parts[3]);
+  const close = parseFloat(parts[6]);
+  if (isNaN(close) || parts[6] === "N/D") return null;
+  return {
+    price: close,
+    change: close - open,
+    changePercent: ((close - open) / open) * 100,
+  };
+}
 
 export async function GET(request: NextRequest) {
   const ticker = request.nextUrl.searchParams.get("ticker");
@@ -11,19 +31,12 @@ export async function GET(request: NextRequest) {
   const results = await Promise.all(
     tickers.map(async (t) => {
       try {
-        const quote = await yahooFinance.quote(t);
-        return {
-          ticker: t,
-          name: quote.longName || quote.shortName || t,
-          price: quote.regularMarketPrice ?? null,
-          marketCap: quote.marketCap ?? null,
-          peRatio: quote.trailingPE ?? null,
-          revenue: (quote as Record<string, unknown>).totalRevenue as number ?? null,
-          netIncome: (quote as Record<string, unknown>).netIncome as number ?? null,
-        };
+        const data = await fetchStooqQuote(t);
+        if (!data) return { ticker: t, name: t, price: null, change: null, changePercent: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Not found" };
+        return { ticker: t, name: t, ...data, marketCap: null, peRatio: null, revenue: null, netIncome: null };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        return { ticker: t, name: t, price: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: msg };
+        return { ticker: t, name: t, price: null, change: null, changePercent: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: msg };
       }
     })
   );

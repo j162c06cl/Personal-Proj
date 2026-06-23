@@ -8,6 +8,8 @@ export interface WatchlistEntry {
 
 export interface WatchlistEntryWithData extends WatchlistEntry {
   price: number | null;
+  change: number | null;
+  changePercent: number | null;
   marketCap: number | null;
   peRatio: number | null;
   revenue: number | null;

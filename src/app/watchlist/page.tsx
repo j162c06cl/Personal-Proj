@@ -23,10 +23,10 @@ export default function WatchlistPage() {
         id: e.ticker,
         addedAt: "",
         ...e,
-        ...(byTicker[e.ticker] || { price: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Not found" }),
+        ...(byTicker[e.ticker] || { price: null, change: null, changePercent: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Not found" }),
       })) as WatchlistEntryWithData[]);
     } catch {
-      setEnriched(WATCHLIST_PRESETS.map((e) => ({ id: e.ticker, addedAt: "", ...e, price: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Failed" })));
+      setEnriched(WATCHLIST_PRESETS.map((e) => ({ id: e.ticker, addedAt: "", ...e, price: null, change: null, changePercent: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Failed" })));
     }
     setLoading(false);
   }, []);
