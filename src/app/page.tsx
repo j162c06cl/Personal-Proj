@@ -3,6 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/formatters";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine,
+} from "recharts";
 
 const UPCOMING_EVENTS = [
   { date: "2026-06-26", name: "GDP (Q1 Final)",       importance: "high",   description: "Final Q1 2026 economic growth estimate" },
@@ -15,15 +26,6 @@ const UPCOMING_EVENTS = [
   { date: "2026-08-07", name: "Non-Farm Payrolls",     importance: "high",   description: "July 2026 jobs report" },
   { date: "2026-08-12", name: "CPI (Jul)",             importance: "high",   description: "July 2026 Consumer Price Index" },
   { date: "2026-09-15", name: "FOMC Rate Decision",    importance: "high",   description: "Federal Reserve interest rate decision" },
-];
-
-const FEATURES = [
-  { href: "/watchlist",  label: "Watchlist",  icon: "📋", desc: "MAG 7, ETFs, REITs & Dividend stocks" },
-  { href: "/calculator", label: "Calculator", icon: "🧮", desc: "Historical investment return calculator" },
-  { href: "/portfolio",  label: "Portfolio",  icon: "📈", desc: "Sample portfolio P&L tracker" },
-  { href: "/retirement", label: "Retirement", icon: "🎯", desc: "Singapore CPF retirement planner" },
-  { href: "/glossary",   label: "Glossary",   icon: "📖", desc: "20 investing terms explained" },
-  { href: "/calendar",   label: "Calendar",   icon: "📅", desc: "Economic events calendar" },
 ];
 
 interface IndexData { symbol: string; label: string; format: string; price: number | null; change: number | null; changePercent: number | null; }
@@ -51,15 +53,6 @@ function IndexCard({ d }: { d: IndexData }) {
   );
 }
 
-function sectorBg(pct: number | null): string {
-  if (pct === null) return "bg-gray-100 text-gray-500";
-  if (pct >= 2)    return "bg-emerald-600 text-white";
-  if (pct >= 0.5)  return "bg-emerald-100 text-emerald-800";
-  if (pct >= -0.5) return "bg-gray-100 text-gray-700";
-  if (pct >= -2)   return "bg-red-100 text-red-700";
-  return "bg-red-500 text-white";
-}
-
 function getDays(d: string): number {
   const t = new Date(); t.setHours(0, 0, 0, 0);
   return Math.round((new Date(d + "T00:00:00").getTime() - t.getTime()) / 86400000);
@@ -67,6 +60,118 @@ function getDays(d: string): number {
 
 function fmtDate(d: string): string {
   return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function pct(v: number) {
+  return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+}
+
+function SectorChart({ sectors }: { sectors: SectorData[] }) {
+  const data = [...sectors]
+    .filter((s) => s.changePercent !== null)
+    .sort((a, b) => (b.changePercent ?? 0) - (a.changePercent ?? 0))
+    .map((s) => ({ label: s.label, value: parseFloat((s.changePercent ?? 0).toFixed(2)) }));
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 h-full flex flex-col">
+      <h2 className="text-sm font-semibold text-gray-900 mb-4">Sector Performance</h2>
+      <div className="flex-1">
+        <ResponsiveContainer width="100%" height={290}>
+          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 48, left: 8, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+            <XAxis
+              type="number"
+              tickFormatter={(v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+              tick={{ fontSize: 10, fill: "#9ca3af" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              type="category"
+              dataKey="label"
+              tick={{ fontSize: 11, fill: "#374151" }}
+              width={110}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              formatter={(value) => [pct(Number(value ?? 0)), "Today"]}
+              contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+              cursor={{ fill: "rgba(0,0,0,0.04)" }}
+            />
+            <ReferenceLine x={0} stroke="#d1d5db" strokeWidth={1} />
+            <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={20}>
+              {data.map((entry, i) => (
+                <Cell key={i} fill={entry.value >= 0 ? "#10b981" : "#ef4444"} fillOpacity={0.85} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+const EQUITY_SYMBOLS = ["^GSPC", "^IXIC", "^DJI", "^VIX"];
+
+function IndicesChart({ indices }: { indices: IndexData[] }) {
+  const data = indices
+    .filter((d) => EQUITY_SYMBOLS.includes(d.symbol) && d.changePercent !== null)
+    .map((d) => ({ label: d.label, value: parseFloat((d.changePercent ?? 0).toFixed(2)) }));
+
+  if (!data.length) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Indices Today</h2>
+      <ResponsiveContainer width="100%" height={130}>
+        <BarChart data={data} margin={{ top: 4, right: 4, left: -10, bottom: 22 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 10, fill: "#6b7280" }}
+            axisLine={false}
+            tickLine={false}
+            angle={-20}
+            textAnchor="end"
+            interval={0}
+          />
+          <YAxis
+            tickFormatter={(v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+            tick={{ fontSize: 9, fill: "#9ca3af" }}
+            axisLine={false}
+            tickLine={false}
+            width={38}
+          />
+          <Tooltip
+            formatter={(value) => [pct(Number(value ?? 0)), "Today"]}
+            contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+            cursor={{ fill: "rgba(0,0,0,0.04)" }}
+          />
+          <ReferenceLine y={0} stroke="#d1d5db" strokeWidth={1} />
+          <Bar dataKey="value" radius={[3, 3, 0, 0]} maxBarSize={36}>
+            {data.map((entry, i) => (
+              <Cell key={i} fill={entry.value >= 0 ? "#10b981" : "#ef4444"} fillOpacity={0.85} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function SectorChartSkeleton() {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 h-full animate-pulse">
+      <div className="h-4 w-40 bg-gray-200 rounded mb-6" />
+      {[...Array(11)].map((_, i) => (
+        <div key={i} className="flex items-center gap-3 mb-3">
+          <div className="h-3 bg-gray-100 rounded w-24 shrink-0" />
+          <div className="h-5 bg-gray-200 rounded" style={{ width: `${30 + Math.random() * 50}%` }} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -97,11 +202,16 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Market Dashboard</h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            {lastUpdated ? `Updated ${new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : loading ? "Fetching live data..." : ""}
+            {lastUpdated
+              ? `Updated ${new Date(lastUpdated).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
+              : loading ? "Fetching live data..." : ""}
           </p>
         </div>
-        <button onClick={loadMarket} disabled={loading}
-          className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 disabled:opacity-50 font-medium">
+        <button
+          onClick={loadMarket}
+          disabled={loading}
+          className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 disabled:opacity-50 font-medium"
+        >
           <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
@@ -109,18 +219,21 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Market Indices */}
+      {/* Market Indices Cards */}
       <section>
         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Market Indices</h2>
         {err ? (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-600">
-            Could not load market data. <button onClick={loadMarket} className="underline font-medium">Retry</button>
+            Could not load market data.{" "}
+            <button onClick={loadMarket} className="underline font-medium">Retry</button>
           </div>
         ) : loading ? (
           <div className="flex gap-3 overflow-x-auto pb-1">
             {[...Array(8)].map((_, i) => (
               <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-w-[148px] shrink-0 animate-pulse">
-                <div className="h-3 bg-gray-200 rounded mb-2 w-14" /><div className="h-6 bg-gray-200 rounded mb-1 w-20" /><div className="h-3 bg-gray-200 rounded w-10" />
+                <div className="h-3 bg-gray-200 rounded mb-2 w-14" />
+                <div className="h-6 bg-gray-200 rounded mb-1 w-20" />
+                <div className="h-3 bg-gray-200 rounded w-10" />
               </div>
             ))}
           </div>
@@ -131,68 +244,58 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Sector Heatmap */}
-      {!loading && !err && sectors.length > 0 && (
-        <section>
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Sector Performance — Today</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-11 gap-2">
-            {sectors.map((s) => (
-              <div key={s.symbol} className={`rounded-lg p-2.5 text-center ${sectorBg(s.changePercent)}`}>
-                <p className="text-xs font-semibold leading-tight">{s.label}</p>
-                <p className="text-sm font-bold mt-0.5">
-                  {s.changePercent !== null ? `${s.changePercent >= 0 ? "+" : ""}${s.changePercent.toFixed(2)}%` : "—"}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Bottom row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming Events */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">Upcoming Events</h2>
-            <Link href="/calendar" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">View all →</Link>
-          </div>
-          <div className="space-y-3">
-            {upcoming.map((e) => {
-              const days = getDays(e.date);
-              return (
-                <div key={e.date + e.name} className="flex items-start gap-3">
-                  <div className="shrink-0 bg-slate-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-center min-w-[56px]">
-                    <p className="text-xs font-bold text-gray-700">{fmtDate(e.date)}</p>
-                    <p className="text-xs text-gray-400">{days === 0 ? "Today" : days === 1 ? "Tmrw" : `${days}d`}</p>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{e.name}</p>
-                    <p className="text-xs text-gray-500 truncate">{e.description}</p>
-                  </div>
-                  {e.importance === "high" && (
-                    <span className="shrink-0 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium border border-red-200">High</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+      {/* Charts + Events grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Sector chart — 2/3 width */}
+        <div className="lg:col-span-2">
+          {loading ? (
+            <SectorChartSkeleton />
+          ) : err ? (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-center h-full text-sm text-gray-400">
+              Sector data unavailable
+            </div>
+          ) : (
+            <SectorChart sectors={sectors} />
+          )}
         </div>
 
-        {/* Quick Access */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Quick Access</h2>
-          <div className="grid grid-cols-2 gap-2.5">
-            {FEATURES.map((f) => (
-              <Link key={f.href} href={f.href}>
-                <div className="flex items-start gap-2.5 p-3 rounded-lg border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all group">
-                  <span className="text-xl shrink-0">{f.icon}</span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 group-hover:text-emerald-700">{f.label}</p>
-                    <p className="text-xs text-gray-500 leading-tight mt-0.5">{f.desc}</p>
-                  </div>
-                </div>
+        {/* Right column: indices mini chart + upcoming events */}
+        <div className="flex flex-col gap-4">
+          {/* Indices % change chart */}
+          {!loading && !err && indices.length > 0 && (
+            <IndicesChart indices={indices} />
+          )}
+
+          {/* Upcoming Events */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex-1">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">Upcoming Events</h2>
+              <Link href="/calendar" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                View all →
               </Link>
-            ))}
+            </div>
+            <div className="space-y-3">
+              {upcoming.map((e) => {
+                const days = getDays(e.date);
+                return (
+                  <div key={e.date + e.name} className="flex items-start gap-3">
+                    <div className="shrink-0 bg-slate-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-center min-w-[52px]">
+                      <p className="text-xs font-bold text-gray-700">{fmtDate(e.date)}</p>
+                      <p className="text-xs text-gray-400">{days === 0 ? "Today" : days === 1 ? "Tmrw" : `${days}d`}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 leading-tight">{e.name}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{e.description}</p>
+                    </div>
+                    {e.importance === "high" && (
+                      <span className="shrink-0 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium border border-red-200">
+                        High
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

@@ -15,17 +15,17 @@ export interface PresetPosition {
   quantity: number;
 }
 
-export const WATCHLIST_CATEGORIES = ["MAG 7", "ETF", "REIT", "Dividend"];
+export const WATCHLIST_CATEGORIES = ["Stocks", "ETF", "REIT", "Dividend"];
 
 export const WATCHLIST_PRESETS: PresetEntry[] = [
   // MAG 7
-  { ticker: "AAPL",  name: "Apple Inc.",             category: "MAG 7",    sector: "Technology" },
-  { ticker: "MSFT",  name: "Microsoft Corp.",         category: "MAG 7",    sector: "Technology" },
-  { ticker: "GOOGL", name: "Alphabet Inc.",           category: "MAG 7",    sector: "Communication" },
-  { ticker: "AMZN",  name: "Amazon.com Inc.",         category: "MAG 7",    sector: "Consumer Disc." },
-  { ticker: "NVDA",  name: "NVIDIA Corp.",            category: "MAG 7",    sector: "Technology" },
-  { ticker: "META",  name: "Meta Platforms Inc.",     category: "MAG 7",    sector: "Communication" },
-  { ticker: "TSLA",  name: "Tesla Inc.",              category: "MAG 7",    sector: "Consumer Disc." },
+  { ticker: "AAPL",  name: "Apple Inc.",             category: "Stocks",    sector: "Technology" },
+  { ticker: "MSFT",  name: "Microsoft Corp.",         category: "Stocks",    sector: "Technology" },
+  { ticker: "GOOGL", name: "Alphabet Inc.",           category: "Stocks",    sector: "Communication" },
+  { ticker: "AMZN",  name: "Amazon.com Inc.",         category: "Stocks",    sector: "Consumer Disc." },
+  { ticker: "NVDA",  name: "NVIDIA Corp.",            category: "Stocks",    sector: "Technology" },
+  { ticker: "META",  name: "Meta Platforms Inc.",     category: "Stocks",    sector: "Communication" },
+  { ticker: "TSLA",  name: "Tesla Inc.",              category: "Stocks",    sector: "Consumer Disc." },
   // ETFs
   { ticker: "VOO",   name: "Vanguard S&P 500 ETF",          category: "ETF",      sector: "ETF" },
   { ticker: "SPY",   name: "SPDR S&P 500 ETF Trust",        category: "ETF",      sector: "ETF" },

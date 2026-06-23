@@ -22,6 +22,12 @@ async function yahooChart(symbol: string) {
       weekHigh52: (meta["52WeekHigh"] ?? null) as number | null,
       weekLow52: (meta["52WeekLow"] ?? null) as number | null,
       marketCap: (meta.marketCap ?? null) as number | null,
+      volume: (meta.regularMarketVolume ?? null) as number | null,
+      avgVolume: (meta.averageDailyVolume10Day ?? meta.averageDailyVolume3Month ?? null) as number | null,
+      dayHigh: (meta.regularMarketDayHigh ?? null) as number | null,
+      dayLow: (meta.regularMarketDayLow ?? null) as number | null,
+      pe: (meta.trailingPE ?? null) as number | null,
+      divYield: (meta.dividendYield ?? null) as number | null,
     };
   } catch { return null; }
 }
@@ -50,6 +56,12 @@ async function stooqQuote(ticker: string) {
       weekHigh52: null as number | null,
       weekLow52: null as number | null,
       marketCap: null as number | null,
+      volume: null as number | null,
+      avgVolume: null as number | null,
+      dayHigh: null as number | null,
+      dayLow: null as number | null,
+      pe: null as number | null,
+      divYield: null as number | null,
     };
   } catch { return null; }
 }
@@ -63,8 +75,8 @@ export async function GET(request: NextRequest) {
   const results = await Promise.all(
     tickers.map(async (t) => {
       const data = (await yahooChart(t)) ?? (await stooqQuote(t));
-      if (!data) return { ticker: t, name: t, price: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, error: "Not found" };
-      return { ticker: t, name: data.name, price: data.price, change: data.change, changePercent: data.changePercent, weekHigh52: data.weekHigh52, weekLow52: data.weekLow52, marketCap: data.marketCap };
+      if (!data) return { ticker: t, name: t, price: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, volume: null, avgVolume: null, dayHigh: null, dayLow: null, pe: null, divYield: null, error: "Not found" };
+      return { ticker: t, name: data.name, price: data.price, change: data.change, changePercent: data.changePercent, weekHigh52: data.weekHigh52, weekLow52: data.weekLow52, marketCap: data.marketCap, volume: data.volume, avgVolume: data.avgVolume, dayHigh: data.dayHigh, dayLow: data.dayLow, pe: data.pe, divYield: data.divYield };
     })
   );
 

@@ -13,6 +13,12 @@ export interface WatchlistEntryWithData extends WatchlistEntry {
   weekHigh52: number | null;
   weekLow52: number | null;
   marketCap: number | null;
+  volume: number | null;
+  avgVolume: number | null;
+  dayHigh: number | null;
+  dayLow: number | null;
+  pe: number | null;
+  divYield: number | null;
   error?: string;
 }
 
@@ -60,6 +66,12 @@ export interface QuoteData {
   weekHigh52: number | null;
   weekLow52: number | null;
   marketCap: number | null;
+  volume: number | null;
+  avgVolume: number | null;
+  dayHigh: number | null;
+  dayLow: number | null;
+  pe: number | null;
+  divYield: number | null;
   error?: string;
 }
 
