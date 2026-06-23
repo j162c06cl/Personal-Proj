@@ -1,25 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-async function fetchStooqQuote(ticker: string) {
-  const res = await fetch(
-    `https://stooq.com/q/l/?s=${ticker.toLowerCase()}.us&f=sd2t2ohlcv&e=csv`,
-    { headers: { "User-Agent": UA } }
-  );
-  const text = await res.text();
-  const lines = text.trim().split("\n");
-  if (lines.length < 2) return null;
-  const parts = lines[1].split(",");
-  // CSV: Symbol,Date,Time,Open,High,Low,Close,Volume
-  const open = parseFloat(parts[3]);
-  const close = parseFloat(parts[6]);
-  if (isNaN(close) || parts[6] === "N/D") return null;
-  return {
-    price: close,
-    change: close - open,
-    changePercent: ((close - open) / open) * 100,
-  };
+async function yahooChart(symbol: string) {
+  try {
+    const r = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1d&includePrePost=false`,
+      { headers: { "User-Agent": UA, Accept: "application/json", "Accept-Language": "en-US,en;q=0.9" }, cache: "no-store" }
+    );
+    if (!r.ok) return null;
+    const j = await r.json();
+    const meta = j?.chart?.result?.[0]?.meta;
+    if (!meta || !meta.regularMarketPrice) return null;
+    const price = meta.regularMarketPrice as number;
+    const prev = (meta.chartPreviousClose ?? meta.regularMarketPreviousClose ?? meta.previousClose) as number | undefined;
+    return {
+      name: (meta.shortName ?? meta.longName ?? symbol) as string,
+      price,
+      change: prev ? price - prev : null as number | null,
+      changePercent: prev ? ((price - prev) / prev) * 100 : null as number | null,
+      weekHigh52: (meta["52WeekHigh"] ?? null) as number | null,
+      weekLow52: (meta["52WeekLow"] ?? null) as number | null,
+      marketCap: (meta.marketCap ?? null) as number | null,
+    };
+  } catch { return null; }
+}
+
+async function stooqQuote(ticker: string) {
+  try {
+    const s = ticker.toLowerCase();
+    const useSuffix = !s.startsWith("^") && !s.includes("=") && !s.includes("-");
+    const sym = useSuffix ? `${s}.us` : s;
+    const r = await fetch(
+      `https://stooq.com/q/l/?s=${sym}&f=sd2t2ohlcv&e=csv`,
+      { headers: { "User-Agent": UA }, cache: "no-store" }
+    );
+    const text = await r.text();
+    const lines = text.trim().split("\n");
+    if (lines.length < 2) return null;
+    const parts = lines[1].split(",");
+    const open = parseFloat(parts[3]);
+    const close = parseFloat(parts[6]);
+    if (isNaN(close) || parts[6] === "N/D") return null;
+    return {
+      name: ticker,
+      price: close,
+      change: close - open,
+      changePercent: ((close - open) / open) * 100,
+      weekHigh52: null as number | null,
+      weekLow52: null as number | null,
+      marketCap: null as number | null,
+    };
+  } catch { return null; }
 }
 
 export async function GET(request: NextRequest) {
@@ -30,14 +62,9 @@ export async function GET(request: NextRequest) {
 
   const results = await Promise.all(
     tickers.map(async (t) => {
-      try {
-        const data = await fetchStooqQuote(t);
-        if (!data) return { ticker: t, name: t, price: null, change: null, changePercent: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Not found" };
-        return { ticker: t, name: t, ...data, marketCap: null, peRatio: null, revenue: null, netIncome: null };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { ticker: t, name: t, price: null, change: null, changePercent: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: msg };
-      }
+      const data = (await yahooChart(t)) ?? (await stooqQuote(t));
+      if (!data) return { ticker: t, name: t, price: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, error: "Not found" };
+      return { ticker: t, name: data.name, price: data.price, change: data.change, changePercent: data.changePercent, weekHigh52: data.weekHigh52, weekLow52: data.weekLow52, marketCap: data.marketCap };
     })
   );
 

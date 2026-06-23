@@ -62,6 +62,7 @@ export default function AddPositionForm({ onAdd }: Props) {
         id: crypto.randomUUID(),
         ticker: selected.ticker,
         name: data.name || selected.name,
+        sector: "Other",
         purchasePrice: parseFloat(purchasePrice),
         purchaseDate,
         quantity: parseFloat(quantity),
@@ -72,26 +73,28 @@ export default function AddPositionForm({ onAdd }: Props) {
     setLoading(false);
   }
 
+  const inputCls = "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500";
+
   return (
-    <form onSubmit={handleSubmit} className="bg-gray-800 rounded-xl p-4 border border-gray-700 mb-6">
-      <h2 className="text-sm font-semibold text-gray-300 mb-3">Add Position</h2>
+    <form onSubmit={handleSubmit} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm mb-6">
+      <h2 className="text-sm font-semibold text-gray-700 mb-3">Add Position</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="relative sm:col-span-2">
-          <label className="block text-xs text-gray-400 mb-1">Stock / ETF</label>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">Stock / ETF</label>
           <input
             type="text"
             placeholder="Search ticker or name..."
             value={selected ? `${selected.ticker} — ${selected.name}` : query}
             onChange={(e) => { setSelected(null); setQuery(e.target.value); }}
-            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+            className={inputCls}
           />
           {suggestions.length > 0 && !selected && (
-            <ul className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-lg overflow-hidden">
+            <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
               {suggestions.map((s) => (
                 <li key={s.ticker} onClick={() => { setSelected(s); setQuery(""); setSuggestions([]); }}
-                  className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-700 flex justify-between">
-                  <span className="font-medium text-white">{s.ticker}</span>
-                  <span className="text-gray-400 truncate ml-2">{s.name}</span>
+                  className="px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 flex justify-between">
+                  <span className="font-semibold text-emerald-600">{s.ticker}</span>
+                  <span className="text-gray-500 truncate ml-2">{s.name}</span>
                 </li>
               ))}
             </ul>
@@ -99,39 +102,39 @@ export default function AddPositionForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Purchase Date</label>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">Purchase Date</label>
           <input type="date" max={maxDate} value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" />
+            className={inputCls} />
         </div>
 
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Purchase Price (USD)</label>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">Purchase Price (USD)</label>
           <div className="flex gap-2">
             <input type="number" min="0.01" step="any" placeholder="e.g. 150.00" value={purchasePrice}
               onChange={(e) => setPurchasePrice(e.target.value)}
-              className="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500" />
+              className={inputCls} />
             <button type="button" onClick={fetchPriceOnDate} disabled={fetchingPrice}
-              className="text-xs bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 px-2 py-1 rounded-lg transition-colors whitespace-nowrap">
+              className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-600 font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap border border-gray-300">
               {fetchingPrice ? "..." : "Fetch"}
             </button>
           </div>
         </div>
 
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Quantity (Shares)</label>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">Quantity (Shares)</label>
           <input type="number" min="0.0001" step="any" placeholder="e.g. 10" value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500" />
+            className={inputCls} />
         </div>
 
         <div className="sm:col-span-2">
           <button type="submit" disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors">
             {loading ? "Adding..." : "Add Position"}
           </button>
         </div>
       </div>
-      {error && <p className="mt-2 text-red-400 text-xs">{error}</p>}
+      {error && <p className="mt-2 text-red-500 text-xs">{error}</p>}
     </form>
   );
 }

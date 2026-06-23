@@ -23,10 +23,10 @@ export default function WatchlistPage() {
         id: e.ticker,
         addedAt: "",
         ...e,
-        ...(byTicker[e.ticker] || { price: null, change: null, changePercent: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Not found" }),
-      })) as WatchlistEntryWithData[]);
+        ...(byTicker[e.ticker] || { price: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, error: "Not found" }),
+      })) as unknown as WatchlistEntryWithData[]);
     } catch {
-      setEnriched(WATCHLIST_PRESETS.map((e) => ({ id: e.ticker, addedAt: "", ...e, price: null, change: null, changePercent: null, marketCap: null, peRatio: null, revenue: null, netIncome: null, error: "Failed" })));
+      setEnriched(WATCHLIST_PRESETS.map((e) => ({ id: e.ticker, addedAt: "", ...e, price: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, error: "Failed" })) as unknown as WatchlistEntryWithData[]);
     }
     setLoading(false);
   }, []);
@@ -39,13 +39,13 @@ export default function WatchlistPage() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Watchlist</h1>
-          <p className="text-gray-400 text-sm mt-1">Live prices for popular stocks and ETFs</p>
+          <h1 className="text-2xl font-bold text-gray-900">Watchlist</h1>
+          <p className="text-gray-500 text-sm mt-1">Live prices for popular stocks and ETFs</p>
         </div>
         <button
           onClick={fetchData}
           disabled={loading}
-          className="text-sm text-emerald-400 hover:text-emerald-300 disabled:opacity-50 transition-colors flex items-center gap-1"
+          className="text-sm text-emerald-600 hover:text-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-1 font-medium"
         >
           <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -63,7 +63,7 @@ export default function WatchlistPage() {
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
               activeCategory === cat
                 ? "bg-emerald-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
+                : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
             }`}
           >
             {cat}

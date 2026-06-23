@@ -44,10 +44,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Could not parse historical price." }, { status: 500 });
     }
 
-    // Current CSV: Symbol,Date,Time,Open,High,Low,Close,Volume
-    const currLines = currText.trim().split("\n");
-    const currParts = currLines[1]?.split(",") || [];
-    const currentPrice = parseFloat(currParts[6]) || 0;
+    // Current price: try Yahoo Finance first, fall back to Stooq CSV
+    let currentPrice = 0;
+    try {
+      const yahooRes = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol.toUpperCase()}?range=1d&interval=1d`,
+        { headers: { "User-Agent": UA }, cache: "no-store" }
+      );
+      if (yahooRes.ok) {
+        const yahooJson = await yahooRes.json();
+        const yahooPrice = yahooJson?.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (yahooPrice) currentPrice = yahooPrice;
+      }
+    } catch { /* fall through to Stooq */ }
+    if (!currentPrice) {
+      const currLines = currText.trim().split("\n");
+      const currParts = currLines[1]?.split(",") || [];
+      currentPrice = parseFloat(currParts[6]) || 0;
+    }
 
     return NextResponse.json({
       ticker: ticker.toUpperCase(),

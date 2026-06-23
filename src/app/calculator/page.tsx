@@ -11,8 +11,8 @@ export default function CalculatorPage() {
   return (
     <div className="max-w-lg mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Historical Calculator</h1>
-        <p className="text-gray-400 text-sm mt-1">See what any investment would be worth today</p>
+        <h1 className="text-2xl font-bold text-gray-900">Historical Calculator</h1>
+        <p className="text-gray-500 text-sm mt-1">See what any investment would be worth today</p>
       </div>
 
       <CalculatorForm onResult={setResult} onClear={() => setResult(null)} />

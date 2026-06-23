@@ -119,12 +119,12 @@ export default function GlossaryPage() {
   return (
     <div>
       <div className="mb-5">
-        <h1 className="text-2xl font-bold text-white">Glossary</h1>
-        <p className="text-gray-400 text-sm mt-1">Plain-English definitions for {terms.length} investing terms</p>
+        <h1 className="text-2xl font-bold text-gray-900">Glossary</h1>
+        <p className="text-gray-500 text-sm mt-1">Plain-English definitions for {terms.length} investing terms</p>
       </div>
 
       <div className="relative mb-6">
-        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
@@ -132,17 +132,17 @@ export default function GlossaryPage() {
           placeholder="Search terms..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-gray-800 border border-gray-700 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+          className="w-full bg-white border border-gray-300 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
         />
         {search && (
-          <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs">
+          <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-xs font-medium">
             Clear
           </button>
         )}
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-center text-gray-500 py-12 text-sm">No terms found for &quot;{search}&quot;</p>
+        <p className="text-center text-gray-400 py-12 text-sm">No terms found for &quot;{search}&quot;</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {filtered.map((t) => (

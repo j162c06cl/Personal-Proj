@@ -10,10 +10,9 @@ export interface WatchlistEntryWithData extends WatchlistEntry {
   price: number | null;
   change: number | null;
   changePercent: number | null;
+  weekHigh52: number | null;
+  weekLow52: number | null;
   marketCap: number | null;
-  peRatio: number | null;
-  revenue: number | null;
-  netIncome: number | null;
   error?: string;
 }
 
@@ -21,6 +20,7 @@ export interface PortfolioPosition {
   id: string;
   ticker: string;
   name: string;
+  sector: string;
   purchasePrice: number;
   purchaseDate: string;
   quantity: number;
@@ -34,14 +34,32 @@ export interface PortfolioPositionWithData extends PortfolioPosition {
   error?: string;
 }
 
+export interface MarketIndex {
+  symbol: string;
+  label: string;
+  format: string;
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+}
+
+export interface SectorPerf {
+  symbol: string;
+  label: string;
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+}
+
 export interface QuoteData {
   ticker: string;
   name: string;
   price: number | null;
+  change: number | null;
+  changePercent: number | null;
+  weekHigh52: number | null;
+  weekLow52: number | null;
   marketCap: number | null;
-  peRatio: number | null;
-  revenue: number | null;
-  netIncome: number | null;
   error?: string;
 }
 

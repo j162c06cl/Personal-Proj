@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 const links = [
-  { href: "/", label: "Home" },
+  { href: "/", label: "Dashboard" },
   { href: "/watchlist", label: "Watchlist" },
   { href: "/calculator", label: "Calculator" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/retirement", label: "Retirement" },
   { href: "/glossary", label: "Glossary" },
+  { href: "/calendar", label: "Calendar" },
 ];
 
 export default function NavBar() {
@@ -18,23 +19,23 @@ export default function NavBar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="bg-gray-900 text-white shadow-md">
-      <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
-        <Link href="/" className="font-bold text-lg tracking-tight text-emerald-400">
+    <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
+        <Link href="/" className="font-bold text-lg tracking-tight text-emerald-600 shrink-0">
           <span className="hidden sm:inline">Investor Research</span>
           <span className="sm:hidden">IR</span>
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden md:flex gap-1">
+        <div className="hidden lg:flex gap-0.5">
           {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 pathname === l.href
-                  ? "bg-emerald-600 text-white"
-                  : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
             >
               {l.label}
@@ -44,7 +45,7 @@ export default function NavBar() {
 
         {/* Mobile hamburger */}
         <button
-          className="md:hidden p-2 rounded text-gray-300 hover:text-white hover:bg-gray-700"
+          className="lg:hidden p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
           onClick={() => setOpen(!open)}
           aria-label="Toggle menu"
         >
@@ -60,16 +61,16 @@ export default function NavBar() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="md:hidden border-t border-gray-700 px-4 py-2 flex flex-col gap-1">
+        <div className="lg:hidden border-t border-gray-100 px-4 py-3 flex flex-col gap-1 bg-white">
           {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
-              className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 pathname === l.href
-                  ? "bg-emerald-600 text-white"
-                  : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
             >
               {l.label}
