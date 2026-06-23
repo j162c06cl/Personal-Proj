@@ -9,6 +9,7 @@ const links = [
   { href: "/watchlist", label: "Watchlist" },
   { href: "/calculator", label: "Calculator" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/retirement", label: "Retirement" },
   { href: "/glossary", label: "Glossary" },
 ];
 
@@ -25,7 +26,7 @@ export default function NavBar() {
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden sm:flex gap-1">
+        <div className="hidden md:flex gap-1">
           {links.map((l) => (
             <Link
               key={l.href}
@@ -43,7 +44,7 @@ export default function NavBar() {
 
         {/* Mobile hamburger */}
         <button
-          className="sm:hidden p-2 rounded text-gray-300 hover:text-white hover:bg-gray-700"
+          className="md:hidden p-2 rounded text-gray-300 hover:text-white hover:bg-gray-700"
           onClick={() => setOpen(!open)}
           aria-label="Toggle menu"
         >
@@ -59,7 +60,7 @@ export default function NavBar() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="sm:hidden border-t border-gray-700 px-4 py-2 flex flex-col gap-1">
+        <div className="md:hidden border-t border-gray-700 px-4 py-2 flex flex-col gap-1">
           {links.map((l) => (
             <Link
               key={l.href}
