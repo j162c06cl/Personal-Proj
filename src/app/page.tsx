@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
   Cell,
   ReferenceLine,
+  Treemap,
 } from "recharts";
 
 const UPCOMING_EVENTS = [
@@ -66,46 +67,90 @@ function pct(v: number) {
   return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 }
 
-function SectorChart({ sectors }: { sectors: SectorData[] }) {
-  const data = [...sectors]
-    .filter((s) => s.changePercent !== null)
-    .sort((a, b) => (b.changePercent ?? 0) - (a.changePercent ?? 0))
-    .map((s) => ({ label: s.label, value: parseFloat((s.changePercent ?? 0).toFixed(2)) }));
+const SECTOR_WEIGHTS: Record<string, number> = {
+  "Technology": 32, "Financials": 14, "Healthcare": 12, "Consumer Disc.": 10,
+  "Communication": 9, "Industrials": 8, "Consumer Staples": 6, "Energy": 5,
+  "Real Estate": 3, "Utilities": 3, "Materials": 2,
+};
+
+function heatFill(p: number | null): string {
+  if (p === null)  return "#e5e7eb";
+  if (p >= 2)      return "#15803d";
+  if (p >= 1)      return "#16a34a";
+  if (p >= 0.25)   return "#4ade80";
+  if (p >= -0.25)  return "#d1d5db";
+  if (p >= -1)     return "#f87171";
+  if (p >= -2)     return "#dc2626";
+  return "#991b1b";
+}
+
+function heatText(p: number | null): string {
+  if (p === null)  return "#6b7280";
+  if (Math.abs(p) >= 1) return "#ffffff";
+  if (p >= 0.25)   return "#14532d";
+  if (p <= -0.25)  return "#7f1d1d";
+  return "#374151";
+}
+
+interface HeatCellProps { x: number; y: number; width: number; height: number; name: string; changePercent: number | null; }
+
+function HeatCell({ x, y, width, height, name, changePercent }: HeatCellProps) {
+  const fill = heatFill(changePercent);
+  const text = heatText(changePercent);
+  const label = changePercent !== null ? `${changePercent >= 0 ? "+" : ""}${changePercent.toFixed(2)}%` : "—";
+  const w = Math.max(0, width - 2);
+  const h = Math.max(0, height - 2);
+  const nameSize = Math.max(8, Math.min(13, w / 8));
+  const pctSize  = Math.max(8, Math.min(14, w / 7));
+  const showName = w >= 44 && h >= 32;
+  const showPct  = h >= 52;
+  const midY = y + 1 + h / 2;
+
+  return (
+    <g>
+      <rect x={x + 1} y={y + 1} width={w} height={h} fill={fill} rx={5} />
+      {showName && (
+        <text x={x + width / 2} y={showPct ? midY - 9 : midY + 4} textAnchor="middle"
+          fill={text} fontSize={nameSize} fontWeight={700} fontFamily="system-ui,sans-serif">
+          {name}
+        </text>
+      )}
+      {showName && showPct && (
+        <text x={x + width / 2} y={midY + 9} textAnchor="middle"
+          fill={text} fontSize={pctSize} fontFamily="system-ui,sans-serif">
+          {label}
+        </text>
+      )}
+    </g>
+  );
+}
+
+function SectorHeatmap({ sectors }: { sectors: SectorData[] }) {
+  const data = sectors.map((s) => ({
+    name: s.label,
+    size: SECTOR_WEIGHTS[s.label] ?? 4,
+    changePercent: s.changePercent,
+  }));
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 h-full flex flex-col">
-      <h2 className="text-sm font-semibold text-gray-900 mb-4">Sector Performance</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold text-gray-900">Sector Performance</h2>
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-red-700" /> &lt;-2%</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-gray-200" /> flat</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-green-700" /> &gt;+2%</span>
+        </div>
+      </div>
       <div className="flex-1">
         <ResponsiveContainer width="100%" height={290}>
-          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 48, left: 8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-            <XAxis
-              type="number"
-              tickFormatter={(v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
-              tick={{ fontSize: 10, fill: "#9ca3af" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              type="category"
-              dataKey="label"
-              tick={{ fontSize: 11, fill: "#374151" }}
-              width={110}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              formatter={(value) => [pct(Number(value ?? 0)), "Today"]}
-              contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-              cursor={{ fill: "rgba(0,0,0,0.04)" }}
-            />
-            <ReferenceLine x={0} stroke="#d1d5db" strokeWidth={1} />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={20}>
-              {data.map((entry, i) => (
-                <Cell key={i} fill={entry.value >= 0 ? "#10b981" : "#ef4444"} fillOpacity={0.85} />
-              ))}
-            </Bar>
-          </BarChart>
+          <Treemap
+            data={data}
+            dataKey="size"
+            aspectRatio={4 / 3}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            content={(props: any) => <HeatCell x={props.x ?? 0} y={props.y ?? 0} width={props.width ?? 0} height={props.height ?? 0} name={props.name ?? ""} changePercent={props.changePercent ?? null} />}
+          />
         </ResponsiveContainer>
       </div>
     </div>
@@ -160,16 +205,22 @@ function IndicesChart({ indices }: { indices: IndexData[] }) {
   );
 }
 
-function SectorChartSkeleton() {
+function SectorHeatmapSkeleton() {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 h-full animate-pulse">
-      <div className="h-4 w-40 bg-gray-200 rounded mb-6" />
-      {[...Array(11)].map((_, i) => (
-        <div key={i} className="flex items-center gap-3 mb-3">
-          <div className="h-3 bg-gray-100 rounded w-24 shrink-0" />
-          <div className="h-5 bg-gray-200 rounded" style={{ width: `${30 + Math.random() * 50}%` }} />
-        </div>
-      ))}
+      <div className="h-4 w-40 bg-gray-200 rounded mb-5" />
+      <div className="grid grid-cols-4 gap-1.5" style={{ height: 290 }}>
+        <div className="col-span-2 row-span-2 bg-gray-200 rounded-lg" />
+        <div className="bg-gray-100 rounded-lg" />
+        <div className="bg-gray-200 rounded-lg" />
+        <div className="bg-gray-100 rounded-lg" />
+        <div className="bg-gray-200 rounded-lg" />
+        <div className="col-span-2 bg-gray-100 rounded-lg" />
+        <div className="bg-gray-200 rounded-lg" />
+        <div className="bg-gray-100 rounded-lg" />
+        <div className="bg-gray-200 rounded-lg" />
+        <div className="bg-gray-100 rounded-lg" />
+      </div>
     </div>
   );
 }
@@ -249,13 +300,13 @@ export default function DashboardPage() {
         {/* Sector chart — 2/3 width */}
         <div className="lg:col-span-2">
           {loading ? (
-            <SectorChartSkeleton />
+            <SectorHeatmapSkeleton />
           ) : err ? (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-center h-full text-sm text-gray-400">
               Sector data unavailable
             </div>
           ) : (
-            <SectorChart sectors={sectors} />
+            <SectorHeatmap sectors={sectors} />
           )}
         </div>
 
