@@ -17,6 +17,7 @@ async function yahooChart(symbol: string) {
     return {
       name: (meta.shortName ?? meta.longName ?? symbol) as string,
       price,
+      open: (meta.regularMarketOpen ?? null) as number | null,
       change: prev ? price - prev : null as number | null,
       changePercent: prev ? ((price - prev) / prev) * 100 : null as number | null,
       weekHigh52: (meta["52WeekHigh"] ?? null) as number | null,
@@ -51,6 +52,7 @@ async function stooqQuote(ticker: string) {
     return {
       name: ticker,
       price: close,
+      open: isNaN(open) ? null : open,
       change: close - open,
       changePercent: ((close - open) / open) * 100,
       weekHigh52: null as number | null,
@@ -75,8 +77,8 @@ export async function GET(request: NextRequest) {
   const results = await Promise.all(
     tickers.map(async (t) => {
       const data = (await yahooChart(t)) ?? (await stooqQuote(t));
-      if (!data) return { ticker: t, name: t, price: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, volume: null, avgVolume: null, dayHigh: null, dayLow: null, pe: null, divYield: null, error: "Not found" };
-      return { ticker: t, name: data.name, price: data.price, change: data.change, changePercent: data.changePercent, weekHigh52: data.weekHigh52, weekLow52: data.weekLow52, marketCap: data.marketCap, volume: data.volume, avgVolume: data.avgVolume, dayHigh: data.dayHigh, dayLow: data.dayLow, pe: data.pe, divYield: data.divYield };
+      if (!data) return { ticker: t, name: t, price: null, open: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, volume: null, avgVolume: null, dayHigh: null, dayLow: null, pe: null, divYield: null, error: "Not found" };
+      return { ticker: t, name: data.name, price: data.price, open: data.open, change: data.change, changePercent: data.changePercent, weekHigh52: data.weekHigh52, weekLow52: data.weekLow52, marketCap: data.marketCap, volume: data.volume, avgVolume: data.avgVolume, dayHigh: data.dayHigh, dayLow: data.dayLow, pe: data.pe, divYield: data.divYield };
     })
   );
 

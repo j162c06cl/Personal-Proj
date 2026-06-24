@@ -42,6 +42,7 @@ export default function WatchlistPage() {
   const [addTicker, setAddTicker] = useState("");
   const [creatingList, setCreatingList] = useState(false);
   const [newListName, setNewListName] = useState("");
+  const [pendingDeleteListId, setPendingDeleteListId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -85,6 +86,7 @@ export default function WatchlistPage() {
       category: activeList?.name ?? "",
       addedAt: "",
       price: q?.price ?? null,
+      open: q?.open ?? null,
       change: q?.change ?? null,
       changePercent: q?.changePercent ?? null,
       weekHigh52: q?.weekHigh52 ?? null,
@@ -145,11 +147,21 @@ export default function WatchlistPage() {
     setNewListName("");
   }
 
-  function handleDeleteList() {
+  function handleDeleteList(listId: string) {
     if (lists.length <= 1) return;
-    const updated = lists.filter((l) => l.id !== activeId);
+    setPendingDeleteListId(listId);
+  }
+
+  function confirmDeleteList() {
+    if (!pendingDeleteListId) return;
+    const updated = lists.filter((l) => l.id !== pendingDeleteListId);
     applyLists(updated);
-    setActiveId(updated[0].id);
+    if (activeId === pendingDeleteListId) setActiveId(updated[0].id);
+    setPendingDeleteListId(null);
+  }
+
+  function cancelDeleteList() {
+    setPendingDeleteListId(null);
   }
 
   function handleRefresh() {
@@ -184,7 +196,7 @@ export default function WatchlistPage() {
         {lists.map((l) => (
           <div key={l.id} className="flex items-center gap-0.5">
             <button
-              onClick={() => { setActiveId(l.id); setSearch(""); }}
+              onClick={() => { setActiveId(l.id); setSearch(""); setPendingDeleteListId(null); }}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 activeId === l.id
                   ? "bg-emerald-600 text-white"
@@ -200,7 +212,7 @@ export default function WatchlistPage() {
             </button>
             {activeId === l.id && lists.length > 1 && (
               <button
-                onClick={handleDeleteList}
+                onClick={() => handleDeleteList(l.id)}
                 className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors"
                 title="Delete this watchlist"
               >
@@ -211,6 +223,22 @@ export default function WatchlistPage() {
             )}
           </div>
         ))}
+
+        {/* Pending list-delete confirmation */}
+        {pendingDeleteListId && (() => {
+          const name = lists.find((l) => l.id === pendingDeleteListId)?.name ?? "";
+          return (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-full text-sm">
+              <span className="text-red-700 font-medium">Delete &quot;{name}&quot;?</span>
+              <button onClick={confirmDeleteList} className="px-2 py-0.5 bg-red-500 text-white rounded-md text-xs font-medium hover:bg-red-600">
+                Delete
+              </button>
+              <button onClick={cancelDeleteList} className="px-2 py-0.5 bg-white text-gray-600 rounded-md text-xs font-medium border border-gray-200 hover:bg-gray-50">
+                Cancel
+              </button>
+            </div>
+          );
+        })()}
 
         {creatingList ? (
           <div className="flex items-center gap-1.5">

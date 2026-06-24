@@ -8,6 +8,7 @@ export interface WatchlistEntry {
 
 export interface WatchlistEntryWithData extends WatchlistEntry {
   price: number | null;
+  open: number | null;
   change: number | null;
   changePercent: number | null;
   weekHigh52: number | null;
@@ -61,6 +62,7 @@ export interface QuoteData {
   ticker: string;
   name: string;
   price: number | null;
+  open: number | null;
   change: number | null;
   changePercent: number | null;
   weekHigh52: number | null;
