@@ -104,7 +104,7 @@ export default function CalendarPage() {
       {Object.entries(grouped).map(([ym, events]) => (
         <div key={ym} className="mb-8">
           <h2 className="text-base font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200">{fmtMonth(ym)}</h2>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
             {events.map((e, i) => {
               const days = getDays(e.date);
               const isToday = days === 0;

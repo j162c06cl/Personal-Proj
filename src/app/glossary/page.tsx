@@ -144,7 +144,7 @@ export default function GlossaryPage() {
       {filtered.length === 0 ? (
         <p className="text-center text-gray-400 py-12 text-sm">No terms found for &quot;{search}&quot;</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((t) => (
             <GlossaryCard key={t.term} term={t.term} definition={t.definition} example={t.example} />
           ))}

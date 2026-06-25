@@ -188,9 +188,9 @@ export default function DashboardPage() {
       </section>
 
       {/* Charts + Events grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Stock heatmap — 2/3 width */}
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {/* Stock heatmap — 2/3 → 3/4 width */}
+        <div className="lg:col-span-2 xl:col-span-3">
           <StockHeatmap />
         </div>
 

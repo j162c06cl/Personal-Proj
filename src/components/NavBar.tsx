@@ -20,7 +20,7 @@ export default function NavBar() {
 
   return (
     <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
+      <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
         <Link href="/" className="font-bold text-lg tracking-tight text-emerald-600 shrink-0">
           <span className="hidden sm:inline">Investor Research</span>
           <span className="sm:hidden">IR</span>
