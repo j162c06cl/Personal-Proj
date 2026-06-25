@@ -14,7 +14,7 @@ function Change({ change, changePercent }: { change: number | null; changePercen
   const up = change >= 0;
   const s = up ? "+" : "";
   return (
-    <span className={`font-semibold tabular-nums ${up ? "text-emerald-600" : "text-red-500"}`}>
+    <span className={`font-semibold tabular-nums ${up ? "text-green-600" : "text-red-500"}`}>
       {s}{formatCurrency(change)}
       <span className="text-xs font-medium ml-1 opacity-75">({s}{changePercent.toFixed(2)}%)</span>
     </span>
@@ -47,7 +47,7 @@ function WeekRangeBar({ low, high, current }: { low: number | null; high: number
       </div>
       <div className="relative h-1.5 bg-gray-100 rounded-full">
         <div
-          className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-300 to-emerald-400 rounded-full"
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-300 to-blue-400 rounded-full"
           style={{ width: `${pct}%` }}
         />
         <div
@@ -110,7 +110,7 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
           <tbody className="divide-y divide-gray-100">
             {entries.map((e) => (
               <tr key={e.id} className="hover:bg-gray-50 transition-colors group">
-                <td className="px-4 py-3 font-bold text-emerald-600 sticky left-0 bg-white group-hover:bg-gray-50 z-10">{e.ticker}</td>
+                <td className="px-4 py-3 font-bold text-blue-600 sticky left-0 bg-white group-hover:bg-gray-50 z-10">{e.ticker}</td>
                 <td className="px-4 py-3 text-gray-700 max-w-[180px] truncate">{e.name}</td>
 
                 {/* Price */}
@@ -221,14 +221,14 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
             <div className="flex items-start justify-between mb-2">
               <div className="flex-1 min-w-0 mr-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-emerald-600 text-base">{e.ticker}</span>
+                  <span className="font-bold text-blue-600 text-base">{e.ticker}</span>
                   {e.pe !== null && (
                     <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md font-medium">
                       P/E {e.pe.toFixed(1)}
                     </span>
                   )}
                   {e.divYield !== null && (
-                    <span className="text-xs bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-md font-medium">
+                    <span className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-md font-medium">
                       {(e.divYield * 100).toFixed(2)}% div
                     </span>
                   )}

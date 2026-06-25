@@ -58,10 +58,10 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
           <tbody className="divide-y divide-gray-100">
             {positions.map((p) => {
               const pl = p.profitLoss ?? 0;
-              const plColor = pl >= 0 ? "text-emerald-600" : "text-red-500";
+              const plColor = pl >= 0 ? "text-green-600" : "text-red-500";
               return (
                 <tr key={p.id} className="hover:bg-gray-50 transition-colors group">
-                  <td className="px-4 py-3 font-bold text-emerald-600">{p.ticker}</td>
+                  <td className="px-4 py-3 font-bold text-blue-600">{p.ticker}</td>
                   <td className="px-4 py-3 text-gray-700 max-w-[140px] truncate">{p.name}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{p.sector}</td>
                   <td className="px-4 py-3 text-right text-gray-600 tabular-nums">{p.quantity}</td>
@@ -132,13 +132,13 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
       <div className="sm:hidden flex flex-col gap-3">
         {positions.map((p) => {
           const pl = p.profitLoss ?? 0;
-          const plColor = pl >= 0 ? "text-emerald-600" : "text-red-500";
+          const plColor = pl >= 0 ? "text-green-600" : "text-red-500";
           return (
             <div key={p.id} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
               <div className="flex items-start justify-between mb-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-emerald-600 text-base">{p.ticker}</span>
+                    <span className="font-bold text-blue-600 text-base">{p.ticker}</span>
                     <span className="text-gray-400 text-xs">{p.quantity} shares</span>
                   </div>
                   <p className="text-gray-600 text-xs mt-0.5">{p.name}</p>

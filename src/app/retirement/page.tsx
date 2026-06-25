@@ -23,7 +23,7 @@ function InputRow({ label, value, onChange, min, max, step, prefix, suffix }: {
         {prefix && <span className="text-gray-500 text-sm">{prefix}</span>}
         <input type="number" min={min} max={max} step={step ?? 1} value={value}
           onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+          className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
         {suffix && <span className="text-gray-500 text-sm">{suffix}</span>}
       </div>
     </div>
@@ -32,9 +32,9 @@ function InputRow({ label, value, onChange, min, max, step, prefix, suffix }: {
 
 function StatCard({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={`rounded-xl p-4 border ${highlight ? "bg-emerald-50 border-emerald-300" : "bg-white border-gray-200 shadow-sm"}`}>
+    <div className={`rounded-xl p-4 border ${highlight ? "bg-blue-50 border-blue-300" : "bg-white border-gray-200 shadow-sm"}`}>
       <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className={`text-lg font-bold ${highlight ? "text-emerald-700" : "text-gray-900"}`}>{value}</p>
+      <p className={`text-lg font-bold ${highlight ? "text-blue-700" : "text-gray-900"}`}>{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
   );
@@ -69,7 +69,7 @@ export default function RetirementPage() {
           <div className="flex gap-2 mb-5">
             {(["basic", "cpf"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                 {t === "basic" ? "Personal" : "CPF"}
               </button>
             ))}
@@ -108,14 +108,14 @@ export default function RetirementPage() {
           </div>
 
           {/* FIRE */}
-          <div className={`rounded-xl p-4 border ${result.isFireAchieved ? "bg-emerald-50 border-emerald-300" : "bg-white border-gray-200 shadow-sm"}`}>
+          <div className={`rounded-xl p-4 border ${result.isFireAchieved ? "bg-blue-50 border-blue-300" : "bg-white border-gray-200 shadow-sm"}`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-gray-900">FIRE Number <span className="text-gray-400 font-normal text-xs">(25× annual expenses)</span></p>
-                <p className="text-2xl font-bold text-emerald-600 mt-1">{formatLargeNumber(result.fireNumber)}</p>
+                <p className="text-2xl font-bold text-blue-600 mt-1">{formatLargeNumber(result.fireNumber)}</p>
               </div>
               <div className="text-right">
-                <p className={`text-sm font-semibold ${result.isFireAchieved ? "text-emerald-600" : "text-amber-600"}`}>
+                <p className={`text-sm font-semibold ${result.isFireAchieved ? "text-blue-600" : "text-amber-600"}`}>
                   {result.isFireAchieved ? "✓ FIRE Achieved" : "Not Yet Achieved"}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
@@ -126,7 +126,7 @@ export default function RetirementPage() {
               </div>
             </div>
             <div className="mt-3 bg-gray-200 rounded-full h-2">
-              <div className="bg-emerald-500 h-2 rounded-full transition-all"
+              <div className="bg-blue-500 h-2 rounded-full transition-all"
                 style={{ width: `${Math.min(100, (result.totalAtRetirement / result.fireNumber) * 100).toFixed(1)}%` }} />
             </div>
             <p className="text-xs text-gray-500 mt-1">{Math.min(100, (result.totalAtRetirement / result.fireNumber) * 100).toFixed(1)}% of FIRE target</p>
@@ -170,12 +170,12 @@ export default function RetirementPage() {
             const isActive = s.rate === inputs.expectedReturn;
             return (
               <div key={s.label} onClick={() => setInputs((p) => ({ ...p, expectedReturn: s.rate }))}
-                className={`rounded-xl p-4 border cursor-pointer transition-all ${isActive ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:border-gray-400"}`}>
+                className={`rounded-xl p-4 border cursor-pointer transition-all ${isActive ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-400"}`}>
                 <div className="flex justify-between items-start mb-3">
                   <p className="font-semibold text-gray-900">{s.label}</p>
                   <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{s.rate}% p.a.</span>
                 </div>
-                <p className="text-xl font-bold text-emerald-600">{formatLargeNumber(s.result.totalAtRetirement)}</p>
+                <p className="text-xl font-bold text-blue-600">{formatLargeNumber(s.result.totalAtRetirement)}</p>
                 <p className="text-xs text-gray-500 mt-1">Monthly income: {formatCurrency(s.result.monthlyIncome)}</p>
                 <p className="text-xs text-gray-500">FIRE: {s.result.isFireAchieved ? "✓ Achieved" : "Not reached"}</p>
               </div>

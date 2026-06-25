@@ -155,7 +155,7 @@ export default function PortfolioPage() {
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="text-sm text-emerald-600 hover:text-emerald-700 disabled:opacity-50 flex items-center gap-1.5 font-medium transition-colors"
+              className="text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50 flex items-center gap-1.5 font-medium transition-colors"
             >
               <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -165,7 +165,7 @@ export default function PortfolioPage() {
           )}
           <button
             onClick={handleOpenAdd}
-            className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-1.5 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -178,15 +178,15 @@ export default function PortfolioPage() {
       {/* Empty state */}
       {positions.length === 0 ? (
         <div className="text-center py-20">
-          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
           <p className="text-gray-500 text-sm mb-4">No positions yet. Add your first holding to get started.</p>
           <button
             onClick={handleOpenAdd}
-            className="px-5 py-2.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 font-medium transition-colors"
+            className="px-5 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium transition-colors"
           >
             Add First Position
           </button>
@@ -198,8 +198,8 @@ export default function PortfolioPage() {
             {[
               { label: "Total Invested", value: formatCurrency(totalInvested), color: "text-gray-900" },
               { label: "Current Value",  value: formatCurrency(totalCurrent),  color: "text-gray-900" },
-              { label: "Total P&L",      value: formatCurrency(totalPL),       color: isUp ? "text-emerald-600" : "text-red-500" },
-              { label: "Total Return",   value: formatPercent(totalReturn),    color: isUp ? "text-emerald-600" : "text-red-500" },
+              { label: "Total P&L",      value: formatCurrency(totalPL),       color: isUp ? "text-green-600" : "text-red-500" },
+              { label: "Total Return",   value: formatPercent(totalReturn),    color: isUp ? "text-green-600" : "text-red-500" },
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                 <p className="text-xs text-gray-500 mb-1">{s.label}</p>

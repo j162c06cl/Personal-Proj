@@ -45,7 +45,7 @@ export default function CalculatorForm({ onResult, onClear }: Props) {
     setLoading(false);
   }
 
-  const inputCls = "w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500";
+  const inputCls = "w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
@@ -68,7 +68,7 @@ export default function CalculatorForm({ onResult, onClear }: Props) {
             onChange={(e) => { setDate(e.target.value); onClear(); }} className={inputCls} />
         </div>
         <button type="submit" disabled={loading}
-          className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold px-4 py-2.5 rounded-lg transition-colors text-sm">
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-4 py-2.5 rounded-lg transition-colors text-sm">
           {loading ? "Calculating..." : "Calculate Return"}
         </button>
       </div>

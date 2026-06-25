@@ -182,7 +182,7 @@ export default function WatchlistPage() {
         <button
           onClick={handleRefresh}
           disabled={loading}
-          className="text-sm text-emerald-600 hover:text-emerald-700 disabled:opacity-50 flex items-center gap-1.5 font-medium transition-colors"
+          className="text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50 flex items-center gap-1.5 font-medium transition-colors"
         >
           <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -199,13 +199,13 @@ export default function WatchlistPage() {
               onClick={() => { setActiveId(l.id); setSearch(""); setPendingDeleteListId(null); }}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 activeId === l.id
-                  ? "bg-emerald-600 text-white"
+                  ? "bg-blue-600 text-white"
                   : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
               }`}
             >
               {l.name}
               {l.tickers.length > 0 && (
-                <span className={`ml-1.5 text-xs ${activeId === l.id ? "text-emerald-100" : "text-gray-400"}`}>
+                <span className={`ml-1.5 text-xs ${activeId === l.id ? "text-blue-100" : "text-gray-400"}`}>
                   {l.tickers.length}
                 </span>
               )}
@@ -252,9 +252,9 @@ export default function WatchlistPage() {
               }}
               placeholder="List name..."
               autoFocus
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-32"
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
             />
-            <button onClick={handleAddList} className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium">
+            <button onClick={handleAddList} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
               Create
             </button>
             <button
@@ -267,7 +267,7 @@ export default function WatchlistPage() {
         ) : (
           <button
             onClick={() => setCreatingList(true)}
-            className="px-3 py-1.5 text-sm text-emerald-600 border border-emerald-200 rounded-full hover:bg-emerald-50 font-medium transition-colors"
+            className="px-3 py-1.5 text-sm text-blue-600 border border-blue-200 rounded-full hover:bg-blue-50 font-medium transition-colors"
           >
             + New List
           </button>
@@ -285,7 +285,7 @@ export default function WatchlistPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search symbols or names..."
-            className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full"
+            className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -295,12 +295,12 @@ export default function WatchlistPage() {
             onChange={(e) => setAddTicker(e.target.value.toUpperCase())}
             onKeyDown={(e) => { if (e.key === "Enter") handleAddTicker(); }}
             placeholder="Ticker symbol..."
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 w-36 font-mono tracking-wide"
+            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-36 font-mono tracking-wide"
           />
           <button
             onClick={handleAddTicker}
             disabled={!addTicker.trim()}
-            className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-40 font-medium whitespace-nowrap transition-colors"
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 font-medium whitespace-nowrap transition-colors"
           >
             + Add
           </button>

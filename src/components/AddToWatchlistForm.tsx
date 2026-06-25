@@ -64,7 +64,7 @@ export default function AddToWatchlistForm({ onAdd }: Props) {
             placeholder="Search ticker or name..."
             value={selected ? `${selected.ticker} — ${selected.name}` : query}
             onChange={(e) => { setSelected(null); setQuery(e.target.value); }}
-            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
           />
           {suggestions.length > 0 && !selected && (
             <ul className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-lg overflow-hidden">
@@ -88,7 +88,7 @@ export default function AddToWatchlistForm({ onAdd }: Props) {
             placeholder="Category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
           />
           <datalist id="categories">
             {CATEGORY_SUGGESTIONS.map((c) => <option key={c} value={c} />)}
@@ -97,7 +97,7 @@ export default function AddToWatchlistForm({ onAdd }: Props) {
         <button
           type="submit"
           disabled={loading}
-          className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
           {loading ? "Adding..." : "Add"}
         </button>

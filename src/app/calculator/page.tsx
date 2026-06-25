@@ -100,7 +100,7 @@ function ChgBadge({ v }: { v: number | null }) {
   if (v === null) return <span className="text-gray-400">—</span>;
   const pos = v >= 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 font-semibold tabular-nums ${pos ? "text-emerald-600" : "text-red-500"}`}>
+    <span className={`inline-flex items-center gap-0.5 font-semibold tabular-nums ${pos ? "text-green-600" : "text-red-500"}`}>
       {formatPercent(v)}
     </span>
   );
@@ -240,12 +240,13 @@ export default function ScreenerPage() {
     if (filters.divYield) {
       out = out.filter((r) => {
         const dy = r.divYield;
+        // divYield is stored as a decimal fraction (0.025 = 2.5%)
         switch (filters.divYield) {
           case "none": return dy === null || dy === 0;
-          case "u1":   return dy !== null && dy > 0 && dy < 1;
-          case "1-2":  return dy !== null && dy >= 1 && dy < 2;
-          case "2-4":  return dy !== null && dy >= 2 && dy < 4;
-          case "o4":   return dy !== null && dy >= 4;
+          case "u1":   return dy !== null && dy > 0 && dy < 0.01;
+          case "1-2":  return dy !== null && dy >= 0.01 && dy < 0.02;
+          case "2-4":  return dy !== null && dy >= 0.02 && dy < 0.04;
+          case "o4":   return dy !== null && dy >= 0.04;
           default:     return true;
         }
       });
@@ -296,7 +297,7 @@ export default function ScreenerPage() {
 
   const thCls = (key: SortKey) =>
     `px-3 py-2.5 text-xs font-semibold uppercase tracking-wide whitespace-nowrap cursor-pointer select-none transition-colors ${
-      sortKey === key ? "text-emerald-600 bg-emerald-50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+      sortKey === key ? "text-blue-600 bg-blue-50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
     }`;
 
   return (
@@ -310,7 +311,7 @@ export default function ScreenerPage() {
         <button
           onClick={fetchAll}
           disabled={loading}
-          className="self-start sm:self-auto flex items-center gap-1.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50 transition-colors"
+          className="self-start sm:self-auto flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50 transition-colors"
         >
           <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -342,7 +343,7 @@ export default function ScreenerPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Ticker or company name…"
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
@@ -352,10 +353,10 @@ export default function ScreenerPage() {
               <select
                 value={filters[key]}
                 onChange={(e) => setFilter(key, e.target.value)}
-                className={`w-full border rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-colors ${
+                className={`w-full border rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${
                   filters[key]
-                    ? "border-emerald-400 bg-emerald-50 text-emerald-700 focus:border-emerald-500"
-                    : "border-gray-200 bg-gray-50 text-gray-700 focus:border-emerald-400"
+                    ? "border-blue-400 bg-blue-50 text-blue-700 focus:border-blue-500"
+                    : "border-gray-200 bg-gray-50 text-gray-700 focus:border-blue-400"
                 }`}
               >
                 <option value="">Any</option>
@@ -375,12 +376,12 @@ export default function ScreenerPage() {
               return (
                 <span
                   key={key}
-                  className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full"
+                  className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full"
                 >
-                  <span className="text-emerald-500">{FILTER_LABELS[key]}:</span> {label}
+                  <span className="text-blue-500">{FILTER_LABELS[key]}:</span> {label}
                   <button
                     onClick={() => clearFilter(key)}
-                    className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full hover:bg-emerald-200 transition-colors"
+                    className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full hover:bg-blue-200 transition-colors"
                   >
                     ×
                   </button>
@@ -453,7 +454,7 @@ export default function ScreenerPage() {
                   return (
                     <tr key={r.ticker} className="hover:bg-gray-50 transition-colors">
                       <td className="pl-4 pr-1 py-2.5 text-xs text-gray-400 tabular-nums">{i + 1}</td>
-                      <td className="px-3 py-2.5 font-bold text-emerald-600 whitespace-nowrap">{r.ticker}</td>
+                      <td className="px-3 py-2.5 font-bold text-blue-600 whitespace-nowrap">{r.ticker}</td>
                       <td className="px-3 py-2.5 text-gray-700 max-w-[180px] truncate">{r.name}</td>
                       <td className="px-3 py-2.5">
                         <span className="text-xs text-gray-500 whitespace-nowrap">{r.sector}</span>
@@ -474,7 +475,7 @@ export default function ScreenerPage() {
                         {isLoading ? <Skeleton /> : formatVolume(r.volume)}
                       </td>
                       <td className="px-3 py-2.5 text-right text-gray-600 tabular-nums">
-                        {isLoading ? <Skeleton /> : (r.divYield !== null && r.divYield > 0 ? `${r.divYield.toFixed(2)}%` : "—")}
+                        {isLoading ? <Skeleton /> : (r.divYield !== null && r.divYield > 0 ? `${(r.divYield * 100).toFixed(2)}%` : "—")}
                       </td>
                     </tr>
                   );

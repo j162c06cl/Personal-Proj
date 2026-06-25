@@ -21,7 +21,7 @@ export default function NavBar() {
   return (
     <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
       <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
-        <Link href="/" className="font-bold text-lg tracking-tight text-emerald-600 shrink-0">
+        <Link href="/" className="font-bold text-lg tracking-tight text-blue-600 shrink-0">
           <span className="hidden sm:inline">Investor Research</span>
           <span className="sm:hidden">IR</span>
         </Link>
@@ -34,7 +34,7 @@ export default function NavBar() {
               href={l.href}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 pathname === l.href
-                  ? "bg-emerald-50 text-emerald-700"
+                  ? "bg-blue-50 text-blue-700"
                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
             >
@@ -69,7 +69,7 @@ export default function NavBar() {
               onClick={() => setOpen(false)}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 pathname === l.href
-                  ? "bg-emerald-50 text-emerald-700"
+                  ? "bg-blue-50 text-blue-700"
                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}
             >

@@ -5,7 +5,7 @@ interface Props { result: CalculatorResult; }
 
 export default function CalculatorResultCard({ result }: Props) {
   const isProfit = result.profitLoss >= 0;
-  const plColor = isProfit ? "text-emerald-600" : "text-red-500";
+  const plColor = isProfit ? "text-green-600" : "text-red-500";
 
   return (
     <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm mt-5">

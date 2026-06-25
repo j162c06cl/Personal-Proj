@@ -89,7 +89,7 @@ export default function CalendarPage() {
           {(["all", "high"] as Filter[]).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                filter === f ? "bg-emerald-600 text-white" : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
+                filter === f ? "bg-blue-600 text-white" : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
               }`}>
               {f === "all" ? "All Events" : "High Impact Only"}
             </button>
@@ -109,14 +109,14 @@ export default function CalendarPage() {
               const days = getDays(e.date);
               const isToday = days === 0;
               return (
-                <div key={i} className={`flex items-start gap-4 bg-white rounded-xl border p-4 shadow-sm ${isToday ? "border-emerald-400 bg-emerald-50" : "border-gray-200"}`}>
+                <div key={i} className={`flex items-start gap-4 bg-white rounded-xl border p-4 shadow-sm ${isToday ? "border-blue-400 bg-blue-50" : "border-gray-200"}`}>
                   <div className="shrink-0 min-w-[80px]">
                     <p className="text-xs font-semibold text-gray-700">{fmtDate(e.date)}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{e.time}</p>
                     {isToday
-                      ? <span className="inline-block mt-1 text-xs bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-medium">Today</span>
+                      ? <span className="inline-block mt-1 text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-medium">Today</span>
                       : days <= 7
-                        ? <span className="text-xs text-emerald-600 font-medium mt-0.5 block">{days}d away</span>
+                        ? <span className="text-xs text-blue-600 font-medium mt-0.5 block">{days}d away</span>
                         : null}
                   </div>
                   <div className="flex-1 min-w-0">

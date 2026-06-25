@@ -42,7 +42,7 @@ function fmtIndex(price: number | null, format: string): string {
 
 function IndexCard({ d }: { d: IndexData }) {
   const up = (d.changePercent ?? 0) >= 0;
-  const clr = d.changePercent === null ? "text-gray-400" : up ? "text-emerald-600" : "text-red-500";
+  const clr = d.changePercent === null ? "text-gray-400" : up ? "text-green-600" : "text-red-500";
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm min-w-[148px] shrink-0">
       <p className="text-xs text-gray-500 mb-1 font-medium">{d.label}</p>
@@ -153,7 +153,7 @@ export default function DashboardPage() {
         <button
           onClick={loadMarket}
           disabled={loading}
-          className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 disabled:opacity-50 font-medium"
+          className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50 font-medium"
         >
           <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -205,7 +205,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex-1">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-gray-900">Upcoming Events</h2>
-              <Link href="/calendar" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+              <Link href="/calendar" className="text-xs text-blue-600 hover:text-blue-700 font-medium">
                 View all →
               </Link>
             </div>

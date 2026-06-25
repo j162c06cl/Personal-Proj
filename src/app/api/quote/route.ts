@@ -2,6 +2,68 @@ import { NextRequest, NextResponse } from "next/server";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+async function yahooV7Batch(symbols: string[]) {
+  try {
+    const fields = [
+      "shortName","longName","regularMarketPrice","regularMarketChange",
+      "regularMarketChangePercent","regularMarketOpen","regularMarketDayHigh",
+      "regularMarketDayLow","regularMarketVolume","averageDailyVolume10Day",
+      "averageDailyVolume3Month","fiftyTwoWeekHigh","fiftyTwoWeekLow",
+      "marketCap","trailingPE","trailingAnnualDividendYield","dividendYield",
+    ].join(",");
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}&fields=${fields}&lang=en-US&region=US&corsDomain=finance.yahoo.com`;
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": UA,
+        Accept: "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        Referer: "https://finance.yahoo.com/",
+      },
+      cache: "no-store",
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const results: Record<string, ReturnType<typeof extractV7>> = {};
+    const items: unknown[] = j?.quoteResponse?.result ?? [];
+    for (const item of items) {
+      const q = item as Record<string, unknown>;
+      const sym = (q.symbol ?? q.Symbol) as string;
+      if (sym) results[sym.toUpperCase()] = extractV7(q);
+    }
+    return Object.keys(results).length ? results : null;
+  } catch { return null; }
+}
+
+function extractV7(q: Record<string, unknown>) {
+  const price = (q.regularMarketPrice as number) ?? null;
+  const prev = (q.regularMarketPreviousClose as number) ?? null;
+  const change = (q.regularMarketChange as number) ?? (price && prev ? price - prev : null);
+  const changePct = (q.regularMarketChangePercent as number) ?? (change && prev ? (change / prev) * 100 : null);
+  const divYield =
+    (q.trailingAnnualDividendYield as number | null) ??
+    (q.dividendYield as number | null) ??
+    null;
+  return {
+    name: ((q.shortName ?? q.longName ?? q.symbol) as string) || "",
+    price,
+    open: (q.regularMarketOpen as number | null) ?? null,
+    change,
+    changePercent: changePct,
+    weekHigh52: (q.fiftyTwoWeekHigh as number | null) ?? null,
+    weekLow52: (q.fiftyTwoWeekLow as number | null) ?? null,
+    marketCap: (q.marketCap as number | null) ?? null,
+    volume: (q.regularMarketVolume as number | null) ?? null,
+    avgVolume:
+      (q.averageDailyVolume10Day as number | null) ??
+      (q.averageDailyVolume3Month as number | null) ??
+      null,
+    dayHigh: (q.regularMarketDayHigh as number | null) ?? null,
+    dayLow: (q.regularMarketDayLow as number | null) ?? null,
+    pe: (q.trailingPE as number | null) ?? null,
+    divYield,
+  };
+}
+
 async function yahooChart(symbol: string) {
   try {
     const r = await fetch(
@@ -74,11 +136,29 @@ export async function GET(request: NextRequest) {
 
   const tickers = ticker.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
 
+  // Try batch v7 first for all tickers
+  const v7Map = await yahooV7Batch(tickers);
+
   const results = await Promise.all(
     tickers.map(async (t) => {
-      const data = (await yahooChart(t)) ?? (await stooqQuote(t));
-      if (!data) return { ticker: t, name: t, price: null, open: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, volume: null, avgVolume: null, dayHigh: null, dayLow: null, pe: null, divYield: null, error: "Not found" };
-      return { ticker: t, name: data.name, price: data.price, open: data.open, change: data.change, changePercent: data.changePercent, weekHigh52: data.weekHigh52, weekLow52: data.weekLow52, marketCap: data.marketCap, volume: data.volume, avgVolume: data.avgVolume, dayHigh: data.dayHigh, dayLow: data.dayLow, pe: data.pe, divYield: data.divYield };
+      // Use v7 result if available and has a price
+      const v7 = v7Map?.[t];
+      const data = (v7 && v7.price !== null ? v7 : null)
+        ?? (await yahooChart(t))
+        ?? (await stooqQuote(t));
+
+      if (!data) return {
+        ticker: t, name: t, price: null, open: null, change: null, changePercent: null,
+        weekHigh52: null, weekLow52: null, marketCap: null, volume: null, avgVolume: null,
+        dayHigh: null, dayLow: null, pe: null, divYield: null, error: "Not found",
+      };
+      return {
+        ticker: t, name: data.name, price: data.price, open: data.open,
+        change: data.change, changePercent: data.changePercent,
+        weekHigh52: data.weekHigh52, weekLow52: data.weekLow52,
+        marketCap: data.marketCap, volume: data.volume, avgVolume: data.avgVolume,
+        dayHigh: data.dayHigh, dayLow: data.dayLow, pe: data.pe, divYield: data.divYield,
+      };
     })
   );
 

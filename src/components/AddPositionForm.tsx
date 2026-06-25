@@ -13,7 +13,7 @@ interface Props {
 const SECTORS = Object.keys(SECTOR_COLORS);
 
 const inputCls =
-  "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500";
+  "w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
 
 export default function PositionForm({ initial, onSave, onCancel }: Props) {
   const [ticker, setTicker] = useState(initial?.ticker ?? "");
@@ -209,7 +209,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
+              className="flex-1 px-4 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
             >
               {initial ? "Save Changes" : "Add Position"}
             </button>
