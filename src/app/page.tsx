@@ -13,8 +13,8 @@ import {
   ResponsiveContainer,
   Cell,
   ReferenceLine,
-  Treemap,
 } from "recharts";
+import StockHeatmap from "@/components/StockHeatmap";
 
 const UPCOMING_EVENTS = [
   { date: "2026-06-26", name: "GDP (Q1 Final)",       importance: "high",   description: "Final Q1 2026 economic growth estimate" },
@@ -67,95 +67,6 @@ function pct(v: number) {
   return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 }
 
-const SECTOR_WEIGHTS: Record<string, number> = {
-  "Technology": 32, "Financials": 14, "Healthcare": 12, "Consumer Disc.": 10,
-  "Communication": 9, "Industrials": 8, "Consumer Staples": 6, "Energy": 5,
-  "Real Estate": 3, "Utilities": 3, "Materials": 2,
-};
-
-function heatFill(p: number | null): string {
-  if (p === null)  return "#e5e7eb";
-  if (p >= 2)      return "#15803d";
-  if (p >= 1)      return "#16a34a";
-  if (p >= 0.25)   return "#4ade80";
-  if (p >= -0.25)  return "#d1d5db";
-  if (p >= -1)     return "#f87171";
-  if (p >= -2)     return "#dc2626";
-  return "#991b1b";
-}
-
-function heatText(p: number | null): string {
-  if (p === null)  return "#6b7280";
-  if (Math.abs(p) >= 1) return "#ffffff";
-  if (p >= 0.25)   return "#14532d";
-  if (p <= -0.25)  return "#7f1d1d";
-  return "#374151";
-}
-
-interface HeatCellProps { x: number; y: number; width: number; height: number; name: string; changePercent: number | null; }
-
-function HeatCell({ x, y, width, height, name, changePercent }: HeatCellProps) {
-  const fill = heatFill(changePercent);
-  const text = heatText(changePercent);
-  const label = changePercent !== null ? `${changePercent >= 0 ? "+" : ""}${changePercent.toFixed(2)}%` : "—";
-  const w = Math.max(0, width - 2);
-  const h = Math.max(0, height - 2);
-  const nameSize = Math.max(8, Math.min(13, w / 8));
-  const pctSize  = Math.max(8, Math.min(14, w / 7));
-  const showName = w >= 44 && h >= 32;
-  const showPct  = h >= 52;
-  const midY = y + 1 + h / 2;
-
-  return (
-    <g>
-      <rect x={x + 1} y={y + 1} width={w} height={h} fill={fill} rx={5} />
-      {showName && (
-        <text x={x + width / 2} y={showPct ? midY - 9 : midY + 4} textAnchor="middle"
-          fill={text} fontSize={nameSize} fontWeight={700} fontFamily="system-ui,sans-serif">
-          {name}
-        </text>
-      )}
-      {showName && showPct && (
-        <text x={x + width / 2} y={midY + 9} textAnchor="middle"
-          fill={text} fontSize={pctSize} fontFamily="system-ui,sans-serif">
-          {label}
-        </text>
-      )}
-    </g>
-  );
-}
-
-function SectorHeatmap({ sectors }: { sectors: SectorData[] }) {
-  const data = sectors.map((s) => ({
-    name: s.label,
-    size: SECTOR_WEIGHTS[s.label] ?? 4,
-    changePercent: s.changePercent,
-  }));
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold text-gray-900">Sector Performance</h2>
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-red-700" /> &lt;-2%</span>
-          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-gray-200" /> flat</span>
-          <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-green-700" /> &gt;+2%</span>
-        </div>
-      </div>
-      <div className="flex-1">
-        <ResponsiveContainer width="100%" height={290}>
-          <Treemap
-            data={data}
-            dataKey="size"
-            aspectRatio={4 / 3}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            content={(props: any) => <HeatCell x={props.x ?? 0} y={props.y ?? 0} width={props.width ?? 0} height={props.height ?? 0} name={props.name ?? ""} changePercent={props.changePercent ?? null} />}
-          />
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
 
 const EQUITY_SYMBOLS = ["^GSPC", "^IXIC", "^DJI", "^VIX"];
 
@@ -205,25 +116,6 @@ function IndicesChart({ indices }: { indices: IndexData[] }) {
   );
 }
 
-function SectorHeatmapSkeleton() {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 h-full animate-pulse">
-      <div className="h-4 w-40 bg-gray-200 rounded mb-5" />
-      <div className="grid grid-cols-4 gap-1.5" style={{ height: 290 }}>
-        <div className="col-span-2 row-span-2 bg-gray-200 rounded-lg" />
-        <div className="bg-gray-100 rounded-lg" />
-        <div className="bg-gray-200 rounded-lg" />
-        <div className="bg-gray-100 rounded-lg" />
-        <div className="bg-gray-200 rounded-lg" />
-        <div className="col-span-2 bg-gray-100 rounded-lg" />
-        <div className="bg-gray-200 rounded-lg" />
-        <div className="bg-gray-100 rounded-lg" />
-        <div className="bg-gray-200 rounded-lg" />
-        <div className="bg-gray-100 rounded-lg" />
-      </div>
-    </div>
-  );
-}
 
 export default function DashboardPage() {
   const [indices, setIndices] = useState<IndexData[]>([]);
@@ -297,17 +189,9 @@ export default function DashboardPage() {
 
       {/* Charts + Events grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Sector chart — 2/3 width */}
+        {/* Stock heatmap — 2/3 width */}
         <div className="lg:col-span-2">
-          {loading ? (
-            <SectorHeatmapSkeleton />
-          ) : err ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-center h-full text-sm text-gray-400">
-              Sector data unavailable
-            </div>
-          ) : (
-            <SectorHeatmap sectors={sectors} />
-          )}
+          <StockHeatmap />
         </div>
 
         {/* Right column: indices mini chart + upcoming events */}
