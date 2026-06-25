@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PortfolioPosition } from "@/lib/types";
 import { SECTOR_COLORS } from "@/lib/presets";
+import TickerAutocomplete from "@/components/TickerAutocomplete";
 
 interface Props {
   initial?: PortfolioPosition;
@@ -106,24 +107,14 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
           {/* Ticker */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Ticker Symbol</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value.toUpperCase())}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookupTicker(); } }}
-                placeholder="e.g. AAPL"
-                className={`${inputCls} font-mono tracking-wider`}
-              />
-              <button
-                type="button"
-                onClick={lookupTicker}
-                disabled={lookingUp || !ticker.trim()}
-                className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-600 font-medium px-3 py-2 rounded-lg border border-gray-300 whitespace-nowrap transition-colors"
-              >
-                {lookingUp ? "..." : "Lookup"}
-              </button>
-            </div>
+            <TickerAutocomplete
+              value={ticker}
+              onChange={setTicker}
+              onSelect={(t, n) => { setTicker(t); setName(n); setError(""); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookupTicker(); } }}
+              placeholder="e.g. AAPL"
+              inputClassName={`${inputCls} font-mono tracking-wider`}
+            />
           </div>
 
           {/* Name */}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import WatchlistTable from "@/components/WatchlistTable";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import TickerAutocomplete from "@/components/TickerAutocomplete";
 import { WatchlistEntryWithData } from "@/lib/types";
 
 interface WatchlistDef {
@@ -289,13 +290,15 @@ export default function WatchlistPage() {
           />
         </div>
         <div className="flex items-center gap-2">
-          <input
-            type="text"
+          <TickerAutocomplete
             value={addTicker}
-            onChange={(e) => setAddTicker(e.target.value.toUpperCase())}
+            onChange={setAddTicker}
+            onSelect={(ticker) => {
+              setAddTicker(ticker);
+            }}
             onKeyDown={(e) => { if (e.key === "Enter") handleAddTicker(); }}
             placeholder="Ticker symbol..."
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-36 font-mono tracking-wide"
+            inputClassName="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40 font-mono tracking-wide"
           />
           <button
             onClick={handleAddTicker}
