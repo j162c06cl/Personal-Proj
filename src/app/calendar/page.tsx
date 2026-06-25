@@ -41,9 +41,9 @@ const EVENTS = [
 type Filter = "all" | "high";
 
 function importancePill(imp: string) {
-  if (imp === "high")   return "bg-red-100 text-red-700 border border-red-200";
-  if (imp === "medium") return "bg-amber-100 text-amber-700 border border-amber-200";
-  return "bg-gray-100 text-gray-600 border border-gray-200";
+  if (imp === "high")   return "bg-[#fff0f0] text-[#ff3b30] border border-[rgba(255,59,48,0.15)]";
+  if (imp === "medium") return "bg-amber-50 text-amber-700 border border-amber-200/60";
+  return "bg-black/[0.05] text-[#6e6e73] border border-black/[0.06]";
 }
 
 function getDays(d: string): number {
@@ -82,14 +82,16 @@ export default function CalendarPage() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Economic Calendar</h1>
-          <p className="text-gray-500 text-sm mt-1">Upcoming US economic data releases and Federal Reserve decisions</p>
+          <h1 className="text-[28px] font-bold tracking-tight text-[#1d1d1f]">Economic Calendar</h1>
+          <p className="text-[13px] text-[#6e6e73] mt-1">Upcoming US economic data releases and Federal Reserve decisions</p>
         </div>
         <div className="flex gap-2">
           {(["all", "high"] as Filter[]).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                filter === f ? "bg-blue-600 text-white" : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
+              className={`px-3 py-1.5 rounded-[8px] text-[13px] font-medium transition-all duration-150 ${
+                filter === f
+                  ? "bg-[#0071e3] text-white"
+                  : "bg-black/[0.05] text-[#1d1d1f] hover:bg-black/[0.08]"
               }`}>
               {f === "all" ? "All Events" : "High Impact Only"}
             </button>
@@ -98,35 +100,35 @@ export default function CalendarPage() {
       </div>
 
       {Object.entries(grouped).length === 0 && (
-        <div className="text-center py-16 text-gray-400 text-sm">No upcoming events match your filter.</div>
+        <div className="text-center py-16 text-[#6e6e73] text-[13px]">No upcoming events match your filter.</div>
       )}
 
       {Object.entries(grouped).map(([ym, events]) => (
         <div key={ym} className="mb-8">
-          <h2 className="text-base font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200">{fmtMonth(ym)}</h2>
+          <h2 className="text-[15px] font-semibold text-[#1d1d1f] mb-3 pb-2 border-b border-black/[0.08]">{fmtMonth(ym)}</h2>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
             {events.map((e, i) => {
               const days = getDays(e.date);
               const isToday = days === 0;
               return (
-                <div key={i} className={`flex items-start gap-4 bg-white rounded-xl border p-4 shadow-sm ${isToday ? "border-blue-400 bg-blue-50" : "border-gray-200"}`}>
+                <div key={i} className={`flex items-start gap-4 rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] ${isToday ? "bg-[#e8f2ff]" : "bg-white"}`}>
                   <div className="shrink-0 min-w-[80px]">
-                    <p className="text-xs font-semibold text-gray-700">{fmtDate(e.date)}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{e.time}</p>
+                    <p className="text-[11px] font-semibold text-[#1d1d1f]">{fmtDate(e.date)}</p>
+                    <p className="text-[11px] text-[#6e6e73] mt-0.5">{e.time}</p>
                     {isToday
-                      ? <span className="inline-block mt-1 text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-medium">Today</span>
+                      ? <span className="inline-block mt-1 text-[10px] bg-[#0071e3] text-white px-1.5 py-0.5 rounded-full font-semibold">Today</span>
                       : days <= 7
-                        ? <span className="text-xs text-blue-600 font-medium mt-0.5 block">{days}d away</span>
+                        ? <span className="text-[11px] text-[#0071e3] font-semibold mt-0.5 block">{days}d away</span>
                         : null}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                      <p className="text-sm font-semibold text-gray-900">{e.name}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${importancePill(e.importance)}`}>
+                      <p className="text-[13px] font-semibold text-[#1d1d1f]">{e.name}</p>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${importancePill(e.importance)}`}>
                         {e.importance.charAt(0).toUpperCase() + e.importance.slice(1)}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500">{e.description}</p>
+                    <p className="text-[11px] text-[#6e6e73]">{e.description}</p>
                   </div>
                 </div>
               );
@@ -135,7 +137,7 @@ export default function CalendarPage() {
         </div>
       ))}
 
-      <p className="text-xs text-gray-400 mt-4 text-center">
+      <p className="text-[11px] text-[#6e6e73] mt-4 text-center">
         Dates are approximate based on historical US economic calendar patterns. Always verify with official sources.
       </p>
     </div>

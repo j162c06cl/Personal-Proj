@@ -20,6 +20,14 @@ function shortNum(v: number) {
   return `$${v.toFixed(0)}`;
 }
 
+const tooltipStyle = {
+  fontSize: 11,
+  borderRadius: 12,
+  border: "none",
+  boxShadow: "0 4px 20px rgba(0,0,0,0.09), 0 0 1px rgba(0,0,0,0.05)",
+  padding: "8px 12px",
+};
+
 export default function PortfolioPage() {
   const { positions, ready, addPosition, updatePosition, removePosition } = usePortfolio();
   const [quotes, setQuotes] = useState<QuoteMap>({});
@@ -89,7 +97,7 @@ export default function PortfolioPage() {
       .map((p) => ({
         ticker: p.ticker,
         pl: parseFloat((p.profitLoss ?? 0).toFixed(2)),
-        fill: (p.profitLoss ?? 0) >= 0 ? "#10b981" : "#ef4444",
+        fill: (p.profitLoss ?? 0) >= 0 ? "#34c759" : "#ff3b30",
       })),
     [enriched]
   );
@@ -116,7 +124,6 @@ export default function PortfolioPage() {
   }
 
   function handleEdit(pos: PortfolioPositionWithData) {
-    // Strip enriched fields to get back to base PortfolioPosition
     const { currentPrice, currentValue, profitLoss, percentReturn, error, ...base } = pos;
     void currentPrice; void currentValue; void profitLoss; void percentReturn; void error;
     setEditingPosition(base);
@@ -145,8 +152,8 @@ export default function PortfolioPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Portfolio</h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <h1 className="text-[28px] font-bold tracking-tight text-[#1d1d1f]">Portfolio</h1>
+          <p className="text-[13px] text-[#6e6e73] mt-1">
             {positions.length} position{positions.length !== 1 ? "s" : ""}
           </p>
         </div>
@@ -155,7 +162,7 @@ export default function PortfolioPage() {
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50 flex items-center gap-1.5 font-medium transition-colors"
+              className="flex items-center gap-1.5 text-[13px] font-semibold text-[#0071e3] bg-[#e8f2ff] hover:bg-[#d4e9ff] px-4 py-2 rounded-[10px] disabled:opacity-50 transition-colors"
             >
               <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -165,7 +172,7 @@ export default function PortfolioPage() {
           )}
           <button
             onClick={handleOpenAdd}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2 text-[13px] bg-[#0071e3] text-white rounded-[10px] hover:bg-[#0058b0] font-semibold flex items-center gap-1.5 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -178,15 +185,15 @@ export default function PortfolioPage() {
       {/* Empty state */}
       {positions.length === 0 ? (
         <div className="text-center py-20">
-          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-16 h-16 bg-[#e8f2ff] rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-[#0071e3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <p className="text-gray-500 text-sm mb-4">No positions yet. Add your first holding to get started.</p>
+          <p className="text-[13px] text-[#6e6e73] mb-4">No positions yet. Add your first holding to get started.</p>
           <button
             onClick={handleOpenAdd}
-            className="px-5 py-2.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium transition-colors"
+            className="px-5 py-2.5 bg-[#0071e3] text-white text-[13px] rounded-[10px] hover:bg-[#0058b0] font-semibold transition-colors"
           >
             Add First Position
           </button>
@@ -196,21 +203,21 @@ export default function PortfolioPage() {
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {[
-              { label: "Total Invested", value: formatCurrency(totalInvested), color: "text-gray-900" },
-              { label: "Current Value",  value: formatCurrency(totalCurrent),  color: "text-gray-900" },
-              { label: "Total P&L",      value: formatCurrency(totalPL),       color: isUp ? "text-green-600" : "text-red-500" },
-              { label: "Total Return",   value: formatPercent(totalReturn),    color: isUp ? "text-green-600" : "text-red-500" },
+              { label: "Total Invested", value: formatCurrency(totalInvested), color: "text-[#1d1d1f]" },
+              { label: "Current Value",  value: formatCurrency(totalCurrent),  color: "text-[#1d1d1f]" },
+              { label: "Total P&L",      value: formatCurrency(totalPL),       color: isUp ? "text-[#34c759]" : "text-[#ff3b30]" },
+              { label: "Total Return",   value: formatPercent(totalReturn),    color: isUp ? "text-[#34c759]" : "text-[#ff3b30]" },
             ].map((s) => (
-              <div key={s.label} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                <p className="text-xs text-gray-500 mb-1">{s.label}</p>
-                <p className={`text-base font-bold ${s.color}`}>{s.value}</p>
+              <div key={s.label} className="bg-white rounded-2xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.09)] transition-all duration-200">
+                <p className="text-[11px] font-semibold text-[#6e6e73] mb-1.5">{s.label}</p>
+                <p className={`text-[17px] font-bold ${s.color}`}>{s.value}</p>
               </div>
             ))}
           </div>
 
           {/* Table */}
           {loading && enriched.every((e) => e.currentPrice === null) ? (
-            <LoadingSpinner text="Fetching market data..." />
+            <LoadingSpinner text="Fetching market data…" />
           ) : (
             <PortfolioTable positions={enriched} onEdit={handleEdit} onDelete={removePosition} />
           )}
@@ -218,19 +225,18 @@ export default function PortfolioPage() {
           {/* Charts */}
           {enriched.some((e) => e.currentPrice !== null) && (
             <div className="mt-6 space-y-5">
-              {/* P&L per Position */}
               {plChartData.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                  <h2 className="text-sm font-semibold text-gray-900 mb-1">P&L by Position</h2>
-                  <p className="text-xs text-gray-400 mb-4">Profit or loss per holding in dollars</p>
+                <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] p-5">
+                  <h2 className="text-[15px] font-semibold text-[#1d1d1f] mb-1">P&L by Position</h2>
+                  <p className="text-[11px] text-[#6e6e73] mb-4">Profit or loss per holding in dollars</p>
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={plChartData} margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                      <XAxis dataKey="ticker" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={shortNum} tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.04)" vertical={false} />
+                      <XAxis dataKey="ticker" tick={{ fontSize: 11, fill: "#6e6e73" }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={shortNum} tick={{ fontSize: 11, fill: "#6e6e73" }} axisLine={false} tickLine={false} />
                       <Tooltip
                         formatter={(v) => [formatCurrency(v as number), "P&L"]}
-                        contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                        contentStyle={tooltipStyle}
                       />
                       <Bar dataKey="pl" radius={[4, 4, 0, 0]} maxBarSize={48}>
                         {plChartData.map((entry, i) => (
@@ -242,33 +248,31 @@ export default function PortfolioPage() {
                 </div>
               )}
 
-              {/* Cost Basis vs Current Value */}
               {valueChartData.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                  <h2 className="text-sm font-semibold text-gray-900 mb-1">Cost Basis vs Current Value</h2>
-                  <p className="text-xs text-gray-400 mb-4">What you paid vs what each position is worth today</p>
+                <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] p-5">
+                  <h2 className="text-[15px] font-semibold text-[#1d1d1f] mb-1">Cost Basis vs Current Value</h2>
+                  <p className="text-[11px] text-[#6e6e73] mb-4">What you paid vs what each position is worth today</p>
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={valueChartData} margin={{ top: 4, right: 16, left: 8, bottom: 0 }} barCategoryGap="30%">
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                      <XAxis dataKey="ticker" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={shortNum} tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.04)" vertical={false} />
+                      <XAxis dataKey="ticker" tick={{ fontSize: 11, fill: "#6e6e73" }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={shortNum} tick={{ fontSize: 11, fill: "#6e6e73" }} axisLine={false} tickLine={false} />
                       <Tooltip
                         formatter={(v) => [formatCurrency(v as number)]}
-                        contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                        contentStyle={tooltipStyle}
                       />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
                       <Bar dataKey="Cost Basis" fill="#d1d5db" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                      <Bar dataKey="Current Value" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                      <Bar dataKey="Current Value" fill="#34c759" radius={[4, 4, 0, 0]} maxBarSize={32} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               )}
 
-              {/* Sector Allocation */}
               {sectorAllocation.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                  <h2 className="text-sm font-semibold text-gray-900 mb-1">Sector Allocation</h2>
-                  <p className="text-xs text-gray-400 mb-4">Portfolio weight by sector at current value</p>
+                <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] p-5">
+                  <h2 className="text-[15px] font-semibold text-[#1d1d1f] mb-1">Sector Allocation</h2>
+                  <p className="text-[11px] text-[#6e6e73] mb-4">Portfolio weight by sector at current value</p>
                   <div className="flex flex-col sm:flex-row items-center gap-6">
                     <div className="w-full sm:w-60 h-60 shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
@@ -289,7 +293,7 @@ export default function PortfolioPage() {
                           </Pie>
                           <Tooltip
                             formatter={(v) => [formatCurrency(v as number)]}
-                            contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                            contentStyle={tooltipStyle}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -299,13 +303,13 @@ export default function PortfolioPage() {
                         <div key={a.name} className="flex items-center gap-3">
                           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: SECTOR_COLORS[a.name] ?? "#9ca3af" }} />
                           <div className="flex items-center justify-between flex-1 min-w-0">
-                            <span className="text-sm text-gray-700 truncate">{a.name}</span>
+                            <span className="text-[13px] text-[#1d1d1f] truncate">{a.name}</span>
                             <div className="flex items-center gap-3 shrink-0">
-                              <div className="w-20 bg-gray-100 rounded-full h-1.5 hidden sm:block">
+                              <div className="w-20 bg-black/[0.05] rounded-full h-1.5 hidden sm:block">
                                 <div className="h-1.5 rounded-full" style={{ width: `${a.pct}%`, backgroundColor: SECTOR_COLORS[a.name] ?? "#9ca3af" }} />
                               </div>
-                              <span className="text-sm font-semibold text-gray-900 w-10 text-right">{a.pct.toFixed(1)}%</span>
-                              <span className="text-xs text-gray-500 w-20 text-right">{formatCurrency(a.value)}</span>
+                              <span className="text-[13px] font-semibold text-[#1d1d1f] w-10 text-right">{a.pct.toFixed(1)}%</span>
+                              <span className="text-[11px] text-[#6e6e73] w-20 text-right">{formatCurrency(a.value)}</span>
                             </div>
                           </div>
                         </div>
@@ -319,7 +323,6 @@ export default function PortfolioPage() {
         </>
       )}
 
-      {/* Add / Edit modal */}
       {showForm && (
         <PositionForm
           initial={editingPosition ?? undefined}

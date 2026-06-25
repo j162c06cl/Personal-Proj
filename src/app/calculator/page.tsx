@@ -92,15 +92,15 @@ function mktCapBucket(v: number | null): string {
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
-  if (!active) return <span className="ml-1 text-gray-300">↕</span>;
+  if (!active) return <span className="ml-1 text-[#aeaeb2]">↕</span>;
   return <span className="ml-1">{dir === "asc" ? "↑" : "↓"}</span>;
 }
 
 function ChgBadge({ v }: { v: number | null }) {
-  if (v === null) return <span className="text-gray-400">—</span>;
+  if (v === null) return <span className="text-[#aeaeb2]">—</span>;
   const pos = v >= 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 font-semibold tabular-nums ${pos ? "text-green-600" : "text-red-500"}`}>
+    <span className={`inline-flex items-center gap-0.5 font-semibold tabular-nums ${pos ? "text-[#34c759]" : "text-[#ff3b30]"}`}>
       {formatPercent(v)}
     </span>
   );
@@ -240,7 +240,6 @@ export default function ScreenerPage() {
     if (filters.divYield) {
       out = out.filter((r) => {
         const dy = r.divYield;
-        // divYield is stored as a decimal fraction (0.025 = 2.5%)
         switch (filters.divYield) {
           case "none": return dy === null || dy === 0;
           case "u1":   return dy !== null && dy > 0 && dy < 0.01;
@@ -296,8 +295,10 @@ export default function ScreenerPage() {
   const hasFilters = activeFilters.length > 0 || search.trim() !== "";
 
   const thCls = (key: SortKey) =>
-    `px-3 py-2.5 text-xs font-semibold uppercase tracking-wide whitespace-nowrap cursor-pointer select-none transition-colors ${
-      sortKey === key ? "text-blue-600 bg-blue-50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+    `px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap cursor-pointer select-none transition-colors ${
+      sortKey === key
+        ? "text-[#0071e3] bg-[#e8f2ff]"
+        : "text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-black/[0.04]"
     }`;
 
   return (
@@ -305,13 +306,13 @@ export default function ScreenerPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Stock Screener</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Filter {SCREENER_UNIVERSE.length} securities by fundamental &amp; technical criteria</p>
+          <h1 className="text-[28px] font-bold tracking-tight text-[#1d1d1f]">Stock Screener</h1>
+          <p className="text-[13px] text-[#6e6e73] mt-0.5">Filter {SCREENER_UNIVERSE.length} securities by fundamental &amp; technical criteria</p>
         </div>
         <button
           onClick={fetchAll}
           disabled={loading}
-          className="self-start sm:self-auto flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50 transition-colors"
+          className="self-start sm:self-auto flex items-center gap-1.5 text-[13px] font-semibold text-[#0071e3] bg-[#e8f2ff] hover:bg-[#d4e9ff] px-4 py-2 rounded-[10px] disabled:opacity-50 transition-colors"
         >
           <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -321,13 +322,13 @@ export default function ScreenerPage() {
       </div>
 
       {/* Filter Panel */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-4 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filters</span>
+      <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] mb-4 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-black/[0.06]">
+          <span className="text-[11px] font-semibold text-[#6e6e73]">Filters</span>
           {hasFilters && (
             <button
               onClick={() => { setFilters(EMPTY_FILTERS); setSearch(""); }}
-              className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors"
+              className="text-[11px] text-[#ff3b30] hover:opacity-75 font-semibold transition-opacity"
             >
               Reset all
             </button>
@@ -337,26 +338,26 @@ export default function ScreenerPage() {
         <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {/* Search */}
           <div className="col-span-2 sm:col-span-3 lg:col-span-4">
-            <label className="block text-xs font-semibold text-gray-500 mb-1">Search</label>
+            <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">Search</label>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Ticker or company name…"
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              className="w-full bg-black/[0.05] border-none rounded-[10px] px-3 py-2 text-[13px] text-[#1d1d1f] placeholder-[#aeaeb2] focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] transition-all"
             />
           </div>
 
           {(Object.keys(FILTER_OPTIONS) as (keyof Filters)[]).map((key) => (
             <div key={key}>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">{FILTER_LABELS[key]}</label>
+              <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">{FILTER_LABELS[key]}</label>
               <select
                 value={filters[key]}
                 onChange={(e) => setFilter(key, e.target.value)}
-                className={`w-full border rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${
+                className={`w-full rounded-[10px] px-2.5 py-2 text-[13px] border-none focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] transition-all ${
                   filters[key]
-                    ? "border-blue-400 bg-blue-50 text-blue-700 focus:border-blue-500"
-                    : "border-gray-200 bg-gray-50 text-gray-700 focus:border-blue-400"
+                    ? "bg-[#e8f2ff] text-[#0071e3]"
+                    : "bg-black/[0.05] text-[#1d1d1f]"
                 }`}
               >
                 <option value="">Any</option>
@@ -376,12 +377,12 @@ export default function ScreenerPage() {
               return (
                 <span
                   key={key}
-                  className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full"
+                  className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 bg-[#e8f2ff] text-[#0071e3] text-[11px] font-semibold rounded-full"
                 >
-                  <span className="text-blue-500">{FILTER_LABELS[key]}:</span> {label}
+                  <span className="opacity-70">{FILTER_LABELS[key]}:</span> {label}
                   <button
                     onClick={() => clearFilter(key)}
-                    className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full hover:bg-blue-200 transition-colors"
+                    className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#0071e3]/10 transition-colors"
                   >
                     ×
                   </button>
@@ -394,24 +395,24 @@ export default function ScreenerPage() {
 
       {/* Results bar */}
       <div className="flex items-center justify-between mb-2 px-0.5">
-        <p className="text-sm text-gray-500">
+        <p className="text-[13px] text-[#6e6e73]">
           {loading && results.every((r) => !r.loaded)
             ? "Loading market data…"
-            : <><span className="font-semibold text-gray-900">{filtered.length}</span> of {SCREENER_UNIVERSE.length} securities match</>
+            : <><span className="font-semibold text-[#1d1d1f]">{filtered.length}</span> of {SCREENER_UNIVERSE.length} securities match</>
           }
         </p>
         {loading && results.some((r) => !r.loaded) && !results.every((r) => !r.loaded) && (
-          <span className="text-xs text-gray-400 animate-pulse">Updating…</span>
+          <span className="text-[11px] text-[#6e6e73] animate-pulse">Updating…</span>
         )}
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm" style={{ minWidth: 800 }}>
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="pl-4 pr-1 py-2.5 text-xs font-semibold text-gray-400 w-8 text-left">#</th>
+              <tr className="border-b border-black/[0.06] bg-[#f9f9f9]">
+                <th className="pl-4 pr-1 py-2.5 text-[11px] font-semibold text-[#aeaeb2] w-8 text-left">#</th>
                 <th className={`${thCls("ticker")} text-left`} onClick={() => handleSort("ticker")}>
                   Ticker <SortIcon active={sortKey === "ticker"} dir={sortDir} />
                 </th>
@@ -441,10 +442,10 @@ export default function ScreenerPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-black/[0.03]">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-16 text-gray-400 text-sm">
+                  <td colSpan={10} className="text-center py-16 text-[#6e6e73] text-[13px]">
                     No securities match the selected filters.
                   </td>
                 </tr>
@@ -452,29 +453,29 @@ export default function ScreenerPage() {
                 filtered.map((r, i) => {
                   const isLoading = !r.loaded;
                   return (
-                    <tr key={r.ticker} className="hover:bg-gray-50 transition-colors">
-                      <td className="pl-4 pr-1 py-2.5 text-xs text-gray-400 tabular-nums">{i + 1}</td>
-                      <td className="px-3 py-2.5 font-bold text-blue-600 whitespace-nowrap">{r.ticker}</td>
-                      <td className="px-3 py-2.5 text-gray-700 max-w-[180px] truncate">{r.name}</td>
+                    <tr key={r.ticker} className="hover:bg-[#f5f5f7] transition-colors">
+                      <td className="pl-4 pr-1 py-2.5 text-[11px] text-[#aeaeb2] tabular-nums">{i + 1}</td>
+                      <td className="px-3 py-2.5 font-bold text-[#0071e3] whitespace-nowrap">{r.ticker}</td>
+                      <td className="px-3 py-2.5 text-[#1d1d1f] text-[13px] max-w-[180px] truncate">{r.name}</td>
                       <td className="px-3 py-2.5">
-                        <span className="text-xs text-gray-500 whitespace-nowrap">{r.sector}</span>
+                        <span className="text-[11px] text-[#6e6e73] whitespace-nowrap">{r.sector}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-right text-gray-700 tabular-nums whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-right text-[#6e6e73] text-[13px] tabular-nums whitespace-nowrap">
                         {isLoading ? <Skeleton /> : (r.marketCap ? formatLargeNumber(r.marketCap) : "—")}
                       </td>
-                      <td className="px-3 py-2.5 text-right text-gray-700 tabular-nums">
+                      <td className="px-3 py-2.5 text-right text-[#6e6e73] text-[13px] tabular-nums">
                         {isLoading ? <Skeleton /> : (r.pe !== null ? r.pe.toFixed(1) : "—")}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-right font-semibold text-[#1d1d1f] tabular-nums whitespace-nowrap">
                         {isLoading ? <Skeleton /> : (r.price !== null ? formatCurrency(r.price) : "—")}
                       </td>
                       <td className="px-3 py-2.5 text-right whitespace-nowrap">
                         {isLoading ? <Skeleton /> : <ChgBadge v={r.changePercent} />}
                       </td>
-                      <td className="px-3 py-2.5 text-right text-gray-600 tabular-nums whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-right text-[#6e6e73] text-[13px] tabular-nums whitespace-nowrap">
                         {isLoading ? <Skeleton /> : formatVolume(r.volume)}
                       </td>
-                      <td className="px-3 py-2.5 text-right text-gray-600 tabular-nums">
+                      <td className="px-3 py-2.5 text-right text-[#6e6e73] text-[13px] tabular-nums">
                         {isLoading ? <Skeleton /> : (r.divYield !== null && r.divYield > 0 ? `${(r.divYield * 100).toFixed(2)}%` : "—")}
                       </td>
                     </tr>
@@ -485,15 +486,10 @@ export default function ScreenerPage() {
           </table>
         </div>
       </div>
-
-      {/* Mobile cards */}
-      <div className="sm:hidden mt-4 flex flex-col gap-3">
-        {/* Note: Desktop table is hidden on mobile via hidden sm:block above — this section is a fallback note */}
-      </div>
     </div>
   );
 }
 
 function Skeleton() {
-  return <span className="inline-block h-3.5 w-14 bg-gray-100 rounded animate-pulse" />;
+  return <span className="inline-block h-3.5 w-14 bg-black/[0.06] rounded animate-pulse" />;
 }

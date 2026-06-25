@@ -1,3 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html { scroll-behavior: smooth; }
+::selection { background: rgba(0, 113, 227, 0.15); color: inherit; }
