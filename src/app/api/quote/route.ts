@@ -2,49 +2,77 @@ import { NextRequest, NextResponse } from "next/server";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-async function yahooV7Batch(symbols: string[]) {
+// Module-level cache — survives within a warm serverless instance
+let _auth: { cookie: string; crumb: string; ts: number } | null = null;
+
+async function getYahooAuth(): Promise<{ cookie: string; crumb: string } | null> {
+  if (_auth && Date.now() - _auth.ts < 3_600_000) return _auth;
   try {
-    const fields = [
-      "shortName","longName","regularMarketPrice","regularMarketChange",
-      "regularMarketChangePercent","regularMarketOpen","regularMarketDayHigh",
-      "regularMarketDayLow","regularMarketVolume","averageDailyVolume10Day",
-      "averageDailyVolume3Month","fiftyTwoWeekHigh","fiftyTwoWeekLow",
-      "marketCap","trailingPE","trailingAnnualDividendYield","dividendYield",
-    ].join(",");
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}&fields=${fields}&lang=en-US&region=US&corsDomain=finance.yahoo.com`;
+    const r1 = await fetch("https://fc.yahoo.com", {
+      headers: { "User-Agent": UA },
+      redirect: "follow",
+      cache: "no-store",
+    });
+    const setCookie = r1.headers.get("set-cookie") ?? "";
+    const match = setCookie.match(/A3=([^;]+)/);
+    if (!match) return null;
+    const cookie = `A3=${match[1]}`;
+
+    const r2 = await fetch("https://query1.finance.yahoo.com/v1/test/getcrumb", {
+      headers: { "User-Agent": UA, Cookie: cookie },
+      cache: "no-store",
+    });
+    if (!r2.ok) return null;
+    const crumb = (await r2.text()).trim();
+    if (!crumb || crumb.startsWith("<") || crumb.length < 2) return null;
+
+    _auth = { cookie, crumb, ts: Date.now() };
+    return _auth;
+  } catch { return null; }
+}
+
+const V7_FIELDS = [
+  "shortName", "longName", "regularMarketPrice", "regularMarketChange",
+  "regularMarketChangePercent", "regularMarketOpen", "regularMarketDayHigh",
+  "regularMarketDayLow", "regularMarketVolume", "averageDailyVolume10Day",
+  "averageDailyVolume3Month", "fiftyTwoWeekHigh", "fiftyTwoWeekLow",
+  "marketCap", "trailingPE", "trailingAnnualDividendYield",
+].join(",");
+
+async function yahooV7Batch(symbols: string[], auth: { cookie: string; crumb: string }) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}&fields=${V7_FIELDS}&crumb=${encodeURIComponent(auth.crumb)}`;
     const r = await fetch(url, {
       headers: {
         "User-Agent": UA,
         Accept: "application/json",
         "Accept-Language": "en-US,en;q=0.9",
+        Cookie: auth.cookie,
         Referer: "https://finance.yahoo.com/",
       },
       cache: "no-store",
     });
     if (!r.ok) return null;
     const j = await r.json();
-    const results: Record<string, ReturnType<typeof extractV7>> = {};
-    const items: unknown[] = j?.quoteResponse?.result ?? [];
+    const items: Record<string, unknown>[] = j?.quoteResponse?.result ?? [];
+    if (!items.length) return null;
+
+    const out: Record<string, ReturnType<typeof extractV7>> = {};
     for (const item of items) {
-      const q = item as Record<string, unknown>;
-      const sym = (q.symbol ?? q.Symbol) as string;
-      if (sym) results[sym.toUpperCase()] = extractV7(q);
+      const sym = String(item.symbol ?? "").toUpperCase();
+      if (sym) out[sym] = extractV7(item);
     }
-    return Object.keys(results).length ? results : null;
+    return Object.keys(out).length ? out : null;
   } catch { return null; }
 }
 
 function extractV7(q: Record<string, unknown>) {
-  const price = (q.regularMarketPrice as number) ?? null;
-  const prev = (q.regularMarketPreviousClose as number) ?? null;
-  const change = (q.regularMarketChange as number) ?? (price && prev ? price - prev : null);
-  const changePct = (q.regularMarketChangePercent as number) ?? (change && prev ? (change / prev) * 100 : null);
-  const divYield =
-    (q.trailingAnnualDividendYield as number | null) ??
-    (q.dividendYield as number | null) ??
-    null;
+  const price = (q.regularMarketPrice as number | null) ?? null;
+  const prev = (q.regularMarketPreviousClose as number | null) ?? null;
+  const change = (q.regularMarketChange as number | null) ?? (price && prev ? price - prev : null);
+  const changePct = (q.regularMarketChangePercent as number | null) ?? (change && prev ? (change / prev) * 100 : null);
   return {
-    name: ((q.shortName ?? q.longName ?? q.symbol) as string) || "",
+    name: String(q.shortName ?? q.longName ?? ""),
     price,
     open: (q.regularMarketOpen as number | null) ?? null,
     change,
@@ -53,14 +81,11 @@ function extractV7(q: Record<string, unknown>) {
     weekLow52: (q.fiftyTwoWeekLow as number | null) ?? null,
     marketCap: (q.marketCap as number | null) ?? null,
     volume: (q.regularMarketVolume as number | null) ?? null,
-    avgVolume:
-      (q.averageDailyVolume10Day as number | null) ??
-      (q.averageDailyVolume3Month as number | null) ??
-      null,
+    avgVolume: (q.averageDailyVolume10Day as number | null) ?? (q.averageDailyVolume3Month as number | null) ?? null,
     dayHigh: (q.regularMarketDayHigh as number | null) ?? null,
     dayLow: (q.regularMarketDayLow as number | null) ?? null,
     pe: (q.trailingPE as number | null) ?? null,
-    divYield,
+    divYield: (q.trailingAnnualDividendYield as number | null) ?? null,
   };
 }
 
@@ -68,16 +93,16 @@ async function yahooChart(symbol: string) {
   try {
     const r = await fetch(
       `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1d&includePrePost=false`,
-      { headers: { "User-Agent": UA, Accept: "application/json", "Accept-Language": "en-US,en;q=0.9" }, cache: "no-store" }
+      { headers: { "User-Agent": UA, Accept: "application/json" }, cache: "no-store" }
     );
     if (!r.ok) return null;
     const j = await r.json();
     const meta = j?.chart?.result?.[0]?.meta;
-    if (!meta || !meta.regularMarketPrice) return null;
+    if (!meta?.regularMarketPrice) return null;
     const price = meta.regularMarketPrice as number;
     const prev = (meta.chartPreviousClose ?? meta.regularMarketPreviousClose ?? meta.previousClose) as number | undefined;
     return {
-      name: (meta.shortName ?? meta.longName ?? symbol) as string,
+      name: String(meta.shortName ?? meta.longName ?? symbol),
       price,
       open: (meta.regularMarketOpen ?? null) as number | null,
       change: prev ? price - prev : null as number | null,
@@ -117,17 +142,18 @@ async function stooqQuote(ticker: string) {
       open: isNaN(open) ? null : open,
       change: close - open,
       changePercent: ((close - open) / open) * 100,
-      weekHigh52: null as number | null,
-      weekLow52: null as number | null,
-      marketCap: null as number | null,
-      volume: null as number | null,
-      avgVolume: null as number | null,
-      dayHigh: null as number | null,
-      dayLow: null as number | null,
-      pe: null as number | null,
+      weekHigh52: null as number | null, weekLow52: null as number | null,
+      marketCap: null as number | null, volume: null as number | null,
+      avgVolume: null as number | null, dayHigh: null as number | null,
+      dayLow: null as number | null, pe: null as number | null,
       divYield: null as number | null,
     };
   } catch { return null; }
+}
+
+function toResult(t: string, data: ReturnType<typeof extractV7> | Awaited<ReturnType<typeof yahooChart>> | Awaited<ReturnType<typeof stooqQuote>>) {
+  if (!data) return { ticker: t, name: t, price: null, open: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, volume: null, avgVolume: null, dayHigh: null, dayLow: null, pe: null, divYield: null, error: "Not found" };
+  return { ticker: t, name: data.name || t, price: data.price, open: data.open, change: data.change, changePercent: data.changePercent, weekHigh52: data.weekHigh52, weekLow52: data.weekLow52, marketCap: data.marketCap, volume: data.volume, avgVolume: data.avgVolume, dayHigh: data.dayHigh, dayLow: data.dayLow, pe: data.pe, divYield: data.divYield };
 }
 
 export async function GET(request: NextRequest) {
@@ -136,29 +162,19 @@ export async function GET(request: NextRequest) {
 
   const tickers = ticker.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
 
-  // Try batch v7 first for all tickers
-  const v7Map = await yahooV7Batch(tickers);
+  // Get Yahoo auth (crumb + cookie) once for the whole batch
+  const auth = await getYahooAuth();
+
+  // Batch all tickers via v7 (authenticated)
+  const v7Map = auth ? await yahooV7Batch(tickers, auth) : null;
 
   const results = await Promise.all(
     tickers.map(async (t) => {
-      // Use v7 result if available and has a price
       const v7 = v7Map?.[t];
-      const data = (v7 && v7.price !== null ? v7 : null)
-        ?? (await yahooChart(t))
-        ?? (await stooqQuote(t));
-
-      if (!data) return {
-        ticker: t, name: t, price: null, open: null, change: null, changePercent: null,
-        weekHigh52: null, weekLow52: null, marketCap: null, volume: null, avgVolume: null,
-        dayHigh: null, dayLow: null, pe: null, divYield: null, error: "Not found",
-      };
-      return {
-        ticker: t, name: data.name, price: data.price, open: data.open,
-        change: data.change, changePercent: data.changePercent,
-        weekHigh52: data.weekHigh52, weekLow52: data.weekLow52,
-        marketCap: data.marketCap, volume: data.volume, avgVolume: data.avgVolume,
-        dayHigh: data.dayHigh, dayLow: data.dayLow, pe: data.pe, divYield: data.divYield,
-      };
+      if (v7 && v7.price !== null) return toResult(t, v7);
+      // Fallbacks for any ticker v7 missed
+      const data = (await yahooChart(t)) ?? (await stooqQuote(t));
+      return toResult(t, data);
     })
   );
 
