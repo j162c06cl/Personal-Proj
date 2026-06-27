@@ -34,6 +34,7 @@ interface ScreenerRow {
   pe: number | null;
   divYield: number | null;
   relVolume: number | null;
+  floatShares?: number | null;
 }
 
 type SortKey = "ticker" | "name" | "price" | "changePercent" | "volume" | "relVolume" | "marketCap" | "pe" | "divYield";
@@ -264,13 +265,107 @@ export default function ScreenerPage() {
 
       let rows: ScreenerRow[] = data.results ?? [];
 
-      // Apply relative volume filter client-side (Yahoo screener has no native ratio filter)
+      // Drop stocks with negligible volume (warrants, thin issues)
+      rows = rows.filter((r) => r.volume === null || r.volume >= 10_000);
+
+      // ── Client-side filters ──────────────────────────────────────────────────
+      // Yahoo screener only reliably applies: exchange + percentchange filters.
+      // Everything else is post-filtered here from the returned quote data.
+
+      if (filters.price) {
+        rows = rows.filter((r) => {
+          if (r.price === null) return false;
+          switch (filters.price) {
+            case "1-20":    return r.price >= 1    && r.price < 20;
+            case "u5":      return r.price < 5;
+            case "5-10":    return r.price >= 5    && r.price < 10;
+            case "u25":     return r.price < 25;
+            case "25-100":  return r.price >= 25   && r.price < 100;
+            case "100-250": return r.price >= 100  && r.price < 250;
+            case "250-500": return r.price >= 250  && r.price < 500;
+            case "o500":    return r.price >= 500;
+            default:        return true;
+          }
+        });
+      }
+
+      if (filters.change) {
+        rows = rows.filter((r) => {
+          const c = r.changePercent;
+          if (c === null) return false;
+          switch (filters.change) {
+            case "u20plus": return c > 20;
+            case "u10plus": return c > 10;
+            case "u5plus":  return c > 5;
+            case "uu":      return c > 3;
+            case "u":       return c > 1;
+            case "flat":    return c >= -1 && c <= 1;
+            case "d":       return c < -1;
+            case "dd":      return c < -3;
+            default:        return true;
+          }
+        });
+      }
+
+      if (filters.marketCap) {
+        rows = rows.filter((r) => {
+          const m = r.marketCap;
+          if (m === null) return false;
+          switch (filters.marketCap) {
+            case "mega":  return m >= 200e9;
+            case "large": return m >= 10e9  && m < 200e9;
+            case "mid":   return m >= 2e9   && m < 10e9;
+            case "small": return m >= 300e6 && m < 2e9;
+            case "micro": return m >= 50e6  && m < 300e6;
+            case "nano":  return m < 50e6;
+            default:      return true;
+          }
+        });
+      }
+
+      if (filters.pe) {
+        rows = rows.filter((r) => {
+          const p = r.pe;
+          switch (filters.pe) {
+            case "u10":   return p !== null && p > 0   && p < 10;
+            case "10-20": return p !== null && p >= 10  && p < 20;
+            case "20-30": return p !== null && p >= 20  && p < 30;
+            case "30-50": return p !== null && p >= 30  && p < 50;
+            case "o50":   return p !== null && p >= 50;
+            case "neg":   return p !== null && p < 0;
+            default:      return true;
+          }
+        });
+      }
+
+      if (filters.divYield) {
+        rows = rows.filter((r) => {
+          const d = r.divYield;
+          switch (filters.divYield) {
+            case "none": return d === null || d === 0;
+            case "u1":   return d !== null && d > 0     && d < 0.01;
+            case "1-2":  return d !== null && d >= 0.01 && d < 0.02;
+            case "2-4":  return d !== null && d >= 0.02 && d < 0.04;
+            case "o4":   return d !== null && d >= 0.04;
+            default:     return true;
+          }
+        });
+      }
+
       if (filters.relVolume) {
         const thresholds: Record<string, number> = {
           "o10": 10, "o5": 5, "o3": 3, "o2": 2, "o1.5": 1.5,
         };
         const min = thresholds[filters.relVolume];
         if (min) rows = rows.filter((r) => r.relVolume !== null && r.relVolume >= min);
+      }
+
+      if (filters.float) {
+        const floatMax: Record<string, number> = {
+          "u1": 1e6, "u5": 5e6, "u10": 10e6, "u20": 20e6, "u50": 50e6, "u100": 100e6,
+        };
+        const max = floatMax[filters.float];
+        if (max) rows = rows.filter((r) => r.floatShares == null || r.floatShares <= max);
       }
 
       setResults(rows);

@@ -28,7 +28,8 @@ async function getAuth(): Promise<{ cookie: string; crumb: string } | null> {
   } catch { return null; }
 }
 
-// Convert our filter params to Yahoo Finance screener query operands
+// Yahoo Finance screener uses short field aliases and lowercase operators —
+// completely different from the quote API field names.
 function buildOperands(params: Record<string, string>): unknown[] {
   const ops: unknown[] = [];
 
@@ -47,80 +48,70 @@ function buildOperands(params: Record<string, string>): unknown[] {
       "Real Estate":      "Real Estate",
     };
     const yf = map[params.sector];
-    if (yf) ops.push({ operator: "EQ", operands: ["sector", yf] });
+    if (yf) ops.push({ operator: "eq", operands: ["sector", yf] });
   }
 
   if (params.marketCap) {
     const map: Record<string, unknown[]> = {
-      "mega":  [{ operator: "GT",   operands: ["marketCap", 200_000_000_000] }],
-      "large": [{ operator: "BTWN", operands: ["marketCap", 10_000_000_000, 200_000_000_000] }],
-      "mid":   [{ operator: "BTWN", operands: ["marketCap", 2_000_000_000,  10_000_000_000] }],
-      "small": [{ operator: "BTWN", operands: ["marketCap", 300_000_000,     2_000_000_000] }],
-      "micro": [{ operator: "BTWN", operands: ["marketCap", 50_000_000,        300_000_000] }],
-      "nano":  [{ operator: "LT",   operands: ["marketCap", 50_000_000] }],
+      "mega":  [{ operator: "gt",   operands: ["intradaymarketcap", 200_000_000_000] }],
+      "large": [{ operator: "btwn", operands: ["intradaymarketcap", 10_000_000_000, 200_000_000_000] }],
+      "mid":   [{ operator: "btwn", operands: ["intradaymarketcap", 2_000_000_000,  10_000_000_000] }],
+      "small": [{ operator: "btwn", operands: ["intradaymarketcap", 300_000_000,     2_000_000_000] }],
+      "micro": [{ operator: "btwn", operands: ["intradaymarketcap", 50_000_000,        300_000_000] }],
+      "nano":  [{ operator: "lt",   operands: ["intradaymarketcap", 50_000_000] }],
     };
     ops.push(...(map[params.marketCap] ?? []));
   }
 
   if (params.price) {
     const map: Record<string, unknown> = {
-      "1-20":    { operator: "BTWN", operands: ["regularMarketPrice", 1,   20]  },
-      "u5":      { operator: "LT",   operands: ["regularMarketPrice", 5]        },
-      "5-10":    { operator: "BTWN", operands: ["regularMarketPrice", 5,   10]  },
-      "u25":     { operator: "LT",   operands: ["regularMarketPrice", 25]       },
-      "25-100":  { operator: "BTWN", operands: ["regularMarketPrice", 25,  100] },
-      "100-250": { operator: "BTWN", operands: ["regularMarketPrice", 100, 250] },
-      "250-500": { operator: "BTWN", operands: ["regularMarketPrice", 250, 500] },
-      "o500":    { operator: "GT",   operands: ["regularMarketPrice", 500]      },
+      "1-20":    { operator: "btwn", operands: ["price", 1,   20]  },
+      "u5":      { operator: "lt",   operands: ["price", 5]        },
+      "5-10":    { operator: "btwn", operands: ["price", 5,   10]  },
+      "u25":     { operator: "lt",   operands: ["price", 25]       },
+      "25-100":  { operator: "btwn", operands: ["price", 25,  100] },
+      "100-250": { operator: "btwn", operands: ["price", 100, 250] },
+      "250-500": { operator: "btwn", operands: ["price", 250, 500] },
+      "o500":    { operator: "gt",   operands: ["price", 500]      },
     };
     if (map[params.price]) ops.push(map[params.price]);
   }
 
   if (params.change) {
     const map: Record<string, unknown> = {
-      "u20plus": { operator: "GT",   operands: ["regularMarketChangePercent", 20]    },
-      "u10plus": { operator: "GT",   operands: ["regularMarketChangePercent", 10]    },
-      "u5plus":  { operator: "GT",   operands: ["regularMarketChangePercent", 5]     },
-      "uu":      { operator: "GT",   operands: ["regularMarketChangePercent", 3]     },
-      "u":       { operator: "GT",   operands: ["regularMarketChangePercent", 1]     },
-      "flat":    { operator: "BTWN", operands: ["regularMarketChangePercent", -1, 1] },
-      "d":       { operator: "LT",   operands: ["regularMarketChangePercent", -1]    },
-      "dd":      { operator: "LT",   operands: ["regularMarketChangePercent", -3]    },
+      "u20plus": { operator: "gt",   operands: ["percentchange", 20]    },
+      "u10plus": { operator: "gt",   operands: ["percentchange", 10]    },
+      "u5plus":  { operator: "gt",   operands: ["percentchange", 5]     },
+      "uu":      { operator: "gt",   operands: ["percentchange", 3]     },
+      "u":       { operator: "gt",   operands: ["percentchange", 1]     },
+      "flat":    { operator: "btwn", operands: ["percentchange", -1, 1] },
+      "d":       { operator: "lt",   operands: ["percentchange", -1]    },
+      "dd":      { operator: "lt",   operands: ["percentchange", -3]    },
     };
     if (map[params.change]) ops.push(map[params.change]);
   }
 
-  if (params.float) {
-    const map: Record<string, unknown> = {
-      "u1":   { operator: "LT", operands: ["floatShares",   1_000_000] },
-      "u5":   { operator: "LT", operands: ["floatShares",   5_000_000] },
-      "u10":  { operator: "LT", operands: ["floatShares",  10_000_000] },
-      "u20":  { operator: "LT", operands: ["floatShares",  20_000_000] },
-      "u50":  { operator: "LT", operands: ["floatShares",  50_000_000] },
-      "u100": { operator: "LT", operands: ["floatShares", 100_000_000] },
-    };
-    if (map[params.float]) ops.push(map[params.float]);
-  }
+  // float and relVolume are applied client-side (not valid screener filter fields)
 
   if (params.pe) {
     const map: Record<string, unknown> = {
-      "u10":   { operator: "BTWN", operands: ["trailingPE", 0.01, 10] },
-      "10-20": { operator: "BTWN", operands: ["trailingPE", 10,   20] },
-      "20-30": { operator: "BTWN", operands: ["trailingPE", 20,   30] },
-      "30-50": { operator: "BTWN", operands: ["trailingPE", 30,   50] },
-      "o50":   { operator: "GT",   operands: ["trailingPE", 50]       },
-      "neg":   { operator: "LT",   operands: ["trailingPE", 0]        },
+      "u10":   { operator: "btwn", operands: ["pe_ratio", 0.01, 10] },
+      "10-20": { operator: "btwn", operands: ["pe_ratio", 10,   20] },
+      "20-30": { operator: "btwn", operands: ["pe_ratio", 20,   30] },
+      "30-50": { operator: "btwn", operands: ["pe_ratio", 30,   50] },
+      "o50":   { operator: "gt",   operands: ["pe_ratio", 50]       },
+      "neg":   { operator: "lt",   operands: ["pe_ratio", 0]        },
     };
     if (map[params.pe]) ops.push(map[params.pe]);
   }
 
   if (params.divYield) {
     const map: Record<string, unknown> = {
-      "none": { operator: "EQ",   operands: ["trailingAnnualDividendYield", 0]               },
-      "u1":   { operator: "BTWN", operands: ["trailingAnnualDividendYield", 0.0001, 0.01]    },
-      "1-2":  { operator: "BTWN", operands: ["trailingAnnualDividendYield", 0.01,   0.02]    },
-      "2-4":  { operator: "BTWN", operands: ["trailingAnnualDividendYield", 0.02,   0.04]    },
-      "o4":   { operator: "GT",   operands: ["trailingAnnualDividendYield", 0.04]             },
+      "none": { operator: "eq",   operands: ["annualdividendyield", 0]             },
+      "u1":   { operator: "btwn", operands: ["annualdividendyield", 0.0001, 0.01]  },
+      "1-2":  { operator: "btwn", operands: ["annualdividendyield", 0.01,   0.02]  },
+      "2-4":  { operator: "btwn", operands: ["annualdividendyield", 0.02,   0.04]  },
+      "o4":   { operator: "gt",   operands: ["annualdividendyield", 0.04]           },
     };
     if (map[params.divYield]) ops.push(map[params.divYield]);
   }
@@ -139,19 +130,36 @@ export async function GET(request: NextRequest) {
 
   const operands = buildOperands(params);
 
-  // Default when no filters: top 100 by volume (most active equities)
-  const query = operands.length > 0
-    ? { operator: "AND", operands }
-    : { operator: "AND", operands: [{ operator: "GT", operands: ["regularMarketVolume", 500_000] }] };
+  // Always restrict to major US exchanges (NMS=NASDAQ, NYQ=NYSE, NGM/NCM=NASDAQ tiers, ASE=NYSE American)
+  // This is the only reliable way to exclude OTC/pink-sheet stocks
+  const exchangeFilter = {
+    operator: "or",
+    operands: [
+      { operator: "eq", operands: ["exchange", "NMS"] },
+      { operator: "eq", operands: ["exchange", "NYQ"] },
+      { operator: "eq", operands: ["exchange", "NGM"] },
+      { operator: "eq", operands: ["exchange", "NCM"] },
+      { operator: "eq", operands: ["exchange", "ASE"] },
+    ],
+  };
 
+  const baseOps = [exchangeFilter];
+
+  // Default when no filters: top US exchange-listed stocks by market cap
+  const allOps = operands.length > 0
+    ? [...baseOps, ...operands]
+    : [...baseOps, { operator: "gt", operands: ["intradaymarketcap", 1_000_000_000] }];
+
+  const query = { operator: "AND", operands: allOps };
+
+  // Yahoo screener sort fields use short aliases, NOT the long quote field names
   const body = {
     offset: 0,
-    size: 100,
-    sortField: "regularMarketVolume",
+    size: 250,
+    sortField: "percentchange",
     sortType: "DESC",
     quoteType: "EQUITY",
-    topOperator: "AND",
-    query,
+    query: query,
     userId: "",
     userIdType: "guid",
   };
@@ -175,7 +183,8 @@ export async function GET(request: NextRequest) {
     });
 
     if (!resp.ok) {
-      return NextResponse.json({ results: [], error: `Yahoo screener returned ${resp.status}` });
+      const body = await resp.text().catch(() => "");
+      return NextResponse.json({ results: [], error: `Yahoo screener returned ${resp.status}`, detail: body.slice(0, 500) });
     }
 
     const json = await resp.json();
