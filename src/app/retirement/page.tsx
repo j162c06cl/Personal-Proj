@@ -18,13 +18,13 @@ function InputRow({ label, value, onChange, min, max, step, prefix, suffix }: {
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">{label}</label>
+      <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">{label}</label>
       <div className="flex items-center gap-1.5">
-        {prefix && <span className="text-[#6e6e73] text-[13px] font-medium">{prefix}</span>}
+        {prefix && <span className="text-[#525252] text-[13px] font-medium">{prefix}</span>}
         <input type="number" min={min} max={max} step={step ?? 1} value={value}
           onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-          className="w-full bg-black/[0.05] border-none rounded-[10px] px-3 py-2.5 text-[13px] text-[#1d1d1f] focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] transition-all" />
-        {suffix && <span className="text-[#6e6e73] text-[13px] font-medium">{suffix}</span>}
+          className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2.5 text-[13px] text-[#0A0A0A] focus:outline-none focus:border-[#1F65F0] focus:bg-white focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all" />
+        {suffix && <span className="text-[#525252] text-[13px] font-medium">{suffix}</span>}
       </div>
     </div>
   );
@@ -32,15 +32,15 @@ function InputRow({ label, value, onChange, min, max, step, prefix, suffix }: {
 
 function StatCard({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={`rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] ${highlight ? "bg-[#e8f2ff]" : "bg-white"}`}>
-      <p className="text-[11px] font-semibold text-[#6e6e73] mb-1">{label}</p>
-      <p className={`text-[18px] font-bold ${highlight ? "text-[#0071e3]" : "text-[#1d1d1f]"}`}>{value}</p>
-      {sub && <p className="text-[10px] text-[#6e6e73] mt-0.5">{sub}</p>}
+    <div className={`rounded-2xl p-4 border ${highlight ? "bg-[#EBF2FF] border-[#1F65F0]/20" : "bg-white border-[#E5E5E5]"}`}>
+      <p className="text-[11px] font-semibold text-[#525252] mb-1 uppercase tracking-wider">{label}</p>
+      <p className={`text-[18px] font-bold ${highlight ? "text-[#1F65F0]" : "text-[#0A0A0A]"}`}>{value}</p>
+      {sub && <p className="text-[10px] text-[#525252] mt-0.5">{sub}</p>}
     </div>
   );
 }
 
-const CHART_COLORS = { personal: "#34c759", cpf: "#0071e3", total: "#ff9f0a" };
+const CHART_COLORS = { personal: "#22C55E", cpf: "#1F65F0", total: "#F59E0B" };
 
 function formatYAxis(v: number) {
   if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
@@ -50,9 +50,9 @@ function formatYAxis(v: number) {
 
 const tooltipStyle = {
   backgroundColor: "#ffffff",
-  border: "none",
+  border: "1px solid #E5E5E5",
   borderRadius: 12,
-  boxShadow: "0 4px 20px rgba(0,0,0,0.09), 0 0 1px rgba(0,0,0,0.05)",
+  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
   padding: "8px 12px",
 };
 
@@ -67,17 +67,22 @@ export default function RetirementPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-[28px] font-bold tracking-tight text-[#1d1d1f]">Retirement Planner</h1>
-        <p className="text-[13px] text-[#6e6e73] mt-1">Singapore-focused retirement calculator with CPF projection</p>
+        <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Retirement Planner</h1>
+        <p className="text-[14px] text-[#525252] mt-1">Singapore-focused retirement calculator with CPF projection</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Inputs */}
-        <div className="lg:col-span-1 bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] p-5">
-          <div className="flex gap-2 mb-5">
+        <div className="lg:col-span-1 bg-white rounded-2xl border border-[#E5E5E5] p-5">
+          {/* Tab selector */}
+          <div className="flex bg-[#EBEBEB] rounded-xl p-1 gap-0.5 mb-5">
             {(["basic", "cpf"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`px-3 py-1.5 rounded-[8px] text-[13px] font-medium transition-all duration-150 ${tab === t ? "bg-[#0071e3] text-white" : "bg-black/[0.05] text-[#1d1d1f] hover:bg-black/[0.08]"}`}>
+                className={`flex-1 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                  tab === t
+                    ? "bg-white text-[#0A0A0A] font-semibold shadow-sm border border-[#E5E5E5]"
+                    : "text-[#525252] hover:text-[#0A0A0A]"
+                }`}>
                 {t === "basic" ? "Personal" : "CPF"}
               </button>
             ))}
@@ -97,7 +102,7 @@ export default function RetirementPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              <p className="text-[11px] text-[#6e6e73] bg-black/[0.04] rounded-[10px] p-2.5">CPF interest: OA 2.5% · SA 4% · MA 4%</p>
+              <p className="text-[11px] text-[#525252] bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl p-2.5">CPF interest: OA 2.5% · SA 4% · MA 4%</p>
               <InputRow label="OA Balance" value={inputs.cpfOA} onChange={set("cpfOA")} min={0} prefix="$" />
               <InputRow label="SA Balance" value={inputs.cpfSA} onChange={set("cpfSA")} min={0} prefix="$" />
               <InputRow label="MA Balance" value={inputs.cpfMA} onChange={set("cpfMA")} min={0} prefix="$" />
@@ -116,28 +121,28 @@ export default function RetirementPage() {
           </div>
 
           {/* FIRE */}
-          <div className={`rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] ${result.isFireAchieved ? "bg-[#e8f2ff]" : "bg-white"}`}>
+          <div className={`rounded-2xl p-4 border ${result.isFireAchieved ? "bg-[#EBF2FF] border-[#1F65F0]/20" : "bg-white border-[#E5E5E5]"}`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[13px] font-semibold text-[#1d1d1f]">FIRE Number <span className="text-[#6e6e73] font-normal text-[11px]">(25× annual expenses)</span></p>
-                <p className="text-[22px] font-bold text-[#0071e3] mt-1">{formatLargeNumber(result.fireNumber)}</p>
+                <p className="text-[13px] font-semibold text-[#0A0A0A]">FIRE Number <span className="text-[#525252] font-normal text-[11px]">(25× annual expenses)</span></p>
+                <p className="text-[22px] font-bold text-[#1F65F0] mt-1">{formatLargeNumber(result.fireNumber)}</p>
               </div>
               <div className="text-right">
-                <p className={`text-[13px] font-semibold ${result.isFireAchieved ? "text-[#0071e3]" : "text-amber-600"}`}>
+                <p className={`text-[13px] font-semibold ${result.isFireAchieved ? "text-[#1F65F0]" : "text-amber-600"}`}>
                   {result.isFireAchieved ? "✓ FIRE Achieved" : "Not Yet Achieved"}
                 </p>
-                <p className="text-[11px] text-[#6e6e73] mt-1">
+                <p className="text-[11px] text-[#525252] mt-1">
                   {result.isFireAchieved
                     ? `${formatLargeNumber(result.totalAtRetirement - result.fireNumber)} surplus`
                     : `${formatLargeNumber(result.fireNumber - result.totalAtRetirement)} short`}
                 </p>
               </div>
             </div>
-            <div className="mt-3 bg-black/[0.08] rounded-full h-2">
-              <div className="bg-[#0071e3] h-2 rounded-full transition-all"
+            <div className="mt-3 bg-[#EBEBEB] rounded-full h-2">
+              <div className="bg-[#1F65F0] h-2 rounded-full transition-all"
                 style={{ width: `${Math.min(100, (result.totalAtRetirement / result.fireNumber) * 100).toFixed(1)}%` }} />
             </div>
-            <p className="text-[11px] text-[#6e6e73] mt-1">{Math.min(100, (result.totalAtRetirement / result.fireNumber) * 100).toFixed(1)}% of FIRE target</p>
+            <p className="text-[11px] text-[#525252] mt-1">{Math.min(100, (result.totalAtRetirement / result.fireNumber) * 100).toFixed(1)}% of FIRE target</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -148,17 +153,17 @@ export default function RetirementPage() {
       </div>
 
       {/* Chart */}
-      <div className="mt-6 bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] p-5">
-        <h2 className="text-[15px] font-semibold text-[#1d1d1f] mb-4">Portfolio Growth Over Time</h2>
+      <div className="mt-6 bg-white rounded-2xl border border-[#E5E5E5] p-5">
+        <h2 className="text-[15px] font-semibold text-[#0A0A0A] mb-4">Portfolio Growth Over Time</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.04)" />
-            <XAxis dataKey="age" stroke="#aeaeb2" tick={{ fontSize: 11 }}
-              label={{ value: "Age", position: "insideBottom", offset: -2, fill: "#aeaeb2", fontSize: 11 }} />
-            <YAxis stroke="#aeaeb2" tick={{ fontSize: 11 }} tickFormatter={formatYAxis} width={60} />
+            <XAxis dataKey="age" stroke="#A3A3A3" tick={{ fontSize: 11 }}
+              label={{ value: "Age", position: "insideBottom", offset: -2, fill: "#A3A3A3", fontSize: 11 }} />
+            <YAxis stroke="#A3A3A3" tick={{ fontSize: 11 }} tickFormatter={formatYAxis} width={60} />
             <Tooltip
               contentStyle={tooltipStyle}
-              labelStyle={{ color: "#6e6e73", fontSize: 12 }}
+              labelStyle={{ color: "#525252", fontSize: 12 }}
               formatter={(v) => formatLargeNumber(v as number)}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -167,34 +172,34 @@ export default function RetirementPage() {
             <Line type="monotone" dataKey="total" stroke={CHART_COLORS.total} dot={false} strokeWidth={2.5} name="Total" />
           </LineChart>
         </ResponsiveContainer>
-        <p className="text-[11px] text-[#6e6e73] mt-2 text-center">Age {inputs.currentAge} → {inputs.lifeExpectancy} · retirement at {inputs.retirementAge}</p>
+        <p className="text-[11px] text-[#525252] mt-2 text-center">Age {inputs.currentAge} → {inputs.lifeExpectancy} · retirement at {inputs.retirementAge}</p>
       </div>
 
       {/* Scenarios */}
-      <div className="mt-6 bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] p-5">
-        <h2 className="text-[15px] font-semibold text-[#1d1d1f] mb-4">Scenario Comparison</h2>
+      <div className="mt-6 bg-white rounded-2xl border border-[#E5E5E5] p-5">
+        <h2 className="text-[15px] font-semibold text-[#0A0A0A] mb-4">Scenario Comparison</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {scenarios.map((s) => {
             const isActive = s.rate === inputs.expectedReturn;
             return (
               <div key={s.label} onClick={() => setInputs((p) => ({ ...p, expectedReturn: s.rate }))}
-                className={`rounded-2xl p-4 cursor-pointer transition-all duration-150 ${
+                className={`rounded-2xl p-4 cursor-pointer transition-all duration-150 border ${
                   isActive
-                    ? "bg-[#e8f2ff] shadow-[0_4px_20px_rgba(0,113,227,0.15)]"
-                    : "bg-[#f9f9f9] hover:bg-[#f0f0f2] shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+                    ? "bg-[#EBF2FF] border-[#1F65F0]/30 shadow-[0_4px_16px_rgba(31,101,240,0.12)]"
+                    : "bg-[#F7F7F8] border-[#E5E5E5] hover:border-[#C8C8C8]"
                 }`}>
                 <div className="flex justify-between items-start mb-3">
-                  <p className="font-semibold text-[#1d1d1f] text-[13px]">{s.label}</p>
-                  <span className="text-[10px] font-semibold bg-black/[0.06] text-[#6e6e73] px-2 py-0.5 rounded-full">{s.rate}% p.a.</span>
+                  <p className="font-semibold text-[#0A0A0A] text-[13px]">{s.label}</p>
+                  <span className="text-[10px] font-semibold bg-white border border-[#E5E5E5] text-[#525252] px-2 py-0.5 rounded-full">{s.rate}% p.a.</span>
                 </div>
-                <p className="text-[20px] font-bold text-[#0071e3]">{formatLargeNumber(s.result.totalAtRetirement)}</p>
-                <p className="text-[11px] text-[#6e6e73] mt-1">Monthly income: {formatCurrency(s.result.monthlyIncome)}</p>
-                <p className="text-[11px] text-[#6e6e73]">FIRE: {s.result.isFireAchieved ? "✓ Achieved" : "Not reached"}</p>
+                <p className="text-[20px] font-bold text-[#1F65F0]">{formatLargeNumber(s.result.totalAtRetirement)}</p>
+                <p className="text-[11px] text-[#525252] mt-1">Monthly income: {formatCurrency(s.result.monthlyIncome)}</p>
+                <p className="text-[11px] text-[#525252]">FIRE: {s.result.isFireAchieved ? "✓ Achieved" : "Not reached"}</p>
               </div>
             );
           })}
         </div>
-        <p className="text-[11px] text-[#6e6e73] mt-3">Click a scenario to apply it.</p>
+        <p className="text-[11px] text-[#525252] mt-3">Click a scenario to apply it.</p>
       </div>
     </div>
   );

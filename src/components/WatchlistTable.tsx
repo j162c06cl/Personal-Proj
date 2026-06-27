@@ -7,14 +7,15 @@ import { formatCurrency, formatLargeNumber, formatVolume } from "@/lib/formatter
 interface Props {
   entries: WatchlistEntryWithData[];
   onDelete?: (ticker: string) => void;
+  editMode?: boolean;
 }
 
 function Change({ change, changePercent }: { change: number | null; changePercent: number | null }) {
-  if (change === null || changePercent === null) return <span className="text-[#aeaeb2]">—</span>;
+  if (change === null || changePercent === null) return <span className="text-[#A3A3A3]">—</span>;
   const up = change >= 0;
   const s = up ? "+" : "";
   return (
-    <span className={`font-semibold tabular-nums ${up ? "text-[#34c759]" : "text-[#ff3b30]"}`}>
+    <span className={`font-semibold tabular-nums ${up ? "text-[#22C55E]" : "text-[#EF4444]"}`}>
       {s}{formatCurrency(change)}
       <span className="text-[11px] font-medium ml-1 opacity-75">({s}{changePercent.toFixed(2)}%)</span>
     </span>
@@ -22,7 +23,7 @@ function Change({ change, changePercent }: { change: number | null; changePercen
 }
 
 function Nil() {
-  return <span className="text-[#aeaeb2]">—</span>;
+  return <span className="text-[#A3A3A3]">—</span>;
 }
 
 function TrashIcon() {
@@ -41,33 +42,33 @@ function WeekRangeBar({ low, high, current }: { low: number | null; high: number
   const fromHigh = ((high - current) / high) * 100;
   return (
     <div className="min-w-[130px]">
-      <div className="flex justify-between text-[11px] text-[#aeaeb2] mb-1 tabular-nums leading-none">
+      <div className="flex justify-between text-[11px] text-[#A3A3A3] mb-1 tabular-nums leading-none">
         <span>{formatCurrency(low)}</span>
         <span>{formatCurrency(high)}</span>
       </div>
-      <div className="relative h-1.5 bg-black/[0.06] rounded-full">
+      <div className="relative h-1.5 bg-[#EBEBEB] rounded-full">
         <div
-          className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-300 to-[#0071e3] rounded-full"
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-300 to-[#1F65F0] rounded-full"
           style={{ width: `${pct}%` }}
         />
         <div
-          className="absolute top-1/2 -translate-y-1/2 w-2 h-2 bg-white border-2 border-[#6e6e73] rounded-full shadow-sm"
+          className="absolute top-1/2 -translate-y-1/2 w-2 h-2 bg-white border-2 border-[#525252] rounded-full shadow-sm"
           style={{ left: `calc(${pct}% - 4px)` }}
         />
       </div>
-      <p className="text-[11px] text-[#aeaeb2] mt-0.5 text-right leading-none">
+      <p className="text-[11px] text-[#A3A3A3] mt-0.5 text-right leading-none">
         {fromHigh.toFixed(1)}% from high
       </p>
     </div>
   );
 }
 
-export default function WatchlistTable({ entries, onDelete }: Props) {
+export default function WatchlistTable({ entries, onDelete, editMode }: Props) {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   if (entries.length === 0) {
     return (
-      <div className="text-center py-16 text-[#6e6e73]">
+      <div className="text-center py-16 text-[#525252]">
         <p className="text-[13px]">No stocks in this watchlist.</p>
         <p className="text-[11px] mt-1">Add a ticker using the input above.</p>
       </div>
@@ -90,36 +91,36 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden md:block overflow-x-auto rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)]">
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-[#E5E5E5]">
         <table className="w-full text-sm bg-white" style={{ minWidth: 1120 }}>
           <thead>
-            <tr className="text-left border-b border-black/[0.06] bg-[#f9f9f9]">
-              <th className="px-4 py-3 text-[11px] font-semibold text-[#6e6e73] sticky left-0 bg-[#f9f9f9] z-10">Ticker</th>
-              <th className="px-4 py-3 text-[11px] font-semibold text-[#6e6e73]">Name</th>
-              <th className="px-4 py-3 text-[11px] font-semibold text-[#6e6e73] text-right">Price</th>
-              <th className="px-4 py-3 text-[11px] font-semibold text-[#6e6e73] text-right">Change</th>
-              <th className="px-4 py-3 text-[11px] font-semibold text-[#6e6e73] text-right">Open / Day Range</th>
-              <th className="px-4 py-3 text-[11px] font-semibold text-[#6e6e73] text-right">Vol / Avg Vol</th>
-              <th className="px-4 py-3 text-[11px] font-semibold text-[#6e6e73]">52W Range</th>
-              <th className="px-4 py-3 text-[11px] font-semibold text-[#6e6e73] text-right">Mkt Cap</th>
-              <th className="px-4 py-3 text-[11px] font-semibold text-[#6e6e73] text-right">P/E</th>
-              <th className="px-4 py-3 text-[11px] font-semibold text-[#6e6e73] text-right">Div %</th>
+            <tr className="text-left border-b border-[#E5E5E5] bg-[#F7F7F8]">
+              <th className="px-4 py-3 text-[11px] font-semibold text-[#525252] sticky left-0 bg-[#F7F7F8] z-10 uppercase tracking-wider">Ticker</th>
+              <th className="px-4 py-3 text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Name</th>
+              <th className="px-4 py-3 text-[11px] font-semibold text-[#525252] text-right uppercase tracking-wider">Price</th>
+              <th className="px-4 py-3 text-[11px] font-semibold text-[#525252] text-right uppercase tracking-wider">Change</th>
+              <th className="px-4 py-3 text-[11px] font-semibold text-[#525252] text-right uppercase tracking-wider">Open / Day Range</th>
+              <th className="px-4 py-3 text-[11px] font-semibold text-[#525252] text-right uppercase tracking-wider">Vol / Avg Vol</th>
+              <th className="px-4 py-3 text-[11px] font-semibold text-[#525252] uppercase tracking-wider">52W Range</th>
+              <th className="px-4 py-3 text-[11px] font-semibold text-[#525252] text-right uppercase tracking-wider">Mkt Cap</th>
+              <th className="px-4 py-3 text-[11px] font-semibold text-[#525252] text-right uppercase tracking-wider">P/E</th>
+              <th className="px-4 py-3 text-[11px] font-semibold text-[#525252] text-right uppercase tracking-wider">Div %</th>
               {onDelete && <th className="px-3 py-3 w-28" />}
             </tr>
           </thead>
-          <tbody className="divide-y divide-black/[0.04]">
+          <tbody className="divide-y divide-[#F0F0F0]">
             {entries.map((e) => (
-              <tr key={e.id} className="hover:bg-[#f5f5f7] transition-colors group">
-                <td className="px-4 py-3 font-bold text-[#0071e3] sticky left-0 bg-white group-hover:bg-[#f5f5f7] z-10">{e.ticker}</td>
-                <td className="px-4 py-3 text-[#1d1d1f] max-w-[180px] truncate text-[13px]">{e.name}</td>
+              <tr key={e.id} className="hover:bg-[#F7F7F8] transition-colors group">
+                <td className="px-4 py-3 font-bold text-[#1F65F0] sticky left-0 bg-white group-hover:bg-[#F7F7F8] z-10">{e.ticker}</td>
+                <td className="px-4 py-3 text-[#0A0A0A] max-w-[180px] truncate text-[13px]">{e.name}</td>
 
-                <td className="px-4 py-3 text-right font-semibold text-[#1d1d1f] tabular-nums">
+                <td className="px-4 py-3 text-right font-semibold text-[#0A0A0A] tabular-nums">
                   {e.price !== null ? formatCurrency(e.price) : <Nil />}
                 </td>
 
                 <td className="px-4 py-3 text-right">
                   {e.error
-                    ? <span className="text-[11px] text-[#ff3b30]">Unavailable</span>
+                    ? <span className="text-[11px] text-[#EF4444]">Unavailable</span>
                     : <Change change={e.change} changePercent={e.changePercent} />}
                 </td>
 
@@ -127,13 +128,13 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
                   {e.open !== null || e.dayLow !== null || e.dayHigh !== null ? (
                     <div className="space-y-0.5">
                       {e.open !== null && (
-                        <p className="text-[#6e6e73]">
-                          <span className="text-[#aeaeb2] font-medium">O</span> {formatCurrency(e.open)}
+                        <p className="text-[#525252]">
+                          <span className="text-[#A3A3A3] font-medium">O</span> {formatCurrency(e.open)}
                         </p>
                       )}
-                      <p className="text-[#1d1d1f]">
+                      <p className="text-[#0A0A0A]">
                         {e.dayLow !== null ? formatCurrency(e.dayLow) : "—"}
-                        <span className="text-[#aeaeb2] mx-1">–</span>
+                        <span className="text-[#A3A3A3] mx-1">–</span>
                         {e.dayHigh !== null ? formatCurrency(e.dayHigh) : "—"}
                       </p>
                     </div>
@@ -143,9 +144,9 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
                 <td className="px-4 py-3 text-right text-[11px] tabular-nums">
                   {e.volume !== null || e.avgVolume !== null ? (
                     <div className="space-y-0.5">
-                      {e.volume !== null && <p className="text-[#1d1d1f] font-medium">{formatVolume(e.volume)}</p>}
+                      {e.volume !== null && <p className="text-[#0A0A0A] font-medium">{formatVolume(e.volume)}</p>}
                       {e.avgVolume !== null && (
-                        <p className="text-[#aeaeb2]">
+                        <p className="text-[#A3A3A3]">
                           avg {formatVolume(e.avgVolume)}
                         </p>
                       )}
@@ -157,15 +158,15 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
                   <WeekRangeBar low={e.weekLow52} high={e.weekHigh52} current={e.price} />
                 </td>
 
-                <td className="px-4 py-3 text-right text-[#6e6e73] text-[13px]">
+                <td className="px-4 py-3 text-right text-[#525252] text-[13px]">
                   {e.marketCap !== null ? formatLargeNumber(e.marketCap) : <Nil />}
                 </td>
 
-                <td className="px-4 py-3 text-right text-[#6e6e73] tabular-nums text-[13px]">
+                <td className="px-4 py-3 text-right text-[#525252] tabular-nums text-[13px]">
                   {e.pe !== null ? e.pe.toFixed(1) : <Nil />}
                 </td>
 
-                <td className="px-4 py-3 text-right text-[#6e6e73] tabular-nums text-[13px]">
+                <td className="px-4 py-3 text-right text-[#525252] tabular-nums text-[13px]">
                   {e.divYield !== null ? `${(e.divYield * 100).toFixed(2)}%` : <Nil />}
                 </td>
 
@@ -173,16 +174,16 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
                   <td className="px-3 py-3 text-right">
                     {pendingDelete === e.ticker ? (
                       <div className="flex items-center justify-end gap-1.5">
-                        <span className="text-[11px] text-[#6e6e73] whitespace-nowrap">Remove?</span>
+                        <span className="text-[11px] text-[#525252] whitespace-nowrap">Remove?</span>
                         <button
                           onClick={() => handleConfirmDelete(e.ticker)}
-                          className="text-[11px] px-2 py-0.5 bg-[#ff3b30] text-white rounded-[6px] hover:bg-[#d63028] font-semibold"
+                          className="text-[11px] px-2 py-0.5 bg-[#EF4444] text-white rounded-lg hover:bg-[#DC2626] font-semibold transition-colors"
                         >
                           Yes
                         </button>
                         <button
                           onClick={handleCancelDelete}
-                          className="text-[11px] px-2 py-0.5 bg-black/[0.06] text-[#1d1d1f] rounded-[6px] hover:bg-black/[0.1] font-medium"
+                          className="text-[11px] px-2 py-0.5 bg-[#F7F7F8] border border-[#E5E5E5] text-[#0A0A0A] rounded-lg hover:bg-[#EBEBEB] font-medium transition-colors"
                         >
                           No
                         </button>
@@ -190,7 +191,7 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
                     ) : (
                       <button
                         onClick={() => handleDeleteClick(e.ticker)}
-                        className="opacity-0 group-hover:opacity-100 text-[#aeaeb2] hover:text-[#ff3b30] transition-all"
+                        className="text-[#A3A3A3] hover:text-[#EF4444] transition-colors"
                         title={`Remove ${e.ticker}`}
                       >
                         <TrashIcon />
@@ -207,30 +208,30 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
       {/* Mobile cards */}
       <div className="md:hidden flex flex-col gap-3">
         {entries.map((e) => (
-          <div key={e.id} className="bg-white rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)]">
+          <div key={e.id} className="bg-white rounded-2xl p-4 border border-[#E5E5E5]">
             <div className="flex items-start justify-between mb-2">
               <div className="flex-1 min-w-0 mr-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-[#0071e3] text-[15px]">{e.ticker}</span>
+                  <span className="font-bold text-[#1F65F0] text-[15px]">{e.ticker}</span>
                   {e.pe !== null && (
-                    <span className="text-[11px] bg-[#e8f2ff] text-[#0071e3] px-1.5 py-0.5 rounded-[6px] font-semibold">
+                    <span className="text-[11px] bg-[#EBF2FF] text-[#1F65F0] px-1.5 py-0.5 rounded-lg font-semibold">
                       P/E {e.pe.toFixed(1)}
                     </span>
                   )}
                   {e.divYield !== null && (
-                    <span className="text-[11px] bg-[#e8f2ff] text-[#0071e3] px-1.5 py-0.5 rounded-[6px] font-semibold">
+                    <span className="text-[11px] bg-[#EBF2FF] text-[#1F65F0] px-1.5 py-0.5 rounded-lg font-semibold">
                       {(e.divYield * 100).toFixed(2)}% div
                     </span>
                   )}
                 </div>
-                <p className="text-[#6e6e73] text-[11px] mt-0.5 truncate">{e.name}</p>
+                <p className="text-[#525252] text-[11px] mt-0.5 truncate">{e.name}</p>
               </div>
               <div className="text-right shrink-0">
                 {e.error ? (
-                  <span className="text-[#ff3b30] text-[11px]">Unavailable</span>
+                  <span className="text-[#EF4444] text-[11px]">Unavailable</span>
                 ) : (
                   <>
-                    <p className="font-bold text-[#1d1d1f] tabular-nums text-[15px]">
+                    <p className="font-bold text-[#0A0A0A] tabular-nums text-[15px]">
                       {e.price !== null ? formatCurrency(e.price) : "—"}
                     </p>
                     <Change change={e.change} changePercent={e.changePercent} />
@@ -241,36 +242,36 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
 
             {!e.error && (
               <>
-                <div className="mt-3 pt-3 border-t border-black/[0.04] grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px]">
+                <div className="mt-3 pt-3 border-t border-[#F0F0F0] grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px]">
                   {e.open !== null && (
                     <div>
-                      <p className="text-[#aeaeb2] mb-0.5">Open</p>
-                      <p className="text-[#1d1d1f] font-medium tabular-nums">{formatCurrency(e.open)}</p>
+                      <p className="text-[#A3A3A3] mb-0.5">Open</p>
+                      <p className="text-[#0A0A0A] font-medium tabular-nums">{formatCurrency(e.open)}</p>
                     </div>
                   )}
                   <div>
-                    <p className="text-[#aeaeb2] mb-0.5">Day Range</p>
-                    <p className="text-[#1d1d1f] font-medium tabular-nums">
+                    <p className="text-[#A3A3A3] mb-0.5">Day Range</p>
+                    <p className="text-[#0A0A0A] font-medium tabular-nums">
                       {e.dayLow !== null ? formatCurrency(e.dayLow) : "—"} – {e.dayHigh !== null ? formatCurrency(e.dayHigh) : "—"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[#aeaeb2] mb-0.5">Volume</p>
-                    <p className="text-[#1d1d1f] font-medium">{e.volume !== null ? formatVolume(e.volume) : "—"}</p>
+                    <p className="text-[#A3A3A3] mb-0.5">Volume</p>
+                    <p className="text-[#0A0A0A] font-medium">{e.volume !== null ? formatVolume(e.volume) : "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[#aeaeb2] mb-0.5">Avg Volume</p>
-                    <p className="text-[#1d1d1f] font-medium">{e.avgVolume !== null ? formatVolume(e.avgVolume) : "—"}</p>
+                    <p className="text-[#A3A3A3] mb-0.5">Avg Volume</p>
+                    <p className="text-[#0A0A0A] font-medium">{e.avgVolume !== null ? formatVolume(e.avgVolume) : "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[#aeaeb2] mb-0.5">Mkt Cap</p>
-                    <p className="text-[#1d1d1f] font-medium">{e.marketCap !== null ? formatLargeNumber(e.marketCap) : "—"}</p>
+                    <p className="text-[#A3A3A3] mb-0.5">Mkt Cap</p>
+                    <p className="text-[#0A0A0A] font-medium">{e.marketCap !== null ? formatLargeNumber(e.marketCap) : "—"}</p>
                   </div>
                 </div>
 
                 {(e.weekLow52 !== null || e.weekHigh52 !== null) && (
-                  <div className="mt-3 pt-3 border-t border-black/[0.04]">
-                    <p className="text-[11px] text-[#aeaeb2] mb-1.5">52-Week Range</p>
+                  <div className="mt-3 pt-3 border-t border-[#F0F0F0]">
+                    <p className="text-[11px] text-[#A3A3A3] mb-1.5">52-Week Range</p>
                     <WeekRangeBar low={e.weekLow52} high={e.weekHigh52} current={e.price} />
                   </div>
                 )}
@@ -279,29 +280,31 @@ export default function WatchlistTable({ entries, onDelete }: Props) {
 
             {onDelete && (
               pendingDelete === e.ticker ? (
-                <div className="mt-3 pt-3 border-t border-black/[0.04] flex items-center gap-2">
-                  <span className="text-[11px] text-[#6e6e73]">Remove {e.ticker}?</span>
+                <div className="mt-3 pt-3 border-t border-[#F0F0F0] flex items-center gap-2">
+                  <span className="text-[11px] text-[#525252]">Remove {e.ticker}?</span>
                   <button
                     onClick={() => handleConfirmDelete(e.ticker)}
-                    className="text-[11px] px-2.5 py-1 bg-[#ff3b30] text-white rounded-[8px] hover:bg-[#d63028] font-semibold"
+                    className="text-[11px] px-2.5 py-1 bg-[#EF4444] text-white rounded-xl hover:bg-[#DC2626] font-semibold transition-colors"
                   >
                     Remove
                   </button>
                   <button
                     onClick={handleCancelDelete}
-                    className="text-[11px] px-2.5 py-1 bg-black/[0.06] text-[#1d1d1f] rounded-[8px] hover:bg-black/[0.1] font-medium"
+                    className="text-[11px] px-2.5 py-1 bg-[#F7F7F8] border border-[#E5E5E5] text-[#0A0A0A] rounded-xl hover:bg-[#EBEBEB] font-medium transition-colors"
                   >
                     Cancel
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => handleDeleteClick(e.ticker)}
-                  className="mt-3 text-[11px] text-[#aeaeb2] hover:text-[#ff3b30] flex items-center gap-1.5 transition-colors"
-                >
-                  <TrashIcon />
-                  Remove
-                </button>
+                <div className="mt-3 pt-3 border-t border-[#F0F0F0]">
+                  <button
+                    onClick={() => handleDeleteClick(e.ticker)}
+                    className="text-[11px] text-[#EF4444] border border-[#FECACA] bg-[#FEF2F2] hover:bg-[#FEE2E2] px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-medium transition-colors"
+                  >
+                    <TrashIcon />
+                    Remove
+                  </button>
+                </div>
               )
             )}
           </div>

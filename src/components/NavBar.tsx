@@ -19,23 +19,24 @@ export default function NavBar() {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="bg-white/80 backdrop-blur-2xl border-b border-black/[0.1] sticky top-0 z-50" style={{ WebkitBackdropFilter: "blur(24px) saturate(180%)", backdropFilter: "blur(24px) saturate(180%)" }}>
-      <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between h-[52px]">
-        <Link href="/" className="font-bold text-[17px] tracking-tight text-[#0071e3] shrink-0">
+    <nav className="bg-white border-b border-[#E5E5E5] sticky top-0 z-50">
+      <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+        {/* Logo */}
+        <Link href="/" className="font-black text-[18px] tracking-tight text-[#0A0A0A] shrink-0 select-none">
           <span className="hidden sm:inline">Investor Research</span>
           <span className="sm:hidden">IR</span>
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden lg:flex gap-0.5">
+        <div className="hidden lg:flex items-stretch h-full gap-0.5">
           {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className={`px-3 py-1.5 rounded-[8px] text-[13px] font-medium transition-all duration-150 ${
+              className={`flex items-center px-3.5 text-[14px] font-medium transition-colors duration-150 border-b-2 ${
                 pathname === l.href
-                  ? "bg-[#0071e3] text-white"
-                  : "text-[#1d1d1f] hover:bg-black/[0.05]"
+                  ? "text-[#0A0A0A] font-semibold border-[#0A0A0A]"
+                  : "text-[#525252] hover:text-[#0A0A0A] border-transparent hover:border-[#D0D0D0]"
               }`}
             >
               {l.label}
@@ -45,7 +46,7 @@ export default function NavBar() {
 
         {/* Mobile hamburger */}
         <button
-          className="lg:hidden p-2 rounded-[8px] text-[#6e6e73] hover:bg-black/[0.05] transition-colors"
+          className="lg:hidden p-2 rounded-lg text-[#525252] hover:text-[#0A0A0A] hover:bg-[#F7F7F8] transition-colors"
           onClick={() => setOpen(!open)}
           aria-label="Toggle menu"
         >
@@ -61,16 +62,16 @@ export default function NavBar() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="lg:hidden border-t border-black/[0.06] px-4 py-3 flex flex-col gap-1 bg-white/95" style={{ WebkitBackdropFilter: "blur(24px)", backdropFilter: "blur(24px)" }}>
+        <div className="lg:hidden border-t border-[#E5E5E5] px-4 py-3 flex flex-col gap-0.5 bg-white">
           {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
-              className={`px-3 py-2 rounded-[8px] text-[13px] font-medium transition-all duration-150 ${
+              className={`px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150 ${
                 pathname === l.href
-                  ? "bg-[#0071e3] text-white"
-                  : "text-[#1d1d1f] hover:bg-black/[0.05]"
+                  ? "bg-[#0A0A0A] text-white font-semibold"
+                  : "text-[#525252] hover:text-[#0A0A0A] hover:bg-[#F7F7F8]"
               }`}
             >
               {l.label}

@@ -30,7 +30,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   if (positions.length === 0) {
-    return <div className="text-center py-12 text-[#6e6e73] text-[13px]">No positions.</div>;
+    return <div className="text-center py-12 text-[#525252] text-[13px]">No positions.</div>;
   }
 
   const hasActions = onEdit || onDelete;
@@ -38,14 +38,14 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
   return (
     <div>
       {/* Desktop table */}
-      <div className="hidden sm:block overflow-x-auto rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)]">
+      <div className="hidden sm:block overflow-x-auto rounded-2xl border border-[#E5E5E5]">
         <table className="w-full text-sm bg-white" style={{ minWidth: 860 }}>
           <thead>
-            <tr className="border-b border-black/[0.06] bg-[#f9f9f9]">
+            <tr className="border-b border-[#E5E5E5] bg-[#F7F7F8]">
               {["Ticker", "Name", "Sector", "Shares", "Buy Price", "Buy Date", "Current", "Value", "P&L ($)", "P&L (%)"].map((h) => (
                 <th
                   key={h}
-                  className={`px-4 py-3 text-[11px] font-semibold text-[#6e6e73] ${
+                  className={`px-4 py-3 text-[11px] font-semibold text-[#525252] uppercase tracking-wider ${
                     ["Ticker", "Name", "Sector", "Buy Date"].includes(h) ? "" : "text-right"
                   }`}
                 >
@@ -55,22 +55,22 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
               {hasActions && <th className="px-3 py-3 w-24" />}
             </tr>
           </thead>
-          <tbody className="divide-y divide-black/[0.04]">
+          <tbody className="divide-y divide-[#F0F0F0]">
             {positions.map((p) => {
               const pl = p.profitLoss ?? 0;
-              const plColor = pl >= 0 ? "text-[#34c759]" : "text-[#ff3b30]";
+              const plColor = pl >= 0 ? "text-[#22C55E]" : "text-[#EF4444]";
               return (
-                <tr key={p.id} className="hover:bg-[#f5f5f7] transition-colors group">
-                  <td className="px-4 py-3 font-bold text-[#0071e3]">{p.ticker}</td>
-                  <td className="px-4 py-3 text-[#1d1d1f] text-[13px] max-w-[140px] truncate">{p.name}</td>
-                  <td className="px-4 py-3 text-[#6e6e73] text-[11px] whitespace-nowrap">{p.sector}</td>
-                  <td className="px-4 py-3 text-right text-[#6e6e73] tabular-nums text-[13px]">{p.quantity}</td>
-                  <td className="px-4 py-3 text-right text-[#6e6e73] tabular-nums text-[13px]">{formatCurrency(p.purchasePrice)}</td>
-                  <td className="px-4 py-3 text-[#6e6e73] whitespace-nowrap text-[13px]">{formatDate(p.purchaseDate)}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-[#1d1d1f] tabular-nums">
+                <tr key={p.id} className="hover:bg-[#F7F7F8] transition-colors group">
+                  <td className="px-4 py-3 font-bold text-[#1F65F0]">{p.ticker}</td>
+                  <td className="px-4 py-3 text-[#0A0A0A] text-[13px] max-w-[140px] truncate">{p.name}</td>
+                  <td className="px-4 py-3 text-[#525252] text-[11px] whitespace-nowrap">{p.sector}</td>
+                  <td className="px-4 py-3 text-right text-[#525252] tabular-nums text-[13px]">{p.quantity}</td>
+                  <td className="px-4 py-3 text-right text-[#525252] tabular-nums text-[13px]">{formatCurrency(p.purchasePrice)}</td>
+                  <td className="px-4 py-3 text-[#525252] whitespace-nowrap text-[13px]">{formatDate(p.purchaseDate)}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-[#0A0A0A] tabular-nums">
                     {p.error ? "—" : formatCurrency(p.currentPrice)}
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-[#1d1d1f] tabular-nums">
+                  <td className="px-4 py-3 text-right font-semibold text-[#0A0A0A] tabular-nums">
                     {p.error ? "—" : formatCurrency(p.currentValue)}
                   </td>
                   <td className={`px-4 py-3 text-right font-semibold tabular-nums ${plColor}`}>
@@ -83,16 +83,16 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
                     <td className="px-3 py-3">
                       {pendingDelete === p.id ? (
                         <div className="flex items-center justify-end gap-1.5">
-                          <span className="text-[11px] text-[#6e6e73] whitespace-nowrap">Delete?</span>
+                          <span className="text-[11px] text-[#525252] whitespace-nowrap">Delete?</span>
                           <button
                             onClick={() => { setPendingDelete(null); onDelete?.(p.id); }}
-                            className="text-[11px] px-2 py-0.5 bg-[#ff3b30] text-white rounded-[6px] hover:bg-[#d63028] font-semibold"
+                            className="text-[11px] px-2 py-0.5 bg-[#EF4444] text-white rounded-lg hover:bg-[#DC2626] font-semibold transition-colors"
                           >
                             Yes
                           </button>
                           <button
                             onClick={() => setPendingDelete(null)}
-                            className="text-[11px] px-2 py-0.5 bg-black/[0.06] text-[#1d1d1f] rounded-[6px] hover:bg-black/[0.1] font-medium"
+                            className="text-[11px] px-2 py-0.5 bg-[#F7F7F8] border border-[#E5E5E5] text-[#0A0A0A] rounded-lg hover:bg-[#EBEBEB] font-medium transition-colors"
                           >
                             No
                           </button>
@@ -102,7 +102,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
                           {onEdit && (
                             <button
                               onClick={() => onEdit(p)}
-                              className="text-[#aeaeb2] hover:text-[#0071e3] transition-colors"
+                              className="text-[#A3A3A3] hover:text-[#1F65F0] transition-colors"
                               title="Edit position"
                             >
                               <PencilIcon />
@@ -111,7 +111,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
                           {onDelete && (
                             <button
                               onClick={() => setPendingDelete(p.id)}
-                              className="text-[#aeaeb2] hover:text-[#ff3b30] transition-colors"
+                              className="text-[#A3A3A3] hover:text-[#EF4444] transition-colors"
                               title="Delete position"
                             >
                               <TrashIcon />
@@ -132,45 +132,45 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
       <div className="sm:hidden flex flex-col gap-3">
         {positions.map((p) => {
           const pl = p.profitLoss ?? 0;
-          const plColor = pl >= 0 ? "text-[#34c759]" : "text-[#ff3b30]";
+          const plColor = pl >= 0 ? "text-[#22C55E]" : "text-[#EF4444]";
           return (
-            <div key={p.id} className="bg-white rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)]">
+            <div key={p.id} className="bg-white rounded-2xl p-4 border border-[#E5E5E5]">
               <div className="flex items-start justify-between mb-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#0071e3] text-[15px]">{p.ticker}</span>
-                    <span className="text-[#aeaeb2] text-[11px]">{p.quantity} shares</span>
+                    <span className="font-bold text-[#1F65F0] text-[15px]">{p.ticker}</span>
+                    <span className="text-[#A3A3A3] text-[11px]">{p.quantity} shares</span>
                   </div>
-                  <p className="text-[#6e6e73] text-[11px] mt-0.5">{p.name}</p>
-                  <p className="text-[#aeaeb2] text-[11px]">{p.sector}</p>
+                  <p className="text-[#525252] text-[11px] mt-0.5">{p.name}</p>
+                  <p className="text-[#A3A3A3] text-[11px]">{p.sector}</p>
                 </div>
                 <div className="text-right shrink-0">
                   {p.error ? (
-                    <span className="text-[#ff3b30] text-[11px]">Unavailable</span>
+                    <span className="text-[#EF4444] text-[11px]">Unavailable</span>
                   ) : (
                     <>
-                      <p className="font-bold text-[#1d1d1f] tabular-nums">{formatCurrency(p.currentPrice)}</p>
+                      <p className="font-bold text-[#0A0A0A] tabular-nums">{formatCurrency(p.currentPrice)}</p>
                       <p className={`text-[13px] font-semibold tabular-nums ${plColor}`}>{formatPercent(p.percentReturn)}</p>
                     </>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px] pt-3 border-t border-black/[0.04]">
+              <div className="grid grid-cols-2 gap-2 text-[11px] pt-3 border-t border-[#F0F0F0]">
                 <div>
-                  <p className="text-[#aeaeb2]">Buy Price</p>
-                  <p className="text-[#1d1d1f] font-medium tabular-nums">{formatCurrency(p.purchasePrice)}</p>
+                  <p className="text-[#A3A3A3]">Buy Price</p>
+                  <p className="text-[#0A0A0A] font-medium tabular-nums">{formatCurrency(p.purchasePrice)}</p>
                 </div>
                 <div>
-                  <p className="text-[#aeaeb2]">Buy Date</p>
-                  <p className="text-[#1d1d1f] font-medium">{formatDate(p.purchaseDate)}</p>
+                  <p className="text-[#A3A3A3]">Buy Date</p>
+                  <p className="text-[#0A0A0A] font-medium">{formatDate(p.purchaseDate)}</p>
                 </div>
                 <div>
-                  <p className="text-[#aeaeb2]">Current Value</p>
-                  <p className="text-[#1d1d1f] font-medium tabular-nums">{p.error ? "—" : formatCurrency(p.currentValue)}</p>
+                  <p className="text-[#A3A3A3]">Current Value</p>
+                  <p className="text-[#0A0A0A] font-medium tabular-nums">{p.error ? "—" : formatCurrency(p.currentValue)}</p>
                 </div>
                 <div>
-                  <p className="text-[#aeaeb2]">P&L</p>
+                  <p className="text-[#A3A3A3]">P&L</p>
                   <p className={`font-semibold tabular-nums ${plColor}`}>
                     {p.error ? "—" : `${formatCurrency(pl)} (${formatPercent(p.percentReturn)})`}
                   </p>
@@ -179,27 +179,27 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
 
               {hasActions && (
                 pendingDelete === p.id ? (
-                  <div className="mt-3 pt-3 border-t border-black/[0.04] flex items-center gap-2">
-                    <span className="text-[11px] text-[#6e6e73]">Delete {p.ticker}?</span>
+                  <div className="mt-3 pt-3 border-t border-[#F0F0F0] flex items-center gap-2">
+                    <span className="text-[11px] text-[#525252]">Delete {p.ticker}?</span>
                     <button
                       onClick={() => { setPendingDelete(null); onDelete?.(p.id); }}
-                      className="text-[11px] px-2.5 py-1 bg-[#ff3b30] text-white rounded-[8px] hover:bg-[#d63028] font-semibold"
+                      className="text-[11px] px-2.5 py-1 bg-[#EF4444] text-white rounded-xl hover:bg-[#DC2626] font-semibold transition-colors"
                     >
                       Delete
                     </button>
                     <button
                       onClick={() => setPendingDelete(null)}
-                      className="text-[11px] px-2.5 py-1 bg-black/[0.06] text-[#1d1d1f] rounded-[8px] hover:bg-black/[0.1] font-medium"
+                      className="text-[11px] px-2.5 py-1 bg-[#F7F7F8] border border-[#E5E5E5] text-[#0A0A0A] rounded-xl hover:bg-[#EBEBEB] font-medium transition-colors"
                     >
                       Cancel
                     </button>
                   </div>
                 ) : (
-                  <div className="mt-3 pt-3 border-t border-black/[0.04] flex items-center gap-4">
+                  <div className="mt-3 pt-3 border-t border-[#F0F0F0] flex items-center gap-4">
                     {onEdit && (
                       <button
                         onClick={() => onEdit(p)}
-                        className="text-[11px] text-[#aeaeb2] hover:text-[#0071e3] flex items-center gap-1.5 transition-colors"
+                        className="text-[11px] text-[#A3A3A3] hover:text-[#1F65F0] flex items-center gap-1.5 transition-colors"
                       >
                         <PencilIcon />
                         Edit
@@ -208,7 +208,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
                     {onDelete && (
                       <button
                         onClick={() => setPendingDelete(p.id)}
-                        className="text-[11px] text-[#aeaeb2] hover:text-[#ff3b30] flex items-center gap-1.5 transition-colors"
+                        className="text-[11px] text-[#A3A3A3] hover:text-[#EF4444] flex items-center gap-1.5 transition-colors"
                       >
                         <TrashIcon />
                         Delete

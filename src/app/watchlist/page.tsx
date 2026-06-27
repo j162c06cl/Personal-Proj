@@ -45,6 +45,7 @@ export default function WatchlistPage() {
   const [newListName, setNewListName] = useState("");
   const [pendingDeleteListId, setPendingDeleteListId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
     const stored = loadLists();
@@ -175,66 +176,80 @@ export default function WatchlistPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-[28px] font-bold tracking-tight text-[#1d1d1f]">Watchlist</h1>
-          <p className="text-[13px] text-[#6e6e73] mt-1">Track stocks with live market data</p>
+          <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Watchlist</h1>
+          <p className="text-[14px] text-[#525252] mt-1">Track stocks with live market data</p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={loading}
-          className="flex items-center gap-1.5 text-[13px] font-semibold text-[#0071e3] bg-[#e8f2ff] hover:bg-[#d4e9ff] px-4 py-2 rounded-[10px] disabled:opacity-50 transition-colors"
-        >
-          <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="flex items-center gap-1.5 text-[14px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#0A0A0A] hover:text-[#0A0A0A] px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
+          >
+            <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+          <button
+            onClick={() => { setEditMode((v) => !v); setPendingDeleteListId(null); }}
+            className={`text-[14px] font-semibold px-4 py-2 rounded-xl border transition-colors ${
+              editMode
+                ? "bg-[#0A0A0A] text-white border-[#0A0A0A] hover:bg-[#333]"
+                : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A]"
+            }`}
+          >
+            {editMode ? "Done" : "Edit"}
+          </button>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 mb-5 flex-wrap">
-        {lists.map((l) => (
-          <div key={l.id} className="flex items-center gap-0.5">
-            <button
-              onClick={() => { setActiveId(l.id); setSearch(""); setPendingDeleteListId(null); }}
-              className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all duration-150 ${
-                activeId === l.id
-                  ? "bg-[#0071e3] text-white"
-                  : "bg-black/[0.05] text-[#1d1d1f] hover:bg-black/[0.08]"
-              }`}
-            >
-              {l.name}
-              {l.tickers.length > 0 && (
-                <span className={`ml-1.5 text-[11px] ${activeId === l.id ? "text-white/70" : "text-[#6e6e73]"}`}>
-                  {l.tickers.length}
-                </span>
-              )}
-            </button>
-            {activeId === l.id && lists.length > 1 && (
+      {/* Tabs — contained pill group like reference design */}
+      <div className="flex items-center gap-3 mb-5 flex-wrap">
+        <div className="flex items-center bg-[#EBEBEB] rounded-xl p-1 gap-0.5">
+          {lists.map((l) => (
+            <div key={l.id} className="flex items-center">
               <button
-                onClick={() => handleDeleteList(l.id)}
-                className="w-5 h-5 flex items-center justify-center text-[#6e6e73] hover:text-[#ff3b30] transition-colors"
-                title="Delete this watchlist"
+                onClick={() => { setActiveId(l.id); setSearch(""); setPendingDeleteListId(null); }}
+                className={`px-4 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                  activeId === l.id
+                    ? "bg-white text-[#0A0A0A] font-semibold shadow-sm border border-[#E5E5E5]"
+                    : "text-[#525252] hover:text-[#0A0A0A]"
+                }`}
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                {l.name}
+                {l.tickers.length > 0 && (
+                  <span className={`ml-1.5 text-[11px] ${activeId === l.id ? "text-[#525252]" : "text-[#A3A3A3]"}`}>
+                    {l.tickers.length}
+                  </span>
+                )}
               </button>
-            )}
-          </div>
-        ))}
+              {editMode && lists.length > 1 && (
+                <button
+                  onClick={() => handleDeleteList(l.id)}
+                  className="ml-0.5 w-5 h-5 flex items-center justify-center text-[#A3A3A3] hover:text-[#EF4444] transition-colors"
+                  title={`Delete "${l.name}"`}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
 
         {/* Pending list-delete confirmation */}
         {pendingDeleteListId && (() => {
           const name = lists.find((l) => l.id === pendingDeleteListId)?.name ?? "";
           return (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#fff0f0] rounded-full text-[13px]">
-              <span className="text-[#ff3b30] font-medium">Delete &quot;{name}&quot;?</span>
-              <button onClick={confirmDeleteList} className="px-2 py-0.5 bg-[#ff3b30] text-white rounded-[6px] text-[11px] font-semibold hover:bg-[#d63028]">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#FEF2F2] border border-[#FECACA] rounded-xl text-[13px]">
+              <span className="text-[#EF4444] font-medium">Delete &quot;{name}&quot;?</span>
+              <button onClick={confirmDeleteList} className="px-2.5 py-1 bg-[#EF4444] text-white rounded-lg text-[11px] font-semibold hover:bg-[#DC2626] transition-colors">
                 Delete
               </button>
-              <button onClick={cancelDeleteList} className="px-2 py-0.5 bg-black/[0.06] text-[#1d1d1f] rounded-[6px] text-[11px] font-medium hover:bg-black/[0.1]">
+              <button onClick={cancelDeleteList} className="px-2.5 py-1 bg-white border border-[#E5E5E5] text-[#0A0A0A] rounded-lg text-[11px] font-medium hover:bg-[#F7F7F8] transition-colors">
                 Cancel
               </button>
             </div>
@@ -253,14 +268,14 @@ export default function WatchlistPage() {
               }}
               placeholder="List name…"
               autoFocus
-              className="px-3 py-1.5 text-[13px] bg-black/[0.05] border-none rounded-[10px] focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] w-32 transition-all"
+              className="px-3 py-1.5 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#1F65F0] focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] w-32 transition-all"
             />
-            <button onClick={handleAddList} className="px-3 py-1.5 text-[13px] bg-[#0071e3] text-white rounded-[10px] hover:bg-[#0058b0] font-semibold transition-colors">
+            <button onClick={handleAddList} className="px-3 py-1.5 text-[13px] bg-[#1F65F0] text-white rounded-xl hover:bg-[#1550D8] font-semibold transition-colors">
               Create
             </button>
             <button
               onClick={() => { setCreatingList(false); setNewListName(""); }}
-              className="px-3 py-1.5 text-[13px] text-[#1d1d1f] bg-black/[0.05] rounded-[10px] hover:bg-black/[0.08] transition-colors"
+              className="px-3 py-1.5 text-[13px] text-[#525252] border border-[#E5E5E5] bg-white rounded-xl hover:border-[#0A0A0A] hover:text-[#0A0A0A] transition-colors"
             >
               Cancel
             </button>
@@ -268,7 +283,7 @@ export default function WatchlistPage() {
         ) : (
           <button
             onClick={() => setCreatingList(true)}
-            className="px-3 py-1.5 text-[13px] font-medium text-[#0071e3] bg-[#e8f2ff] rounded-full hover:bg-[#d4e9ff] transition-colors"
+            className="px-3 py-1.5 text-[13px] font-medium text-[#525252] border border-[#E5E5E5] bg-white rounded-xl hover:border-[#0A0A0A] hover:text-[#0A0A0A] transition-colors"
           >
             + New List
           </button>
@@ -278,7 +293,7 @@ export default function WatchlistPage() {
       {/* Controls: search + add ticker */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
         <div className="relative flex-1 min-w-[180px] max-w-xs">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#aeaeb2] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A3A3] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
@@ -286,24 +301,22 @@ export default function WatchlistPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search symbols or names…"
-            className="pl-9 pr-3 py-2 text-[13px] bg-black/[0.05] border-none rounded-[10px] focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] w-full transition-all"
+            className="pl-9 pr-3 py-2 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#1F65F0] focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] w-full transition-all"
           />
         </div>
         <div className="flex items-center gap-2">
           <TickerAutocomplete
             value={addTicker}
             onChange={setAddTicker}
-            onSelect={(ticker) => {
-              setAddTicker(ticker);
-            }}
+            onSelect={(ticker) => { setAddTicker(ticker); }}
             onKeyDown={(e) => { if (e.key === "Enter") handleAddTicker(); }}
             placeholder="Ticker symbol…"
-            inputClassName="px-3 py-2 text-[13px] bg-black/[0.05] border-none rounded-[10px] focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] w-40 font-mono tracking-wide transition-all"
+            inputClassName="px-3 py-2 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#1F65F0] focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] w-40 font-mono tracking-wide transition-all"
           />
           <button
             onClick={handleAddTicker}
             disabled={!addTicker.trim()}
-            className="px-4 py-2 text-[13px] bg-[#0071e3] text-white rounded-[10px] hover:bg-[#0058b0] disabled:opacity-40 font-semibold whitespace-nowrap transition-colors"
+            className="px-4 py-2 text-[13px] bg-[#1F65F0] text-white rounded-xl hover:bg-[#1550D8] disabled:opacity-40 font-semibold whitespace-nowrap transition-colors"
           >
             + Add
           </button>
@@ -314,7 +327,7 @@ export default function WatchlistPage() {
       {loading && entries.length === 0 ? (
         <LoadingSpinner text="Fetching market data…" />
       ) : (
-        <WatchlistTable entries={filtered} onDelete={handleDeleteTicker} />
+        <WatchlistTable entries={filtered} onDelete={editMode ? handleDeleteTicker : undefined} editMode={editMode} />
       )}
     </div>
   );

@@ -14,7 +14,7 @@ interface Props {
 const SECTORS = Object.keys(SECTOR_COLORS);
 
 const inputCls =
-  "w-full bg-black/[0.05] border-none rounded-[10px] px-3 py-2.5 text-[13px] text-[#1d1d1f] placeholder-[#aeaeb2] focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] transition-all";
+  "w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2.5 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#1F65F0] focus:bg-white focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all";
 
 export default function PositionForm({ initial, onSave, onCancel }: Props) {
   const [ticker, setTicker] = useState(initial?.ticker ?? "");
@@ -27,7 +27,6 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
   const [fetchingPrice, setFetchingPrice] = useState(false);
   const [error, setError] = useState("");
 
-  // suppress unused warning
   void lookingUp;
 
   const yesterday = new Date();
@@ -92,14 +91,14 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white rounded-[22px] shadow-[0_24px_80px_rgba(0,0,0,0.2),0_0_1px_rgba(0,0,0,0.05)] w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="bg-white rounded-2xl border border-[#E5E5E5] shadow-[0_24px_80px_rgba(0,0,0,0.18)] w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-black/[0.06] sticky top-0 bg-white rounded-t-[22px]">
-          <h2 className="text-[15px] font-semibold text-[#1d1d1f]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E5E5] sticky top-0 bg-white rounded-t-2xl">
+          <h2 className="text-[15px] font-semibold text-[#0A0A0A]">
             {initial ? "Edit Position" : "Add Position"}
           </h2>
-          <button onClick={onCancel} className="text-[#6e6e73] hover:text-[#1d1d1f] transition-colors">
+          <button onClick={onCancel} className="text-[#A3A3A3] hover:text-[#0A0A0A] transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -109,7 +108,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Ticker */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">Ticker Symbol</label>
+            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Ticker Symbol</label>
             <TickerAutocomplete
               value={ticker}
               onChange={setTicker}
@@ -122,7 +121,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
 
           {/* Name */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">Company / Fund Name</label>
+            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Company / Fund Name</label>
             <input
               type="text"
               value={name}
@@ -134,7 +133,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
 
           {/* Sector */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">Sector</label>
+            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Sector</label>
             <select value={sector} onChange={(e) => setSector(e.target.value)} className={inputCls}>
               {SECTORS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -142,7 +141,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
 
           {/* Purchase Date */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">Purchase Date</label>
+            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Purchase Date</label>
             <input
               type="date"
               max={maxDate}
@@ -154,7 +153,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
 
           {/* Purchase Price */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">Purchase Price (USD)</label>
+            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Purchase Price (USD)</label>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -169,17 +168,17 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
                 type="button"
                 onClick={fetchPriceOnDate}
                 disabled={fetchingPrice}
-                className="text-[11px] bg-black/[0.05] hover:bg-black/[0.08] disabled:opacity-50 text-[#1d1d1f] font-semibold px-3 py-2.5 rounded-[10px] whitespace-nowrap transition-colors"
+                className="text-[11px] bg-[#F7F7F8] border border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A] disabled:opacity-50 text-[#525252] font-semibold px-3 py-2.5 rounded-xl whitespace-nowrap transition-colors"
               >
                 {fetchingPrice ? "…" : "Fetch"}
               </button>
             </div>
-            <p className="text-[11px] text-[#6e6e73] mt-1">Set a date first, then Fetch to auto-fill the historical price.</p>
+            <p className="text-[11px] text-[#525252] mt-1">Set a date first, then Fetch to auto-fill the historical price.</p>
           </div>
 
           {/* Quantity */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">Shares</label>
+            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Shares</label>
             <input
               type="number"
               min="0.0001"
@@ -191,19 +190,19 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
             />
           </div>
 
-          {error && <p className="text-[12px] text-[#ff3b30]">{error}</p>}
+          {error && <p className="text-[12px] text-[#EF4444]">{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 px-4 py-2.5 text-[13px] text-[#1d1d1f] bg-black/[0.05] rounded-[10px] hover:bg-black/[0.08] font-medium transition-colors"
+              className="flex-1 px-4 py-2.5 text-[13px] text-[#525252] border border-[#E5E5E5] bg-white rounded-xl hover:border-[#0A0A0A] hover:text-[#0A0A0A] font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2.5 text-[13px] bg-[#0071e3] hover:bg-[#0058b0] text-white rounded-[10px] font-semibold transition-colors"
+              className="flex-1 px-4 py-2.5 text-[13px] bg-[#1F65F0] hover:bg-[#1550D8] text-white rounded-xl font-semibold transition-colors"
             >
               {initial ? "Save Changes" : "Add Position"}
             </button>

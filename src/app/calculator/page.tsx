@@ -92,15 +92,15 @@ function mktCapBucket(v: number | null): string {
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
-  if (!active) return <span className="ml-1 text-[#aeaeb2]">↕</span>;
+  if (!active) return <span className="ml-1 text-[#A3A3A3]">↕</span>;
   return <span className="ml-1">{dir === "asc" ? "↑" : "↓"}</span>;
 }
 
 function ChgBadge({ v }: { v: number | null }) {
-  if (v === null) return <span className="text-[#aeaeb2]">—</span>;
+  if (v === null) return <span className="text-[#A3A3A3]">—</span>;
   const pos = v >= 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 font-semibold tabular-nums ${pos ? "text-[#34c759]" : "text-[#ff3b30]"}`}>
+    <span className={`inline-flex items-center gap-0.5 font-semibold tabular-nums ${pos ? "text-[#22C55E]" : "text-[#EF4444]"}`}>
       {formatPercent(v)}
     </span>
   );
@@ -297,8 +297,8 @@ export default function ScreenerPage() {
   const thCls = (key: SortKey) =>
     `px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap cursor-pointer select-none transition-colors ${
       sortKey === key
-        ? "text-[#0071e3] bg-[#e8f2ff]"
-        : "text-[#6e6e73] hover:text-[#1d1d1f] hover:bg-black/[0.04]"
+        ? "text-[#1F65F0] bg-[#EBF2FF]"
+        : "text-[#525252] hover:text-[#0A0A0A] hover:bg-[#F7F7F8]"
     }`;
 
   return (
@@ -306,13 +306,13 @@ export default function ScreenerPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-[28px] font-bold tracking-tight text-[#1d1d1f]">Stock Screener</h1>
-          <p className="text-[13px] text-[#6e6e73] mt-0.5">Filter {SCREENER_UNIVERSE.length} securities by fundamental &amp; technical criteria</p>
+          <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Stock Screener</h1>
+          <p className="text-[14px] text-[#525252] mt-0.5">Filter {SCREENER_UNIVERSE.length} securities by fundamental &amp; technical criteria</p>
         </div>
         <button
           onClick={fetchAll}
           disabled={loading}
-          className="self-start sm:self-auto flex items-center gap-1.5 text-[13px] font-semibold text-[#0071e3] bg-[#e8f2ff] hover:bg-[#d4e9ff] px-4 py-2 rounded-[10px] disabled:opacity-50 transition-colors"
+          className="self-start sm:self-auto flex items-center gap-1.5 text-[14px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#0A0A0A] hover:text-[#0A0A0A] px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
         >
           <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -322,13 +322,13 @@ export default function ScreenerPage() {
       </div>
 
       {/* Filter Panel */}
-      <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] mb-4 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-black/[0.06]">
-          <span className="text-[11px] font-semibold text-[#6e6e73]">Filters</span>
+      <div className="bg-white rounded-2xl border border-[#E5E5E5] mb-4 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E5E5]">
+          <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Filters</span>
           {hasFilters && (
             <button
               onClick={() => { setFilters(EMPTY_FILTERS); setSearch(""); }}
-              className="text-[11px] text-[#ff3b30] hover:opacity-75 font-semibold transition-opacity"
+              className="text-[11px] text-[#EF4444] hover:text-[#DC2626] font-semibold transition-colors"
             >
               Reset all
             </button>
@@ -338,26 +338,26 @@ export default function ScreenerPage() {
         <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {/* Search */}
           <div className="col-span-2 sm:col-span-3 lg:col-span-4">
-            <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">Search</label>
+            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Search</label>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Ticker or company name…"
-              className="w-full bg-black/[0.05] border-none rounded-[10px] px-3 py-2 text-[13px] text-[#1d1d1f] placeholder-[#aeaeb2] focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] transition-all"
+              className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#1F65F0] focus:bg-white focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all"
             />
           </div>
 
           {(Object.keys(FILTER_OPTIONS) as (keyof Filters)[]).map((key) => (
             <div key={key}>
-              <label className="block text-[11px] font-semibold text-[#6e6e73] mb-1.5">{FILTER_LABELS[key]}</label>
+              <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">{FILTER_LABELS[key]}</label>
               <select
                 value={filters[key]}
                 onChange={(e) => setFilter(key, e.target.value)}
-                className={`w-full rounded-[10px] px-2.5 py-2 text-[13px] border-none focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] transition-all ${
+                className={`w-full rounded-xl px-2.5 py-2 text-[13px] border focus:outline-none focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all ${
                   filters[key]
-                    ? "bg-[#e8f2ff] text-[#0071e3]"
-                    : "bg-black/[0.05] text-[#1d1d1f]"
+                    ? "bg-[#EBF2FF] text-[#1F65F0] border-[#1F65F0]"
+                    : "bg-[#F7F7F8] text-[#0A0A0A] border-[#E5E5E5] focus:border-[#1F65F0] focus:bg-white"
                 }`}
               >
                 <option value="">Any</option>
@@ -377,12 +377,12 @@ export default function ScreenerPage() {
               return (
                 <span
                   key={key}
-                  className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 bg-[#e8f2ff] text-[#0071e3] text-[11px] font-semibold rounded-full"
+                  className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 bg-[#EBF2FF] border border-[#1F65F0]/20 text-[#1F65F0] text-[11px] font-semibold rounded-full"
                 >
                   <span className="opacity-70">{FILTER_LABELS[key]}:</span> {label}
                   <button
                     onClick={() => clearFilter(key)}
-                    className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#0071e3]/10 transition-colors"
+                    className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#1F65F0]/10 transition-colors"
                   >
                     ×
                   </button>
@@ -395,24 +395,24 @@ export default function ScreenerPage() {
 
       {/* Results bar */}
       <div className="flex items-center justify-between mb-2 px-0.5">
-        <p className="text-[13px] text-[#6e6e73]">
+        <p className="text-[13px] text-[#525252]">
           {loading && results.every((r) => !r.loaded)
             ? "Loading market data…"
-            : <><span className="font-semibold text-[#1d1d1f]">{filtered.length}</span> of {SCREENER_UNIVERSE.length} securities match</>
+            : <><span className="font-semibold text-[#0A0A0A]">{filtered.length}</span> of {SCREENER_UNIVERSE.length} securities match</>
           }
         </p>
         {loading && results.some((r) => !r.loaded) && !results.every((r) => !r.loaded) && (
-          <span className="text-[11px] text-[#6e6e73] animate-pulse">Updating…</span>
+          <span className="text-[11px] text-[#525252] animate-pulse">Updating…</span>
         )}
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_1px_rgba(0,0,0,0.04)] overflow-hidden">
+      <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm" style={{ minWidth: 800 }}>
             <thead>
-              <tr className="border-b border-black/[0.06] bg-[#f9f9f9]">
-                <th className="pl-4 pr-1 py-2.5 text-[11px] font-semibold text-[#aeaeb2] w-8 text-left">#</th>
+              <tr className="border-b border-[#E5E5E5] bg-[#F7F7F8]">
+                <th className="pl-4 pr-1 py-2.5 text-[11px] font-semibold text-[#A3A3A3] w-8 text-left">#</th>
                 <th className={`${thCls("ticker")} text-left`} onClick={() => handleSort("ticker")}>
                   Ticker <SortIcon active={sortKey === "ticker"} dir={sortDir} />
                 </th>
@@ -442,10 +442,10 @@ export default function ScreenerPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.03]">
+            <tbody className="divide-y divide-[#F0F0F0]">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-16 text-[#6e6e73] text-[13px]">
+                  <td colSpan={10} className="text-center py-16 text-[#525252] text-[13px]">
                     No securities match the selected filters.
                   </td>
                 </tr>
@@ -453,29 +453,29 @@ export default function ScreenerPage() {
                 filtered.map((r, i) => {
                   const isLoading = !r.loaded;
                   return (
-                    <tr key={r.ticker} className="hover:bg-[#f5f5f7] transition-colors">
-                      <td className="pl-4 pr-1 py-2.5 text-[11px] text-[#aeaeb2] tabular-nums">{i + 1}</td>
-                      <td className="px-3 py-2.5 font-bold text-[#0071e3] whitespace-nowrap">{r.ticker}</td>
-                      <td className="px-3 py-2.5 text-[#1d1d1f] text-[13px] max-w-[180px] truncate">{r.name}</td>
+                    <tr key={r.ticker} className="hover:bg-[#F7F7F8] transition-colors">
+                      <td className="pl-4 pr-1 py-2.5 text-[11px] text-[#A3A3A3] tabular-nums">{i + 1}</td>
+                      <td className="px-3 py-2.5 font-bold text-[#1F65F0] whitespace-nowrap">{r.ticker}</td>
+                      <td className="px-3 py-2.5 text-[#0A0A0A] text-[13px] max-w-[180px] truncate">{r.name}</td>
                       <td className="px-3 py-2.5">
-                        <span className="text-[11px] text-[#6e6e73] whitespace-nowrap">{r.sector}</span>
+                        <span className="text-[11px] text-[#525252] whitespace-nowrap">{r.sector}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-right text-[#6e6e73] text-[13px] tabular-nums whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums whitespace-nowrap">
                         {isLoading ? <Skeleton /> : (r.marketCap ? formatLargeNumber(r.marketCap) : "—")}
                       </td>
-                      <td className="px-3 py-2.5 text-right text-[#6e6e73] text-[13px] tabular-nums">
+                      <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums">
                         {isLoading ? <Skeleton /> : (r.pe !== null ? r.pe.toFixed(1) : "—")}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-[#1d1d1f] tabular-nums whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-right font-semibold text-[#0A0A0A] tabular-nums whitespace-nowrap">
                         {isLoading ? <Skeleton /> : (r.price !== null ? formatCurrency(r.price) : "—")}
                       </td>
                       <td className="px-3 py-2.5 text-right whitespace-nowrap">
                         {isLoading ? <Skeleton /> : <ChgBadge v={r.changePercent} />}
                       </td>
-                      <td className="px-3 py-2.5 text-right text-[#6e6e73] text-[13px] tabular-nums whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums whitespace-nowrap">
                         {isLoading ? <Skeleton /> : formatVolume(r.volume)}
                       </td>
-                      <td className="px-3 py-2.5 text-right text-[#6e6e73] text-[13px] tabular-nums">
+                      <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums">
                         {isLoading ? <Skeleton /> : (r.divYield !== null && r.divYield > 0 ? `${(r.divYield * 100).toFixed(2)}%` : "—")}
                       </td>
                     </tr>
@@ -491,5 +491,5 @@ export default function ScreenerPage() {
 }
 
 function Skeleton() {
-  return <span className="inline-block h-3.5 w-14 bg-black/[0.06] rounded animate-pulse" />;
+  return <span className="inline-block h-3.5 w-14 bg-[#F0F0F0] rounded animate-pulse" />;
 }
