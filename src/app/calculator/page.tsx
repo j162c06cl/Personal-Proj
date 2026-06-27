@@ -1,95 +1,150 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { SCREENER_UNIVERSE, SCREENER_SECTORS, ScreenerStock } from "@/lib/screenerUniverse";
-import { QuoteData } from "@/lib/types";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { formatCurrency, formatPercent, formatLargeNumber, formatVolume } from "@/lib/formatters";
 
-type ScreenerResult = ScreenerStock & Omit<QuoteData, "ticker" | "name" | "open" | "dayHigh" | "dayLow"> & {
-  loaded: boolean;
-};
+// ─── types ───────────────────────────────────────────────────────────────────
 
 interface Filters {
   sector: string;
-  type: string;
   marketCap: string;
   pe: string;
   price: string;
   change: string;
+  relVolume: string;
+  float: string;
   divYield: string;
-  volume: string;
 }
 
-type SortKey = "ticker" | "name" | "sector" | "marketCap" | "pe" | "price" | "changePercent" | "volume" | "divYield";
+interface Preset {
+  name: string;
+  filters: Filters;
+  builtIn?: boolean;
+  note?: string;
+}
+
+interface ScreenerRow {
+  ticker: string;
+  name: string;
+  price: number | null;
+  changePercent: number | null;
+  volume: number | null;
+  avgVolume: number | null;
+  marketCap: number | null;
+  pe: number | null;
+  divYield: number | null;
+  relVolume: number | null;
+}
+
+type SortKey = "ticker" | "name" | "price" | "changePercent" | "volume" | "relVolume" | "marketCap" | "pe" | "divYield";
 type SortDir = "asc" | "desc";
 
+// ─── constants ───────────────────────────────────────────────────────────────
+
 const EMPTY_FILTERS: Filters = {
-  sector: "", type: "", marketCap: "", pe: "", price: "", change: "", divYield: "", volume: "",
+  sector: "", marketCap: "", pe: "", price: "", change: "",
+  relVolume: "", float: "", divYield: "",
 };
 
-const FILTER_OPTIONS: Record<string, { label: string; value: string }[]> = {
-  sector: SCREENER_SECTORS.map((s) => ({ label: s, value: s })),
-  type: [
-    { label: "Stock", value: "Stock" },
-    { label: "ETF", value: "ETF" },
-    { label: "REIT", value: "REIT" },
+const DAY_TRADE_PRESET: Preset = {
+  name: "Day Trade",
+  builtIn: true,
+  note: "Verify each result has a news catalyst before trading — this condition cannot be automated.",
+  filters: {
+    sector:     "",
+    marketCap:  "",
+    pe:         "",
+    price:      "1-20",
+    change:     "u10plus",
+    relVolume:  "o5",
+    float:      "u10",
+    divYield:   "",
+  },
+};
+
+const LS_KEY = "screener_presets_v1";
+
+const FILTER_OPTIONS = {
+  sector: [
+    { label: "Technology",       value: "Technology" },
+    { label: "Communication",    value: "Communication" },
+    { label: "Consumer Disc.",   value: "Consumer Disc." },
+    { label: "Consumer Staples", value: "Consumer Staples" },
+    { label: "Healthcare",       value: "Healthcare" },
+    { label: "Financials",       value: "Financials" },
+    { label: "Energy",           value: "Energy" },
+    { label: "Industrials",      value: "Industrials" },
+    { label: "Utilities",        value: "Utilities" },
+    { label: "Materials",        value: "Materials" },
+    { label: "Real Estate",      value: "Real Estate" },
   ],
   marketCap: [
-    { label: "Mega (>$200B)", value: "mega" },
+    { label: "Mega (>$200B)",     value: "mega" },
     { label: "Large ($10B–$200B)", value: "large" },
-    { label: "Mid ($2B–$10B)", value: "mid" },
-    { label: "Small (<$2B)", value: "small" },
+    { label: "Mid ($2B–$10B)",    value: "mid" },
+    { label: "Small ($300M–$2B)", value: "small" },
+    { label: "Micro (<$300M)",    value: "micro" },
+    { label: "Nano (<$50M)",      value: "nano" },
   ],
   pe: [
-    { label: "Under 10", value: "u10" },
-    { label: "10 – 20", value: "10-20" },
-    { label: "20 – 30", value: "20-30" },
-    { label: "30 – 50", value: "30-50" },
-    { label: "Over 50", value: "o50" },
-    { label: "Negative", value: "neg" },
-    { label: "N/A", value: "na" },
+    { label: "Under 10",   value: "u10" },
+    { label: "10 – 20",   value: "10-20" },
+    { label: "20 – 30",   value: "20-30" },
+    { label: "30 – 50",   value: "30-50" },
+    { label: "Over 50",   value: "o50" },
+    { label: "Negative",  value: "neg" },
   ],
   price: [
-    { label: "Under $25", value: "u25" },
-    { label: "$25 – $100", value: "25-100" },
-    { label: "$100 – $250", value: "100-250" },
-    { label: "$250 – $500", value: "250-500" },
-    { label: "Over $500", value: "o500" },
+    { label: "$1 – $20",     value: "1-20" },
+    { label: "Under $5",     value: "u5" },
+    { label: "$5 – $10",     value: "5-10" },
+    { label: "Under $25",    value: "u25" },
+    { label: "$25 – $100",   value: "25-100" },
+    { label: "$100 – $250",  value: "100-250" },
+    { label: "$250 – $500",  value: "250-500" },
+    { label: "Over $500",    value: "o500" },
   ],
   change: [
-    { label: "Strong Down (<−3%)", value: "dd" },
-    { label: "Down (−3% to −1%)", value: "d" },
-    { label: "Flat (±1%)", value: "flat" },
-    { label: "Up (1% to 3%)", value: "u" },
-    { label: "Strong Up (>3%)", value: "uu" },
+    { label: "Up 20%+",        value: "u20plus" },
+    { label: "Up 10%+",        value: "u10plus" },
+    { label: "Up 5%+",         value: "u5plus" },
+    { label: "Up 3%+",         value: "uu" },
+    { label: "Up 1%+",         value: "u" },
+    { label: "Flat (±1%)",     value: "flat" },
+    { label: "Down 1%+",       value: "d" },
+    { label: "Down 3%+",       value: "dd" },
+  ],
+  relVolume: [
+    { label: "10× Avg+",   value: "o10" },
+    { label: "5× Avg+",    value: "o5" },
+    { label: "3× Avg+",    value: "o3" },
+    { label: "2× Avg+",    value: "o2" },
+    { label: "1.5× Avg+",  value: "o1.5" },
+  ],
+  float: [
+    { label: "Under 1M",   value: "u1" },
+    { label: "Under 5M",   value: "u5" },
+    { label: "Under 10M",  value: "u10" },
+    { label: "Under 20M",  value: "u20" },
+    { label: "Under 50M",  value: "u50" },
+    { label: "Under 100M", value: "u100" },
   ],
   divYield: [
-    { label: "None (0%)", value: "none" },
-    { label: "Under 1%", value: "u1" },
-    { label: "1% – 2%", value: "1-2" },
-    { label: "2% – 4%", value: "2-4" },
-    { label: "Over 4%", value: "o4" },
-  ],
-  volume: [
-    { label: "Over 2× Avg", value: "o2" },
-    { label: "1.5× – 2× Avg", value: "1.5-2" },
-    { label: "0.5× – 1.5× Avg", value: "0.5-1.5" },
-    { label: "Under 0.5× Avg", value: "u0.5" },
+    { label: "None (0%)",  value: "none" },
+    { label: "Under 1%",   value: "u1" },
+    { label: "1% – 2%",   value: "1-2" },
+    { label: "2% – 4%",   value: "2-4" },
+    { label: "Over 4%",    value: "o4" },
   ],
 };
 
-const FILTER_LABELS: Record<string, string> = {
-  sector: "Sector", type: "Type", marketCap: "Market Cap", pe: "P/E Ratio",
-  price: "Price", change: "Change %", divYield: "Dividend", volume: "Volume",
+const FILTER_LABELS: Record<keyof Filters, string> = {
+  sector: "Sector", marketCap: "Market Cap", pe: "P/E Ratio",
+  price: "Price", change: "Change %", relVolume: "Rel. Volume",
+  float: "Float", divYield: "Dividend",
 };
 
-function mktCapBucket(v: number | null): string {
-  if (v === null) return "";
-  if (v >= 200e9) return "mega";
-  if (v >= 10e9) return "large";
-  if (v >= 2e9) return "mid";
-  return "small";
-}
+// ─── helpers ─────────────────────────────────────────────────────────────────
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <span className="ml-1 text-[#A3A3A3]">↕</span>;
@@ -98,77 +153,86 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 
 function ChgBadge({ v }: { v: number | null }) {
   if (v === null) return <span className="text-[#A3A3A3]">—</span>;
-  const pos = v >= 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 font-semibold tabular-nums ${pos ? "text-[#22C55E]" : "text-[#EF4444]"}`}>
+    <span className={`font-semibold tabular-nums ${v >= 0 ? "text-[#22C55E]" : "text-[#EF4444]"}`}>
       {formatPercent(v)}
     </span>
   );
 }
 
+function Skeleton() {
+  return <span className="inline-block h-3.5 w-14 bg-[#F0F0F0] rounded animate-pulse" />;
+}
+
+// ─── component ───────────────────────────────────────────────────────────────
+
 export default function ScreenerPage() {
-  const [results, setResults] = useState<ScreenerResult[]>(() =>
-    SCREENER_UNIVERSE.map((s) => ({
-      ...s, price: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null,
-      marketCap: null, volume: null, avgVolume: null, pe: null, divYield: null, loaded: false,
-    }))
-  );
-  const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [sortKey, setSortKey] = useState<SortKey>("marketCap");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [search, setSearch] = useState("");
+  const [userPresets, setUserPresets] = useState<Preset[]>([]);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [filters, setFilters]     = useState<Filters>(EMPTY_FILTERS);
+  const [results, setResults]     = useState<ScreenerRow[]>([]);
+  const [loading, setLoading]     = useState(false);
+  const [hasRun, setHasRun]       = useState(false);
+  const [screenerError, setScreenerError] = useState<string | null>(null);
+  const [search, setSearch]       = useState("");
+  const [sortKey, setSortKey]     = useState<SortKey>("changePercent");
+  const [sortDir, setSortDir]     = useState<SortDir>("desc");
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveName, setSaveName]   = useState("");
+  const saveInputRef              = useRef<HTMLInputElement>(null);
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    const tickers = SCREENER_UNIVERSE.map((s) => s.ticker);
-    const BATCH = 20;
-    const batches: string[][] = [];
-    for (let i = 0; i < tickers.length; i += BATCH) batches.push(tickers.slice(i, i + BATCH));
-
+  // Load user presets from localStorage on mount
+  useEffect(() => {
     try {
-      const allResponses = await Promise.all(
-        batches.map((batch) =>
-          fetch(`/api/quote?ticker=${batch.join(",")}`).then((r) => r.json())
-        )
-      );
-      const flat: QuoteData[] = allResponses.flat();
-      const map = new Map<string, QuoteData>(flat.map((d) => [d.ticker, d]));
-
-      setResults((prev) =>
-        prev.map((r) => {
-          const d = map.get(r.ticker);
-          if (!d) return { ...r, loaded: true };
-          return {
-            ...r,
-            price: d.price,
-            change: d.change,
-            changePercent: d.changePercent,
-            weekHigh52: d.weekHigh52,
-            weekLow52: d.weekLow52,
-            marketCap: d.marketCap,
-            volume: d.volume,
-            avgVolume: d.avgVolume,
-            pe: d.pe,
-            divYield: d.divYield,
-            loaded: true,
-          };
-        })
-      );
-    } catch {
-      setResults((prev) => prev.map((r) => ({ ...r, loaded: true })));
-    }
-    setLoading(false);
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) setUserPresets(JSON.parse(raw));
+    } catch {}
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  function persistPresets(list: Preset[]) {
+    setUserPresets(list);
+    localStorage.setItem(LS_KEY, JSON.stringify(list));
+  }
+
+  function loadPreset(preset: Preset) {
+    setFilters(preset.filters);
+    setActivePreset(preset.name);
+  }
+
+  function clearAllFilters() {
+    setFilters(EMPTY_FILTERS);
+    setActivePreset(null);
+    setSearch("");
+  }
 
   function setFilter(key: keyof Filters, val: string) {
     setFilters((prev) => ({ ...prev, [key]: prev[key] === val ? "" : val }));
+    setActivePreset(null); // deselect preset when manually changing filter
   }
 
   function clearFilter(key: string) {
     setFilters((prev) => ({ ...prev, [key]: "" }));
+    setActivePreset(null);
+  }
+
+  function openSaveModal() {
+    setSaveName("");
+    setShowSaveModal(true);
+    setTimeout(() => saveInputRef.current?.focus(), 50);
+  }
+
+  function savePreset() {
+    const name = saveName.trim();
+    if (!name) return;
+    const preset: Preset = { name, filters };
+    persistPresets([...userPresets.filter((p) => p.name !== name), preset]);
+    setActivePreset(name);
+    setShowSaveModal(false);
+  }
+
+  function deleteUserPreset(name: string) {
+    persistPresets(userPresets.filter((p) => p.name !== name));
+    if (activePreset === name) setActivePreset(null);
   }
 
   function handleSort(key: SortKey) {
@@ -176,95 +240,55 @@ export default function ScreenerPage() {
     else { setSortKey(key); setSortDir("desc"); }
   }
 
-  const filtered = useMemo(() => {
+  // Run the screen via Yahoo Finance screener API
+  const runScreen = useCallback(async () => {
+    setLoading(true);
+    setHasRun(true);
+    setScreenerError(null);
+
+    const params = new URLSearchParams();
+    (Object.entries(filters) as [keyof Filters, string][]).forEach(([k, v]) => {
+      if (v) params.set(k, v);
+    });
+
+    try {
+      const resp = await fetch(`/api/finviz?${params.toString()}`);
+      const data = await resp.json();
+
+      if (data.error) {
+        setScreenerError(data.error);
+        setResults([]);
+        setLoading(false);
+        return;
+      }
+
+      let rows: ScreenerRow[] = data.results ?? [];
+
+      // Apply relative volume filter client-side (Yahoo screener has no native ratio filter)
+      if (filters.relVolume) {
+        const thresholds: Record<string, number> = {
+          "o10": 10, "o5": 5, "o3": 3, "o2": 2, "o1.5": 1.5,
+        };
+        const min = thresholds[filters.relVolume];
+        if (min) rows = rows.filter((r) => r.relVolume !== null && r.relVolume >= min);
+      }
+
+      setResults(rows);
+    } catch (e) {
+      setScreenerError(String(e));
+      setResults([]);
+    }
+
+    setLoading(false);
+  }, [filters]);
+
+  // Sorted & searched results
+  const displayed = useMemo(() => {
     let out = results;
 
     if (search.trim()) {
       const q = search.trim().toUpperCase();
       out = out.filter((r) => r.ticker.includes(q) || r.name.toUpperCase().includes(q));
-    }
-
-    if (filters.sector) out = out.filter((r) => r.sector === filters.sector);
-    if (filters.type) out = out.filter((r) => r.type === filters.type);
-
-    if (filters.marketCap) {
-      out = out.filter((r) => mktCapBucket(r.marketCap) === filters.marketCap);
-    }
-
-    if (filters.pe) {
-      out = out.filter((r) => {
-        const pe = r.pe;
-        switch (filters.pe) {
-          case "neg":   return pe !== null && pe < 0;
-          case "u10":   return pe !== null && pe > 0 && pe < 10;
-          case "10-20": return pe !== null && pe >= 10 && pe < 20;
-          case "20-30": return pe !== null && pe >= 20 && pe < 30;
-          case "30-50": return pe !== null && pe >= 30 && pe < 50;
-          case "o50":   return pe !== null && pe >= 50;
-          case "na":    return pe === null;
-          default:      return true;
-        }
-      });
-    }
-
-    if (filters.price) {
-      out = out.filter((r) => {
-        const p = r.price;
-        if (p === null) return false;
-        switch (filters.price) {
-          case "u25":     return p < 25;
-          case "25-100":  return p >= 25 && p < 100;
-          case "100-250": return p >= 100 && p < 250;
-          case "250-500": return p >= 250 && p < 500;
-          case "o500":    return p >= 500;
-          default:        return true;
-        }
-      });
-    }
-
-    if (filters.change) {
-      out = out.filter((r) => {
-        const c = r.changePercent;
-        if (c === null) return false;
-        switch (filters.change) {
-          case "dd":   return c < -3;
-          case "d":    return c >= -3 && c < -1;
-          case "flat": return c >= -1 && c < 1;
-          case "u":    return c >= 1 && c < 3;
-          case "uu":   return c >= 3;
-          default:     return true;
-        }
-      });
-    }
-
-    if (filters.divYield) {
-      out = out.filter((r) => {
-        const dy = r.divYield;
-        switch (filters.divYield) {
-          case "none": return dy === null || dy === 0;
-          case "u1":   return dy !== null && dy > 0 && dy < 0.01;
-          case "1-2":  return dy !== null && dy >= 0.01 && dy < 0.02;
-          case "2-4":  return dy !== null && dy >= 0.02 && dy < 0.04;
-          case "o4":   return dy !== null && dy >= 0.04;
-          default:     return true;
-        }
-      });
-    }
-
-    if (filters.volume) {
-      out = out.filter((r) => {
-        const v = r.volume;
-        const av = r.avgVolume;
-        if (!v || !av || av === 0) return false;
-        const ratio = v / av;
-        switch (filters.volume) {
-          case "o2":      return ratio >= 2;
-          case "1.5-2":   return ratio >= 1.5 && ratio < 2;
-          case "0.5-1.5": return ratio >= 0.5 && ratio < 1.5;
-          case "u0.5":    return ratio < 0.5;
-          default:        return true;
-        }
-      });
     }
 
     return [...out].sort((a, b) => {
@@ -273,12 +297,12 @@ export default function ScreenerPage() {
       switch (sortKey) {
         case "ticker":        av = a.ticker;        bv = b.ticker;        break;
         case "name":          av = a.name;          bv = b.name;          break;
-        case "sector":        av = a.sector;        bv = b.sector;        break;
-        case "marketCap":     av = a.marketCap;     bv = b.marketCap;     break;
-        case "pe":            av = a.pe;            bv = b.pe;            break;
         case "price":         av = a.price;         bv = b.price;         break;
         case "changePercent": av = a.changePercent; bv = b.changePercent; break;
         case "volume":        av = a.volume;        bv = b.volume;        break;
+        case "relVolume":     av = a.relVolume;     bv = b.relVolume;     break;
+        case "marketCap":     av = a.marketCap;     bv = b.marketCap;     break;
+        case "pe":            av = a.pe;            bv = b.pe;            break;
         case "divYield":      av = a.divYield;      bv = b.divYield;      break;
       }
       if (av === null && bv === null) return 0;
@@ -289,10 +313,11 @@ export default function ScreenerPage() {
       }
       return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
-  }, [results, filters, search, sortKey, sortDir]);
+  }, [results, search, sortKey, sortDir]);
 
   const activeFilters = (Object.entries(filters) as [keyof Filters, string][]).filter(([, v]) => v !== "");
-  const hasFilters = activeFilters.length > 0 || search.trim() !== "";
+  const hasFilters    = activeFilters.length > 0;
+  const allPresets    = [DAY_TRADE_PRESET, ...userPresets];
 
   const thCls = (key: SortKey) =>
     `px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap cursor-pointer select-none transition-colors ${
@@ -303,31 +328,106 @@ export default function ScreenerPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
         <div>
           <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Stock Screener</h1>
-          <p className="text-[14px] text-[#525252] mt-0.5">Filter {SCREENER_UNIVERSE.length} securities by fundamental &amp; technical criteria</p>
+          <p className="text-[14px] text-[#525252] mt-0.5">Real-time stock screening via Yahoo Finance</p>
         </div>
-        <button
-          onClick={fetchAll}
-          disabled={loading}
-          className="self-start sm:self-auto flex items-center gap-1.5 text-[14px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#0A0A0A] hover:text-[#0A0A0A] px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
-        >
-          <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={runScreen}
+            disabled={loading}
+            className="flex items-center gap-1.5 text-[13px] font-semibold text-white bg-[#1F65F0] hover:bg-[#1550D8] px-4 py-2 rounded-xl disabled:opacity-60 transition-colors"
+          >
+            {loading ? (
+              <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            )}
+            {loading ? "Scanning…" : "Run Screen"}
+          </button>
+        </div>
       </div>
 
-      {/* Filter Panel */}
+      {/* ── Preset bar ── */}
+      <div className="bg-white rounded-2xl border border-[#E5E5E5] mb-3 px-4 py-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-semibold text-[#A3A3A3] uppercase tracking-wider shrink-0">Presets</span>
+
+          {allPresets.map((preset) => {
+            const isActive = activePreset === preset.name;
+            return (
+              <div key={preset.name} className="relative group flex items-center">
+                <button
+                  onClick={() => {
+                    if (isActive) { setActivePreset(null); setFilters(EMPTY_FILTERS); }
+                    else loadPreset(preset);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold transition-all border ${
+                    isActive
+                      ? preset.builtIn
+                        ? "bg-[#0A0A0A] text-white border-[#0A0A0A]"
+                        : "bg-[#1F65F0] text-white border-[#1F65F0]"
+                      : "bg-[#F7F7F8] text-[#525252] border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A]"
+                  }`}
+                >
+                  {preset.builtIn && (
+                    <svg className={`w-3 h-3 ${isActive ? "text-white" : "text-[#A3A3A3]"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  )}
+                  {preset.name}
+                </button>
+                {!preset.builtIn && (
+                  <button
+                    onClick={() => deleteUserPreset(preset.name)}
+                    className="ml-1 w-4 h-4 rounded-full bg-[#E5E5E5] hover:bg-[#EF4444] hover:text-white text-[#525252] text-[10px] font-bold flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                    title="Delete preset"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          <button
+            onClick={openSaveModal}
+            className="flex items-center gap-1 px-3 py-1 rounded-full text-[12px] font-semibold text-[#525252] border border-dashed border-[#E5E5E5] hover:border-[#1F65F0] hover:text-[#1F65F0] transition-all"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Save current
+          </button>
+        </div>
+      </div>
+
+      {/* ── Day Trade note banner ── */}
+      {activePreset === "Day Trade" && (
+        <div className="mb-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5">
+          <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p className="text-[13px] text-amber-800">
+            <span className="font-semibold">Day Trade preset active.</span>{" "}
+            {DAY_TRADE_PRESET.note}
+          </p>
+        </div>
+      )}
+
+      {/* ── Filter panel ── */}
       <div className="bg-white rounded-2xl border border-[#E5E5E5] mb-4 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E5E5]">
           <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Filters</span>
           {hasFilters && (
             <button
-              onClick={() => { setFilters(EMPTY_FILTERS); setSearch(""); }}
+              onClick={clearAllFilters}
               className="text-[11px] text-[#EF4444] hover:text-[#DC2626] font-semibold transition-colors"
             >
               Reset all
@@ -336,9 +436,9 @@ export default function ScreenerPage() {
         </div>
 
         <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {/* Search */}
+          {/* Search box spans full width */}
           <div className="col-span-2 sm:col-span-3 lg:col-span-4">
-            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Search</label>
+            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Search results</label>
             <input
               type="text"
               value={search}
@@ -373,13 +473,14 @@ export default function ScreenerPage() {
         {activeFilters.length > 0 && (
           <div className="px-4 pb-3 flex flex-wrap gap-1.5">
             {activeFilters.map(([key, val]) => {
-              const label = FILTER_OPTIONS[key]?.find((o) => o.value === val)?.label ?? val;
+              const opts = FILTER_OPTIONS[key] as { label: string; value: string }[] | undefined;
+              const label = opts?.find((o) => o.value === val)?.label ?? val;
               return (
                 <span
                   key={key}
                   className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 bg-[#EBF2FF] border border-[#1F65F0]/20 text-[#1F65F0] text-[11px] font-semibold rounded-full"
                 >
-                  <span className="opacity-70">{FILTER_LABELS[key]}:</span> {label}
+                  <span className="opacity-60">{FILTER_LABELS[key]}:</span> {label}
                   <button
                     onClick={() => clearFilter(key)}
                     className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#1F65F0]/10 transition-colors"
@@ -391,25 +492,36 @@ export default function ScreenerPage() {
             })}
           </div>
         )}
+
+        {/* Float note */}
+        <div className="px-4 pb-3 flex items-center gap-1.5">
+          <svg className="w-3 h-3 text-[#A3A3A3] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-[11px] text-[#A3A3A3]">
+            All filters applied server-side via Yahoo Finance. Relative Volume is post-filtered from returned data.
+          </span>
+        </div>
       </div>
 
-      {/* Results bar */}
-      <div className="flex items-center justify-between mb-2 px-0.5">
-        <p className="text-[13px] text-[#525252]">
-          {loading && results.every((r) => !r.loaded)
-            ? "Loading market data…"
-            : <><span className="font-semibold text-[#0A0A0A]">{filtered.length}</span> of {SCREENER_UNIVERSE.length} securities match</>
-          }
-        </p>
-        {loading && results.some((r) => !r.loaded) && !results.every((r) => !r.loaded) && (
-          <span className="text-[11px] text-[#525252] animate-pulse">Updating…</span>
-        )}
-      </div>
+      {/* ── Results info bar ── */}
+      {hasRun && (
+        <div className="flex items-center justify-between mb-2 px-0.5">
+          <p className="text-[13px] text-[#525252]">
+            {loading
+              ? "Scanning…"
+              : screenerError
+              ? <span className="text-[#EF4444]">Screener unavailable — try again in a moment</span>
+              : <><span className="font-semibold text-[#0A0A0A]">{displayed.length}</span> results</>
+            }
+          </p>
+        </div>
+      )}
 
-      {/* Table */}
+      {/* ── Results table ── */}
       <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ minWidth: 800 }}>
+          <table className="w-full text-sm" style={{ minWidth: 860 }}>
             <thead>
               <tr className="border-b border-[#E5E5E5] bg-[#F7F7F8]">
                 <th className="pl-4 pr-1 py-2.5 text-[11px] font-semibold text-[#A3A3A3] w-8 text-left">#</th>
@@ -418,15 +530,6 @@ export default function ScreenerPage() {
                 </th>
                 <th className={`${thCls("name")} text-left`} onClick={() => handleSort("name")}>
                   Company <SortIcon active={sortKey === "name"} dir={sortDir} />
-                </th>
-                <th className={`${thCls("sector")} text-left`} onClick={() => handleSort("sector")}>
-                  Sector <SortIcon active={sortKey === "sector"} dir={sortDir} />
-                </th>
-                <th className={`${thCls("marketCap")} text-right`} onClick={() => handleSort("marketCap")}>
-                  Mkt Cap <SortIcon active={sortKey === "marketCap"} dir={sortDir} />
-                </th>
-                <th className={`${thCls("pe")} text-right`} onClick={() => handleSort("pe")}>
-                  P/E <SortIcon active={sortKey === "pe"} dir={sortDir} />
                 </th>
                 <th className={`${thCls("price")} text-right`} onClick={() => handleSort("price")}>
                   Price <SortIcon active={sortKey === "price"} dir={sortDir} />
@@ -437,59 +540,141 @@ export default function ScreenerPage() {
                 <th className={`${thCls("volume")} text-right`} onClick={() => handleSort("volume")}>
                   Volume <SortIcon active={sortKey === "volume"} dir={sortDir} />
                 </th>
+                <th className={`${thCls("relVolume")} text-right`} onClick={() => handleSort("relVolume")}>
+                  Rel Vol <SortIcon active={sortKey === "relVolume"} dir={sortDir} />
+                </th>
+                <th className={`${thCls("marketCap")} text-right`} onClick={() => handleSort("marketCap")}>
+                  Mkt Cap <SortIcon active={sortKey === "marketCap"} dir={sortDir} />
+                </th>
+                <th className={`${thCls("pe")} text-right`} onClick={() => handleSort("pe")}>
+                  P/E <SortIcon active={sortKey === "pe"} dir={sortDir} />
+                </th>
                 <th className={`${thCls("divYield")} text-right`} onClick={() => handleSort("divYield")}>
                   Div % <SortIcon active={sortKey === "divYield"} dir={sortDir} />
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F0F0F0]">
-              {filtered.length === 0 ? (
+              {!hasRun ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-16 text-[#525252] text-[13px]">
-                    No securities match the selected filters.
+                  <td colSpan={10} className="py-20 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <svg className="w-10 h-10 text-[#E5E5E5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <p className="text-[#525252] text-[13px]">Set your filters and click <span className="font-semibold text-[#0A0A0A]">Run Screen</span></p>
+                    </div>
+                  </td>
+                </tr>
+              ) : loading ? (
+                <tr>
+                  <td colSpan={10} className="py-20 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <svg className="w-8 h-8 text-[#1F65F0] animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <p className="text-[#525252] text-[13px]">Fetching results from FinViz…</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : screenerError ? (
+                <tr>
+                  <td colSpan={10} className="py-20 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <svg className="w-10 h-10 text-[#E5E5E5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <div className="text-center">
+                        <p className="text-[#0A0A0A] font-semibold text-[13px] mb-1">Screener unavailable</p>
+                        <p className="text-[#525252] text-[12px] mb-3">Yahoo Finance authentication may have expired. Try running again.</p>
+                        <button
+                          onClick={runScreen}
+                          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-white bg-[#1F65F0] hover:bg-[#1550D8] px-4 py-2 rounded-xl transition-colors"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : displayed.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-16 text-center">
+                    <p className="text-[#525252] text-[13px]">No stocks matched these filters.</p>
                   </td>
                 </tr>
               ) : (
-                filtered.map((r, i) => {
-                  const isLoading = !r.loaded;
-                  return (
-                    <tr key={r.ticker} className="hover:bg-[#F7F7F8] transition-colors">
-                      <td className="pl-4 pr-1 py-2.5 text-[11px] text-[#A3A3A3] tabular-nums">{i + 1}</td>
-                      <td className="px-3 py-2.5 font-bold text-[#1F65F0] whitespace-nowrap">{r.ticker}</td>
-                      <td className="px-3 py-2.5 text-[#0A0A0A] text-[13px] max-w-[180px] truncate">{r.name}</td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-[11px] text-[#525252] whitespace-nowrap">{r.sector}</span>
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums whitespace-nowrap">
-                        {isLoading ? <Skeleton /> : (r.marketCap ? formatLargeNumber(r.marketCap) : "—")}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums">
-                        {isLoading ? <Skeleton /> : (r.pe !== null ? r.pe.toFixed(1) : "—")}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-[#0A0A0A] tabular-nums whitespace-nowrap">
-                        {isLoading ? <Skeleton /> : (r.price !== null ? formatCurrency(r.price) : "—")}
-                      </td>
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                        {isLoading ? <Skeleton /> : <ChgBadge v={r.changePercent} />}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums whitespace-nowrap">
-                        {isLoading ? <Skeleton /> : formatVolume(r.volume)}
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums">
-                        {isLoading ? <Skeleton /> : (r.divYield !== null && r.divYield > 0 ? `${(r.divYield * 100).toFixed(2)}%` : "—")}
-                      </td>
-                    </tr>
-                  );
-                })
+                displayed.map((r, i) => (
+                  <tr key={r.ticker} className="hover:bg-[#F7F7F8] transition-colors">
+                    <td className="pl-4 pr-1 py-2.5 text-[11px] text-[#A3A3A3] tabular-nums">{i + 1}</td>
+                    <td className="px-3 py-2.5 font-bold text-[#1F65F0] whitespace-nowrap">{r.ticker}</td>
+                    <td className="px-3 py-2.5 text-[#0A0A0A] text-[13px] max-w-[160px] truncate">{r.name}</td>
+                    <td className="px-3 py-2.5 text-right font-semibold text-[#0A0A0A] tabular-nums whitespace-nowrap">
+                      {r.price !== null ? formatCurrency(r.price) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                      <ChgBadge v={r.changePercent} />
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums whitespace-nowrap">
+                      {formatVolume(r.volume)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-[13px] tabular-nums whitespace-nowrap">
+                      {r.relVolume !== null ? (
+                        <span className={r.relVolume >= 3 ? "text-[#22C55E] font-semibold" : "text-[#525252]"}>
+                          {r.relVolume.toFixed(2)}×
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums whitespace-nowrap">
+                      {r.marketCap ? formatLargeNumber(r.marketCap) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums">
+                      {r.pe !== null ? r.pe.toFixed(1) : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums">
+                      {r.divYield !== null && r.divYield > 0 ? `${(r.divYield * 100).toFixed(2)}%` : "—"}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* ── Save preset modal ── */}
+      {showSaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl border border-[#E5E5E5] shadow-2xl p-6 w-full max-w-sm mx-4">
+            <h2 className="text-[18px] font-black text-[#0A0A0A] mb-1">Save Preset</h2>
+            <p className="text-[13px] text-[#525252] mb-4">Give this set of filters a name</p>
+            <input
+              ref={saveInputRef}
+              type="text"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") savePreset(); if (e.key === "Escape") setShowSaveModal(false); }}
+              placeholder="e.g. High Dividend, Small Cap Momentum…"
+              className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2.5 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#1F65F0] focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all mb-4"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSaveModal(false)}
+                className="flex-1 py-2.5 text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] rounded-xl hover:border-[#0A0A0A] hover:text-[#0A0A0A] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={savePreset}
+                disabled={!saveName.trim()}
+                className="flex-1 py-2.5 text-[13px] font-semibold text-white bg-[#1F65F0] hover:bg-[#1550D8] rounded-xl disabled:opacity-50 transition-colors"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-function Skeleton() {
-  return <span className="inline-block h-3.5 w-14 bg-[#F0F0F0] rounded animate-pulse" />;
 }
