@@ -119,12 +119,12 @@ export default function GlossaryPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-[28px] font-bold tracking-tight text-[#1d1d1f]">Glossary</h1>
-        <p className="text-[13px] text-[#6e6e73] mt-1">Plain-English definitions for {terms.length} investing terms</p>
+        <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Glossary</h1>
+        <p className="text-[14px] text-[#525252] mt-1">Plain-English definitions for {terms.length} investing terms</p>
       </div>
 
       <div className="relative mb-6 max-w-sm">
-        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#aeaeb2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A3A3]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
@@ -132,19 +132,19 @@ export default function GlossaryPage() {
           placeholder="Search terms…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-black/[0.05] border-none rounded-2xl pl-9 pr-4 py-2.5 text-[13px] text-[#1d1d1f] placeholder-[#aeaeb2] focus:outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,113,227,0.2)] transition-all"
+          className="w-full bg-white border border-[#E5E5E5] rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#1F65F0] focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all"
         />
         {search && (
-          <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6e6e73] hover:text-[#1d1d1f] text-[11px] font-medium">
+          <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#525252] hover:text-[#0A0A0A] text-[11px] font-medium">
             Clear
           </button>
         )}
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-center text-[#6e6e73] py-12 text-[13px]">No terms found for &quot;{search}&quot;</p>
+        <p className="text-center text-[#525252] py-12 text-[13px]">No terms found for &quot;{search}&quot;</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden">
           {filtered.map((t) => (
             <GlossaryCard key={t.term} term={t.term} definition={t.definition} example={t.example} />
           ))}
