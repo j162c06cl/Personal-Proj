@@ -46,8 +46,11 @@ export default function DayTradePage() {
     try {
       const res = await fetch(`/api/quote?ticker=${encodeURIComponent(tickers)}`);
       const data = await res.json();
+      // API returns a single object for one ticker, array for multiple
+      const quotes: { ticker: string; price: number | null; error?: string }[] =
+        Array.isArray(data) ? data : [data];
       const quoteMap: Record<string, { price: number | null; error?: string }> = {};
-      for (const q of data.quotes ?? []) {
+      for (const q of quotes) {
         quoteMap[q.ticker] = { price: q.price, error: q.error };
       }
       return base.map((e) => {
@@ -84,8 +87,7 @@ export default function DayTradePage() {
     setAdding(true);
     try {
       const res = await fetch(`/api/quote?ticker=${encodeURIComponent(selectedTicker.ticker)}`);
-      const data = await res.json();
-      const quote = data.quotes?.[0];
+      const quote = await res.json();
       if (!quote || quote.price === null) {
         setAddError("Could not fetch current price. Try again.");
         setAdding(false);
