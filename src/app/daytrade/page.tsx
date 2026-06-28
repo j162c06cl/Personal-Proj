@@ -121,21 +121,14 @@ export default function DayTradePage() {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   }
 
-  const totalTracked = entries.length;
-  const winners = entries.filter((e) => (e.percentChange ?? 0) > 0).length;
-  const losers = entries.filter((e) => (e.percentChange ?? 0) < 0).length;
-
   return (
-    <div className="min-h-screen bg-[#F7F7F8]">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="space-y-6">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-[#0A0A0A]">Day Trade Tracker</h1>
-            <p className="text-sm text-[#A3A3A3] mt-0.5">
-              Add a stock to lock in its price — track performance over time.
-            </p>
+            <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Day Trade Tracker</h1>
+            <p className="text-[14px] text-[#525252] mt-1">Add a stock to lock in its price — track performance over time.</p>
           </div>
           <button
             onClick={handleRefresh}
@@ -148,22 +141,6 @@ export default function DayTradePage() {
             {refreshing ? "Refreshing..." : "Refresh Prices"}
           </button>
         </div>
-
-        {/* Summary cards */}
-        {totalTracked > 0 && (
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: "Tracked", value: totalTracked, color: "text-[#0A0A0A]" },
-              { label: "Winning", value: winners, color: "text-[#22C55E]" },
-              { label: "Losing", value: losers, color: "text-[#EF4444]" },
-            ].map((s) => (
-              <div key={s.label} className="bg-white rounded-2xl border border-[#E5E5E5] px-4 py-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
-                <p className="text-xs text-[#A3A3A3] uppercase tracking-wide font-medium">{s.label}</p>
-                <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Add Stock */}
         <div className="bg-white rounded-2xl border border-[#E5E5E5] shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-5">
@@ -305,7 +282,6 @@ export default function DayTradePage() {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }
