@@ -1,4 +1,4 @@
-import { WatchlistEntry, PortfolioPosition } from "./types";
+import { WatchlistEntry, PortfolioPosition, DayTradeEntry } from "./types";
 
 export function getWatchlist(): WatchlistEntry[] {
   try {
@@ -29,6 +29,23 @@ export function getPortfolio(): PortfolioPosition[] {
 export function savePortfolio(positions: PortfolioPosition[]): void {
   try {
     localStorage.setItem("portfolio", JSON.stringify(positions));
+  } catch {
+    console.warn("localStorage unavailable");
+  }
+}
+
+export function getDayTradeEntries(): DayTradeEntry[] {
+  try {
+    const raw = localStorage.getItem("daytrade_entries");
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveDayTradeEntries(entries: DayTradeEntry[]): void {
+  try {
+    localStorage.setItem("daytrade_entries", JSON.stringify(entries));
   } catch {
     console.warn("localStorage unavailable");
   }

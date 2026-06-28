@@ -9,6 +9,7 @@ const links = [
   { href: "/watchlist", label: "Watchlist" },
   { href: "/calculator", label: "Screener" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/daytrade", label: "Day Trade" },
   { href: "/retirement", label: "Retirement" },
   { href: "/glossary", label: "Glossary" },
   { href: "/calendar", label: "Calendar" },

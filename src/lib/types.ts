@@ -103,3 +103,11 @@ export interface CalculatorResult {
   percentReturn: number;
   investmentAmount: number;
 }
+
+export interface DayTradeEntry {
+  id: string;
+  ticker: string;
+  name: string;
+  addedAt: string;   // ISO timestamp
+  addedPrice: number;
+}
