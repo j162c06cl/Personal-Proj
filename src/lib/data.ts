@@ -6,7 +6,7 @@
 //   • records per-feed health for the data status panel
 
 import { dbClear, dbGet, dbKeys, dbSet } from "./db";
-import { AiSummary, ChartData, ChartRange, Fundamentals, MarketIndex, NewsFeed, NewsItem, QuoteData, SectorPerf, Sourced } from "./types";
+import { ChartData, ChartRange, Fundamentals, MarketIndex, NewsFeed, QuoteData, SectorPerf, Sourced } from "./types";
 
 interface CacheEntry<T> {
   value: T;
@@ -220,7 +220,7 @@ export function getFundamentals(ticker: string, opts: { force?: boolean } = {}) 
   );
 }
 
-// ── News + AI summary ────────────────────────────────────────────────────────
+// ── News ────────────────────────────────────────────────────────────────────
 
 /** `name` (the company name) lets the news route match headlines that don't use the ticker. */
 export function getNews(ticker: string, name?: string, opts: { force?: boolean } = {}) {
@@ -237,66 +237,6 @@ export function getNews(ticker: string, name?: string, opts: { force?: boolean }
     },
     opts
   );
-}
-
-/** Today's date on the user's own calendar — summaries are cached once per stock per local day. */
-export function localDateKey(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-const summaryKey = (ticker: string) => `summary:${ticker.trim().toUpperCase()}:${localDateKey()}`;
-
-/** Today's cached summary, if one has been generated. Never calls the API. */
-export async function peekSummary(ticker: string): Promise<Sourced<AiSummary> | null> {
-  const hit = await dbGet<CacheEntry<AiSummary>>("cache", summaryKey(ticker));
-  return hit ? { ...hit, cached: true } : null;
-}
-
-export interface SummaryInput {
-  ticker: string;
-  name: string;
-  news: NewsItem[];
-  facts: { id: string; label: string; source: string; asOf: string; lines: string[] }[];
-  profile?: { strategy?: string };
-}
-
-/**
- * Generates today's summary (or returns the cached one). Throws with a user-facing
- * message on failure; failures are not cached, so the user can retry.
- */
-export async function getSummary(input: SummaryInput, apiKey: string): Promise<Sourced<AiSummary>> {
-  const key = summaryKey(input.ticker);
-  const existing = await peekSummary(input.ticker);
-  if (existing) return existing;
-
-  if (!inflight.has(key)) {
-    inflight.set(
-      key,
-      (async () => {
-        const r = await fetch("/api/summary", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-anthropic-key": apiKey },
-          body: JSON.stringify({ ...input, forDate: localDateKey() }),
-        });
-        const d = await r.json().catch(() => ({ error: `Summary request failed (${r.status})` }));
-        if (!r.ok) throw new Error(d.error ?? `Summary request failed (${r.status})`);
-        const { source, asOf, ...value } = d as AiSummary & { source: string; asOf: string };
-        const entry: CacheEntry<AiSummary> = { value, source, asOf };
-        await dbSet("cache", key, entry);
-        recordStatus("AI summaries", true, source);
-        return entry;
-      })().finally(() => inflight.delete(key))
-    );
-  }
-
-  try {
-    const entry = (await inflight.get(key)) as CacheEntry<AiSummary>;
-    return { ...entry, cached: false };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Summary request failed";
-    recordStatus("AI summaries", false, msg);
-    throw new Error(msg);
-  }
 }
 
 // ── FX ──────────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UA, getYahooAuth, raw, resetYahooAuth } from "@/lib/server/yahoo";
+import { forceSnapshot, snapshotFundamentals } from "@/lib/server/snapshot";
 
 // Company fundamentals, analyst targets and upcoming events from Yahoo quoteSummary.
 const MODULES = "price,summaryDetail,defaultKeyStatistics,financialData,assetProfile,calendarEvents";
@@ -36,9 +37,16 @@ export async function GET(request: NextRequest) {
   const ticker = request.nextUrl.searchParams.get("ticker")?.trim().toUpperCase();
   if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
 
+  // Live data unavailable (or snapshot mode): fall back to the saved snapshot if this ticker has one
+  const fallback = () => {
+    const saved = snapshotFundamentals(ticker);
+    return saved ? NextResponse.json(saved) : NextResponse.json({ error: "Fundamentals unavailable" }, { status: 502 });
+  };
+  if (forceSnapshot) return fallback();
+
   try {
     const s = await fetchSummary(ticker);
-    if (!s) return NextResponse.json({ error: "Fundamentals unavailable" }, { status: 502 });
+    if (!s) return fallback();
 
     const price = s.price ?? {};
     const sd = s.summaryDetail ?? {};
@@ -124,6 +132,6 @@ export async function GET(request: NextRequest) {
       asOf: new Date().toISOString(),
     });
   } catch {
-    return NextResponse.json({ error: "Fundamentals request failed" }, { status: 502 });
+    return fallback();
   }
 }

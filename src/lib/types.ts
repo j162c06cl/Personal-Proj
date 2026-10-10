@@ -123,7 +123,6 @@ export interface InvestorProfile {
 }
 
 export interface Settings {
-  apiKeys: { anthropic: string };
   baseCurrency: BaseCurrency;
   profile: InvestorProfile;
 }
@@ -199,25 +198,6 @@ export interface NewsFeed {
   items: NewsItem[];
   fetched: number;
   duplicatesRemoved: number;
-}
-
-/** One cited point in an AI summary. Citations are source ids like "N2" (news item 2) or "Q" (quote data). */
-export interface CitedPoint {
-  text: string;
-  citations: string[];
-}
-
-export interface AiSummary {
-  ticker: string;
-  whatHappened: CitedPoint[];
-  why: CitedPoint[];
-  doesItMatter: CitedPoint[];
-  whatToInvestigate: CitedPoint[];
-  /** Source id → what it refers to, so citations stay resolvable from the cache */
-  sources: Record<string, { label: string; link?: string }>;
-  model: string;
-  /** Local calendar date the summary was generated for (YYYY-MM-DD) */
-  forDate: string;
 }
 
 export interface DayTradeEntry {

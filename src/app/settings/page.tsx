@@ -71,16 +71,10 @@ function timeAgo(iso: string | null) {
 export default function SettingsPage() {
   const { settings, saveSettings } = useSettings();
   const money = useMoney();
-  const [keyDraft, setKeyDraft] = useState("");
-  const [showKey, setShowKey] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [backupMsg, setBackupMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [status, setStatus] = useState<{ feeds: FeedStatus[]; cacheEntries: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (settings) setKeyDraft(settings.apiKeys.anthropic);
-  }, [settings?.apiKeys.anthropic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { getDataStatus().then(setStatus); }, []);
 
@@ -122,8 +116,6 @@ export default function SettingsPage() {
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  const keySaved = keyDraft === settings.apiKeys.anthropic;
-
   return (
     <div className="max-w-3xl">
       <div className="flex items-end justify-between mb-6">
@@ -137,7 +129,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-5">
-        <Card title="Investor profile" subtitle="Used to personalise your dashboard, screener presets and AI summaries.">
+        <Card title="Investor profile" subtitle="Used to personalise your dashboard, screener presets and research pages.">
           <div>
             <Label>Strategy</Label>
             <Segmented options={STRATEGIES} value={settings.profile.strategy} onChange={(v) => setProfile("strategy", v)} />
@@ -189,43 +181,6 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        <Card title="API keys" subtitle="Keys are stored in this browser and only sent to this app's own server, never anywhere else.">
-          <div>
-            <Label>Anthropic (Claude) — for AI summaries</Label>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <input
-                  type={showKey ? "text" : "password"}
-                  value={keyDraft}
-                  onChange={(e) => setKeyDraft(e.target.value.trim())}
-                  placeholder="sk-ant-…"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="w-full pl-3 pr-16 py-2 text-[13px] font-mono bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#1F65F0] focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all"
-                />
-                <button
-                  onClick={() => setShowKey((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-[#525252] hover:text-[#0A0A0A] px-2 py-1"
-                >
-                  {showKey ? "Hide" : "Show"}
-                </button>
-              </div>
-              <button
-                onClick={() => update({ ...settings, apiKeys: { ...settings.apiKeys, anthropic: keyDraft } })}
-                disabled={keySaved}
-                className="px-4 py-2 text-[13px] bg-[#1F65F0] text-white rounded-xl hover:bg-[#1550D8] disabled:opacity-40 font-semibold transition-colors"
-              >
-                Save
-              </button>
-            </div>
-            <p className="text-[12px] text-[#A3A3A3] mt-2">
-              {settings.apiKeys.anthropic
-                ? "Key saved. AI summaries will be enabled."
-                : <>Get a key at <a className="text-[#1F65F0] hover:underline" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>. Market data needs no key.</>}
-            </p>
-          </div>
-        </Card>
-
         <Card title="Backup" subtitle="Your portfolio and watchlists live only in this browser. Export a backup to keep them safe or move to another device.">
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -248,7 +203,7 @@ export default function SettingsPage() {
               onChange={(e) => e.target.files?.[0] && handleImport(e.target.files[0])}
             />
           </div>
-          <p className="text-[12px] text-[#A3A3A3]">Backups include portfolio, watchlists, currency and profile. API keys are never exported. Importing replaces your current data.</p>
+          <p className="text-[12px] text-[#A3A3A3]">Backups include portfolio, watchlists, currency and profile. Importing replaces your current data.</p>
           {backupMsg && (
             <p className={`text-[13px] font-medium ${backupMsg.ok ? "text-[#22C55E]" : "text-[#EF4444]"}`}>{backupMsg.text}</p>
           )}

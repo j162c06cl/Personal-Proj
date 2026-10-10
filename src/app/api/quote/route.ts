@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UA, getYahooAuth } from "@/lib/server/yahoo";
+import { forceSnapshot, snapshotQuote } from "@/lib/server/snapshot";
 
 const V7_FIELDS = [
   "shortName", "longName", "regularMarketPrice", "regularMarketChange",
@@ -142,6 +143,11 @@ export async function GET(request: NextRequest) {
 
   const tickers = ticker.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
 
+  if (forceSnapshot) {
+    const saved = tickers.map((t) => snapshotQuote(t) ?? toResult(t, null));
+    return NextResponse.json(tickers.length === 1 ? saved[0] : saved);
+  }
+
   // Get Yahoo auth (crumb + cookie) once for the whole batch
   const auth = await getYahooAuth();
 
@@ -152,9 +158,9 @@ export async function GET(request: NextRequest) {
     tickers.map(async (t) => {
       const v7 = v7Map?.[t];
       if (v7 && v7.price !== null) return toResult(t, v7);
-      // Fallbacks for any ticker v7 missed
+      // Fallbacks for any ticker v7 missed, ending with the saved snapshot
       const data = (await yahooChart(t)) ?? (await stooqQuote(t));
-      return toResult(t, data);
+      return data ? toResult(t, data) : snapshotQuote(t) ?? toResult(t, null);
     })
   );
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UA } from "@/lib/server/yahoo";
+import { forceSnapshot, snapshotChart } from "@/lib/server/snapshot";
 
 // Price history (OHLCV) for the research page chart and technical indicators.
 const RANGES: Record<string, string> = {
@@ -11,23 +12,18 @@ const RANGES: Record<string, string> = {
   "5y": "1wk",
 };
 
-export async function GET(request: NextRequest) {
-  const ticker = request.nextUrl.searchParams.get("ticker")?.trim().toUpperCase();
-  const range = request.nextUrl.searchParams.get("range") ?? "1y";
-  if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
-  if (!RANGES[range]) return NextResponse.json({ error: "unsupported range" }, { status: 400 });
-
+async function liveChart(ticker: string, range: string) {
   try {
     const r = await fetch(
       `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${RANGES[range]}&includePrePost=false`,
       { headers: { "User-Agent": UA, Accept: "application/json" }, cache: "no-store" }
     );
-    if (!r.ok) return NextResponse.json({ error: `Yahoo returned ${r.status}` }, { status: 502 });
+    if (!r.ok) return null;
     const j = await r.json();
     const res = j?.chart?.result?.[0];
     const ts: number[] = res?.timestamp ?? [];
     const q = res?.indicators?.quote?.[0] ?? {};
-    if (!ts.length) return NextResponse.json({ error: "No price history" }, { status: 404 });
+    if (!ts.length) return null;
 
     const points = ts
       .map((t, i) => ({
@@ -40,7 +36,7 @@ export async function GET(request: NextRequest) {
       }))
       .filter((p) => p.c !== null);
 
-    return NextResponse.json({
+    return {
       ticker,
       range,
       interval: RANGES[range],
@@ -48,8 +44,20 @@ export async function GET(request: NextRequest) {
       points,
       source: "Yahoo Finance",
       asOf: res.meta?.regularMarketTime ? new Date(res.meta.regularMarketTime * 1000).toISOString() : new Date().toISOString(),
-    });
+    };
   } catch {
-    return NextResponse.json({ error: "Chart request failed" }, { status: 502 });
+    return null;
   }
+}
+
+export async function GET(request: NextRequest) {
+  const ticker = request.nextUrl.searchParams.get("ticker")?.trim().toUpperCase();
+  const range = request.nextUrl.searchParams.get("range") ?? "1y";
+  if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
+  if (!RANGES[range]) return NextResponse.json({ error: "unsupported range" }, { status: 400 });
+
+  const data = (forceSnapshot ? null : await liveChart(ticker, range)) ?? snapshotChart(ticker, range);
+  return data
+    ? NextResponse.json(data)
+    : NextResponse.json({ error: "No price history available" }, { status: forceSnapshot ? 404 : 502 });
 }

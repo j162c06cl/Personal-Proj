@@ -6,7 +6,6 @@ import { DEFAULT_WATCHLISTS, PORTFOLIO_PRESETS } from "./presets";
 import { PortfolioPosition, Settings, WatchlistDef } from "./types";
 
 export const DEFAULT_SETTINGS: Settings = {
-  apiKeys: { anthropic: "" },
   baseCurrency: "USD",
   profile: { strategy: "long-term", researchMinutes: 15, sectors: [] },
 };
@@ -65,9 +64,9 @@ export function saveWatchlists(lists: WatchlistDef[]): Promise<void> {
 let settingsCache: Settings | null = null;
 const listeners = new Set<(s: Settings) => void>();
 
+// Only known fields are kept, so settings saved by older versions (e.g. an API key) are dropped on next save
 function mergeSettings(partial: Partial<Settings> | undefined): Settings {
   return {
-    apiKeys: { ...DEFAULT_SETTINGS.apiKeys, ...partial?.apiKeys },
     baseCurrency: partial?.baseCurrency ?? DEFAULT_SETTINGS.baseCurrency,
     profile: { ...DEFAULT_SETTINGS.profile, ...partial?.profile },
   };
@@ -99,10 +98,9 @@ export interface Backup {
   exportedAt: string;
   portfolio: PortfolioPosition[];
   watchlists: WatchlistDef[];
-  settings: Omit<Settings, "apiKeys">;
+  settings: Settings;
 }
 
-// API keys are deliberately left out so a backup file is safe to keep in cloud storage.
 export async function exportBackup(): Promise<Backup> {
   const [portfolio, watchlists, settings] = await Promise.all([loadPortfolio(), loadWatchlists(), loadSettings()]);
   return {
@@ -122,9 +120,6 @@ export async function importBackup(raw: unknown): Promise<{ positions: number; l
   }
   await savePortfolio(b.portfolio);
   await saveWatchlists(b.watchlists);
-  if (b.settings) {
-    const current = await loadSettings();
-    await saveSettings(mergeSettings({ ...b.settings, apiKeys: current.apiKeys }));
-  }
+  if (b.settings) await saveSettings(mergeSettings(b.settings));
   return { positions: b.portfolio.length, lists: b.watchlists.length };
 }

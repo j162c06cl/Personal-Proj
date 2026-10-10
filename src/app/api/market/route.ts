@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { forceSnapshot, snapshotMarket } from "@/lib/server/snapshot";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
@@ -71,6 +72,8 @@ async function stooqFetch(sym: string) {
 }
 
 export async function GET() {
+  if (forceSnapshot && snapshotMarket()) return NextResponse.json(snapshotMarket());
+
   const [indices, sectors] = await Promise.all([
     Promise.all(
       INDICES.map(async (idx) => {
@@ -96,6 +99,9 @@ export async function GET() {
       })
     ),
   ]);
+
+  // Every live source failed: serve the saved snapshot rather than an empty dashboard
+  if (indices.every((x) => x.price === null) && snapshotMarket()) return NextResponse.json(snapshotMarket());
 
   return NextResponse.json({ indices, sectors, lastUpdated: new Date().toISOString() });
 }

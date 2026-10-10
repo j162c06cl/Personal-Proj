@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UA } from "@/lib/server/yahoo";
 import { companyKeywords, dedupeNews, RawNews, relevanceOf } from "@/lib/server/news";
+import { forceSnapshot, snapshotNews } from "@/lib/server/snapshot";
 
 // Recent headlines for a ticker from Yahoo Finance search, filtered for relevance
 // and de-duplicated. Pass ?name= (company name) to match headlines that use it.
@@ -21,15 +22,19 @@ export async function GET(request: NextRequest) {
   const name = request.nextUrl.searchParams.get("name");
   if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
 
+  const fallback = () => {
+    const saved = snapshotNews(ticker);
+    return saved ? NextResponse.json(saved) : NextResponse.json({ error: "News provider unavailable" }, { status: 502 });
+  };
+  if (forceSnapshot) return fallback();
+
   try {
     const keywords = companyKeywords(ticker, name);
     // Searching by company name as well as ticker surfaces more stories that are actually about it
     const queries = Array.from(new Set([ticker, ...keywords.filter((k) => k !== ticker.toLowerCase())]));
     const results = await Promise.allSettled(queries.map(search));
     const raw = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
-    if (!raw.length && results.every((r) => r.status === "rejected")) {
-      return NextResponse.json({ error: "News provider unavailable" }, { status: 502 });
-    }
+    if (!raw.length && results.every((r) => r.status === "rejected")) return fallback();
 
     const scored = raw.map((n) => ({ ...n, relevance: relevanceOf(n, ticker, keywords) }));
     // Fill in tiers: headlines that name the company are the reliable signal. Yahoo's ticker
@@ -51,6 +56,6 @@ export async function GET(request: NextRequest) {
       asOf: new Date().toISOString(),
     });
   } catch {
-    return NextResponse.json({ error: "News request failed" }, { status: 502 });
+    return fallback();
   }
 }

@@ -23,12 +23,14 @@ export default function SourceTag({
   className?: string;
 }) {
   if (!source) return null;
+  // Saved (non-live) data is highlighted so it is never mistaken for a live price
+  const saved = source.includes("Saved snapshot");
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[11px] text-[#A3A3A3] whitespace-nowrap ${className}`}
+      className={`inline-flex items-center gap-1 text-[11px] whitespace-nowrap ${saved ? "text-[#B45309]" : "text-[#A3A3A3]"} ${className}`}
       title={asOf ? `${source} · as of ${new Date(asOf).toLocaleString()}${cached ? " (cached)" : ""}` : source}
     >
-      <span className="w-1.5 h-1.5 rounded-full bg-[#D4D4D4]" />
+      <span className={`w-1.5 h-1.5 rounded-full ${saved ? "bg-[#F59E0B]" : "bg-[#D4D4D4]"}`} />
       {source}
       {asOf && <> · {fmtAsOf(asOf)}</>}
       {cached && <span className="text-[#C8C8C8]">· cached</span>}
