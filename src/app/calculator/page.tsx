@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { formatCurrency, formatPercent, formatLargeNumber, formatVolume } from "@/lib/formatters";
+import TickerLink from "@/components/TickerLink";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -702,7 +703,7 @@ export default function ScreenerPage() {
                 displayed.map((r, i) => (
                   <tr key={r.ticker} className="hover:bg-[#F7F7F8] transition-colors">
                     <td className="pl-4 pr-1 py-2.5 text-[11px] text-[#A3A3A3] tabular-nums">{i + 1}</td>
-                    <td className="px-3 py-2.5 font-bold text-[#1F65F0] whitespace-nowrap">{r.ticker}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap"><TickerLink ticker={r.ticker} /></td>
                     <td className="px-3 py-2.5 text-[#0A0A0A] text-[13px] max-w-[160px] truncate">{r.name}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-[#0A0A0A] tabular-nums whitespace-nowrap">
                       {r.price !== null ? formatCurrency(r.price) : "—"}

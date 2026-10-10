@@ -6,7 +6,7 @@
 //   • records per-feed health for the data status panel
 
 import { dbClear, dbGet, dbKeys, dbSet } from "./db";
-import { MarketIndex, QuoteData, SectorPerf, Sourced } from "./types";
+import { ChartData, ChartRange, Fundamentals, MarketIndex, QuoteData, SectorPerf, Sourced } from "./types";
 
 interface CacheEntry<T> {
   value: T;
@@ -179,6 +179,42 @@ export function getMarket(opts: { force?: boolean } = {}) {
       const d = await getJson<MarketSnapshot & { lastUpdated: string }>("/api/market");
       const sources = Array.from(new Set([...d.indices, ...d.sectors].map((x) => x.source).filter(Boolean)));
       return { value: { indices: d.indices, sectors: d.sectors }, source: sources.join(", ") || "Unknown", asOf: d.lastUpdated };
+    },
+    opts
+  );
+}
+
+// ── Research page: price history + fundamentals ──────────────────────────────
+
+export function getChart(ticker: string, range: ChartRange, opts: { force?: boolean } = {}) {
+  const t = ticker.trim().toUpperCase();
+  return cached<ChartData>(
+    "Price history",
+    `chart:${t}:${range}`,
+    15 * MINUTE,
+    async () => {
+      const d = await getJson<ChartData & { source: string; asOf: string }>(
+        `/api/chart?ticker=${encodeURIComponent(t)}&range=${range}`
+      );
+      const { source, asOf, ...value } = d;
+      return { value, source, asOf };
+    },
+    opts
+  );
+}
+
+export function getFundamentals(ticker: string, opts: { force?: boolean } = {}) {
+  const t = ticker.trim().toUpperCase();
+  return cached<Fundamentals>(
+    "Fundamentals",
+    `fundamentals:${t}`,
+    6 * 60 * MINUTE,
+    async () => {
+      const d = await getJson<Fundamentals & { source: string; asOf: string }>(
+        `/api/fundamentals?ticker=${encodeURIComponent(t)}`
+      );
+      const { source, asOf, ...value } = d;
+      return { value, source, asOf };
     },
     opts
   );

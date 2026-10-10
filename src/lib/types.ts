@@ -136,6 +136,52 @@ export interface Sourced<T> {
   cached: boolean;
 }
 
+export interface PricePoint {
+  t: string; // YYYY-MM-DD
+  o: number | null;
+  h: number | null;
+  l: number | null;
+  c: number;
+  v: number | null;
+}
+
+export type ChartRange = "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y";
+
+export interface ChartData {
+  ticker: string;
+  range: ChartRange;
+  interval: string;
+  currency: string;
+  points: PricePoint[];
+}
+
+type N = number | null;
+
+export interface Fundamentals {
+  ticker: string;
+  name: string;
+  exchange: string;
+  quoteType: string;
+  currency: string;
+  profile: { sector: string | null; industry: string | null; summary: string | null; website: string | null; employees: N; country: string | null };
+  valuation: { marketCap: N; trailingPE: N; forwardPE: N; priceToBook: N; priceToSales: N; enterpriseValue: N; evToEbitda: N };
+  profitability: { grossMargin: N; operatingMargin: N; profitMargin: N; returnOnEquity: N; returnOnAssets: N };
+  growth: { revenueGrowth: N; earningsGrowth: N; earningsQuarterlyGrowth: N; totalRevenue: N };
+  health: { totalCash: N; totalDebt: N; debtToEquity: N; currentRatio: N; freeCashflow: N };
+  dividend: { yield: N; rate: N; payoutRatio: N };
+  risk: { beta: N; shortPercentOfFloat: N; heldByInstitutions: N; heldByInsiders: N };
+  analysts: { targetMean: N; targetHigh: N; targetLow: N; recommendation: string | null; count: N };
+  events: {
+    earningsDate: string | null;
+    earningsDateEnd: string | null;
+    earningsIsEstimate: boolean;
+    epsEstimate: N;
+    revenueEstimate: N;
+    exDividendDate: string | null;
+    dividendDate: string | null;
+  };
+}
+
 export interface DayTradeEntry {
   id: string;
   ticker: string;

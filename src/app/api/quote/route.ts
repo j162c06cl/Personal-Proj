@@ -1,35 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
-// Module-level cache — survives within a warm serverless instance
-let _auth: { cookie: string; crumb: string; ts: number } | null = null;
-
-async function getYahooAuth(): Promise<{ cookie: string; crumb: string } | null> {
-  if (_auth && Date.now() - _auth.ts < 3_600_000) return _auth;
-  try {
-    const r1 = await fetch("https://fc.yahoo.com", {
-      headers: { "User-Agent": UA },
-      redirect: "follow",
-      cache: "no-store",
-    });
-    const setCookie = r1.headers.get("set-cookie") ?? "";
-    const match = setCookie.match(/A3=([^;]+)/);
-    if (!match) return null;
-    const cookie = `A3=${match[1]}`;
-
-    const r2 = await fetch("https://query1.finance.yahoo.com/v1/test/getcrumb", {
-      headers: { "User-Agent": UA, Cookie: cookie },
-      cache: "no-store",
-    });
-    if (!r2.ok) return null;
-    const crumb = (await r2.text()).trim();
-    if (!crumb || crumb.startsWith("<") || crumb.length < 2) return null;
-
-    _auth = { cookie, crumb, ts: Date.now() };
-    return _auth;
-  } catch { return null; }
-}
+import { UA, getYahooAuth } from "@/lib/server/yahoo";
 
 const V7_FIELDS = [
   "shortName", "longName", "regularMarketPrice", "regularMarketChange",

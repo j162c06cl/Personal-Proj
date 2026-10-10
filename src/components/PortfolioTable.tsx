@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PortfolioPositionWithData } from "@/lib/types";
 import { formatCurrency, formatPercent, formatDate } from "@/lib/formatters";
+import TickerLink from "@/components/TickerLink";
 
 interface Props {
   positions: PortfolioPositionWithData[];
@@ -62,7 +63,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
               const plColor = pl >= 0 ? "text-[#22C55E]" : "text-[#EF4444]";
               return (
                 <tr key={p.id} className="hover:bg-[#F7F7F8] transition-colors group">
-                  <td className="px-4 py-3 font-bold text-[#1F65F0]">{p.ticker}</td>
+                  <td className="px-4 py-3"><TickerLink ticker={p.ticker} /></td>
                   <td className="px-4 py-3 text-[#0A0A0A] text-[13px] max-w-[140px] truncate">{p.name}</td>
                   <td className="px-4 py-3 text-[#525252] text-[11px] whitespace-nowrap">{p.sector}</td>
                   <td className="px-4 py-3 text-right text-[#525252] tabular-nums text-[13px]">{p.quantity}</td>
@@ -139,7 +140,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
               <div className="flex items-start justify-between mb-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#1F65F0] text-[15px]">{p.ticker}</span>
+                    <TickerLink ticker={p.ticker} className="font-bold text-[#1F65F0] text-[15px]" />
                     <span className="text-[#A3A3A3] text-[11px]">{p.quantity} shares</span>
                   </div>
                   <p className="text-[#525252] text-[11px] mt-0.5">{p.name}</p>

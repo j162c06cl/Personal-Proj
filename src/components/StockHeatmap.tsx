@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { SCREENER_UNIVERSE } from "@/lib/screenerUniverse";
 import { QuoteData } from "@/lib/types";
 import { getQuotes } from "@/lib/data";
+import { useRouter } from "next/navigation";
 
 interface StockWithData {
   ticker: string;
@@ -106,6 +107,7 @@ export default function StockHeatmap() {
   const [loading, setLoading] = useState(true);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; stock: StockWithData } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const [boxW, setBoxW] = useState(700);
 
   // Responsive width
@@ -249,7 +251,8 @@ export default function StockHeatmap() {
             height={boxH}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => setTooltip(null)}
-            className="block"
+            onClick={() => tooltip && router.push(`/stock/${encodeURIComponent(tooltip.stock.ticker)}`)}
+            className={`block ${tooltip ? "cursor-pointer" : ""}`}
           >
             {/* Sector backgrounds + labels */}
             {sectorBoxes.map((sb) => (
@@ -338,6 +341,9 @@ export default function StockHeatmap() {
                   </text>
                   <text x={tx + 10} y={ty + 48} fill={pctColor} fontSize={11} fontWeight={600} fontFamily="system-ui,sans-serif">
                     {pctStr}  ·  {stock.sector}
+                  </text>
+                  <text x={tx + tw - 10} y={ty + 18} textAnchor="end" fill="#6b7280" fontSize={9} fontFamily="system-ui,sans-serif">
+                    Click to research
                   </text>
                 </g>
               );

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { WatchlistEntryWithData } from "@/lib/types";
 import { formatCurrency, formatLargeNumber, formatVolume } from "@/lib/formatters";
+import TickerLink from "@/components/TickerLink";
 
 interface Props {
   entries: WatchlistEntryWithData[];
@@ -111,7 +112,7 @@ export default function WatchlistTable({ entries, onDelete, editMode }: Props) {
           <tbody className="divide-y divide-[#F0F0F0]">
             {entries.map((e) => (
               <tr key={e.id} className="hover:bg-[#F7F7F8] transition-colors group">
-                <td className="px-4 py-3 font-bold text-[#1F65F0] sticky left-0 bg-white group-hover:bg-[#F7F7F8] z-10">{e.ticker}</td>
+                <td className="px-4 py-3 font-bold text-[#1F65F0] sticky left-0 bg-white group-hover:bg-[#F7F7F8] z-10"><TickerLink ticker={e.ticker} /></td>
                 <td className="px-4 py-3 text-[#0A0A0A] max-w-[180px] truncate text-[13px]">{e.name}</td>
 
                 <td className="px-4 py-3 text-right font-semibold text-[#0A0A0A] tabular-nums">
@@ -212,7 +213,7 @@ export default function WatchlistTable({ entries, onDelete, editMode }: Props) {
             <div className="flex items-start justify-between mb-2">
               <div className="flex-1 min-w-0 mr-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-[#1F65F0] text-[15px]">{e.ticker}</span>
+                  <TickerLink ticker={e.ticker} className="font-bold text-[#1F65F0] text-[15px]" />
                   {e.pe !== null && (
                     <span className="text-[11px] bg-[#EBF2FF] text-[#1F65F0] px-1.5 py-0.5 rounded-lg font-semibold">
                       P/E {e.pe.toFixed(1)}
