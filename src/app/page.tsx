@@ -16,20 +16,10 @@ import {
 } from "recharts";
 import StockHeatmap from "@/components/StockHeatmap";
 import SourceTag from "@/components/SourceTag";
+import YourDay from "@/components/dashboard/YourDay";
 import { getMarket } from "@/lib/data";
+import { ECONOMIC_EVENTS } from "@/lib/economicEvents";
 
-const UPCOMING_EVENTS = [
-  { date: "2026-06-26", name: "GDP (Q1 Final)",       importance: "high",   description: "Final Q1 2026 economic growth estimate" },
-  { date: "2026-06-27", name: "PCE Price Index",       importance: "high",   description: "Fed's preferred inflation measure (May)" },
-  { date: "2026-07-02", name: "Non-Farm Payrolls",     importance: "high",   description: "June 2026 jobs report" },
-  { date: "2026-07-14", name: "PPI (Jun)",             importance: "medium", description: "June 2026 Producer Price Index" },
-  { date: "2026-07-15", name: "CPI (Jun)",             importance: "high",   description: "June 2026 Consumer Price Index" },
-  { date: "2026-07-28", name: "FOMC Rate Decision",    importance: "high",   description: "Federal Reserve interest rate decision" },
-  { date: "2026-07-30", name: "GDP (Q2 Advance)",      importance: "high",   description: "First Q2 2026 growth estimate" },
-  { date: "2026-08-07", name: "Non-Farm Payrolls",     importance: "high",   description: "July 2026 jobs report" },
-  { date: "2026-08-12", name: "CPI (Jul)",             importance: "high",   description: "July 2026 Consumer Price Index" },
-  { date: "2026-09-15", name: "FOMC Rate Decision",    importance: "high",   description: "Federal Reserve interest rate decision" },
-];
 
 interface IndexData { symbol: string; label: string; format: string; price: number | null; change: number | null; changePercent: number | null; }
 interface SectorData { symbol: string; label: string; price: number | null; change: number | null; changePercent: number | null; }
@@ -124,6 +114,7 @@ export default function DashboardPage() {
   const [marketSource, setMarketSource] = useState<{ source: string; cached: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   async function loadMarket(force = false) {
     setLoading(true); setErr(false);
@@ -137,9 +128,9 @@ export default function DashboardPage() {
 
   useEffect(() => { loadMarket(); }, []);
 
-  void sectors;
-
-  const upcoming = UPCOMING_EVENTS.filter((e) => getDays(e.date) >= 0).slice(0, 5);
+  const upcoming = ECONOMIC_EVENTS.filter((e) => getDays(e.date) >= 0).slice(0, 5);
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <div>
@@ -147,16 +138,19 @@ export default function DashboardPage() {
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 bg-[#111111] px-4 sm:px-6 lg:px-8 pt-10 pb-11 mb-8">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5">
           <div>
+            <p className="text-[14px] font-semibold text-[#888888] mb-2">
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </p>
             <h1 className="text-[40px] sm:text-[52px] font-black text-white tracking-tight leading-none">
-              Market Dashboard
+              {greeting}
             </h1>
             <p className="text-[15px] text-[#888888] mt-3 max-w-md leading-relaxed">
-              Real-time indices, sector heatmap, and upcoming economic events.
+              Your portfolio first, then the wider market.
             </p>
           </div>
           <div className="flex items-center gap-4 shrink-0">
             <button
-              onClick={() => loadMarket(true)}
+              onClick={() => { loadMarket(true); setRefreshKey((k) => k + 1); }}
               disabled={loading}
               className="flex items-center gap-2 px-5 py-2.5 bg-[#1F65F0] text-white text-[14px] font-semibold rounded-xl hover:bg-[#1550D8] disabled:opacity-50 transition-colors"
             >
@@ -174,6 +168,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── Your Day ── */}
+      <section className="mb-12">
+        <h2 className="text-[22px] font-black tracking-tight text-[#0A0A0A] mb-4">Your Day</h2>
+        <YourDay key={refreshKey} market={loading || err ? null : { indices, sectors }} />
+      </section>
+
+      {/* ── Market Overview ── */}
+      <h2 className="text-[22px] font-black tracking-tight text-[#0A0A0A] mb-4">Market Overview</h2>
       <div className="space-y-6">
         {/* Market Indices Cards */}
         <section>
