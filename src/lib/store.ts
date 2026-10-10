@@ -3,7 +3,7 @@
 
 import { dbGet, dbSet } from "./db";
 import { DEFAULT_WATCHLISTS, PORTFOLIO_PRESETS } from "./presets";
-import { PortfolioPosition, Settings, WatchlistDef } from "./types";
+import { PortfolioPosition, Settings, WatchIntent, WatchlistDef, WatchlistItem } from "./types";
 
 export const DEFAULT_SETTINGS: Settings = {
   baseCurrency: "USD",
@@ -50,13 +50,54 @@ export function savePortfolio(positions: PortfolioPosition[]): Promise<void> {
   return dbSet("kv", "portfolio", positions);
 }
 
-export async function loadWatchlists(): Promise<WatchlistDef[]> {
-  await ensureMigrated();
-  return (await dbGet<WatchlistDef[]>("kv", "watchlists")) ?? DEFAULT_WATCHLISTS;
+// ── Watchlist (grouped by intent) ──────────────────────────────────────────
+
+/** Best guess at intent from an old list's name; the user can change it per stock. */
+function intentForListName(name: string): WatchIntent {
+  const n = name.toLowerCase();
+  if (n.includes("swing") || n.includes("trade")) return "swing";
+  if (/long|core|etf|dividend|reit|income|retire/.test(n)) return "long-term";
+  return "research";
 }
 
-export function saveWatchlists(lists: WatchlistDef[]): Promise<void> {
-  return dbSet("kv", "watchlists", lists);
+/** Converts v2 named lists into intent-tagged items, keeping the old list name on each item. */
+export function listsToItems(lists: WatchlistDef[]): WatchlistItem[] {
+  const seen = new Set<string>();
+  const items: WatchlistItem[] = [];
+  for (const l of lists) {
+    for (const t of l.tickers) {
+      if (seen.has(t)) continue;
+      seen.add(t);
+      items.push({ ticker: t, intent: intentForListName(l.name), note: "", status: "not-started", addedAt: new Date().toISOString(), legacyList: l.name });
+    }
+  }
+  return items;
+}
+
+export async function loadWatchlist(): Promise<WatchlistItem[]> {
+  await ensureMigrated();
+  const stored = await dbGet<WatchlistItem[]>("kv", "watchlist");
+  if (stored) return stored;
+  const legacy = await dbGet<WatchlistDef[]>("kv", "watchlists");
+  const items = listsToItems(legacy ?? DEFAULT_WATCHLISTS);
+  await dbSet("kv", "watchlist", items);
+  return items;
+}
+
+export function saveWatchlist(items: WatchlistItem[]): Promise<void> {
+  return dbSet("kv", "watchlist", items);
+}
+
+/** Adds a stock (or updates its intent/note if already there). Returns the new list. */
+export async function addToWatchlist(item: Pick<WatchlistItem, "ticker" | "intent" | "note">): Promise<WatchlistItem[]> {
+  const items = await loadWatchlist();
+  const t = item.ticker.trim().toUpperCase();
+  const existing = items.find((i) => i.ticker === t);
+  const next = existing
+    ? items.map((i) => (i.ticker === t ? { ...i, intent: item.intent, note: item.note || i.note } : i))
+    : [...items, { ticker: t, intent: item.intent, note: item.note, status: "not-started" as const, addedAt: new Date().toISOString() }];
+  await saveWatchlist(next);
+  return next;
 }
 
 // ── Settings (shared across components via a tiny subscription) ────────────
@@ -94,32 +135,43 @@ export function subscribeSettings(fn: (s: Settings) => void): () => void {
 
 export interface Backup {
   app: "investor-research";
-  version: 1;
+  version: 2;
   exportedAt: string;
   portfolio: PortfolioPosition[];
-  watchlists: WatchlistDef[];
+  watchlist: WatchlistItem[];
   settings: Settings;
 }
 
+/** Version 1 backups stored named lists instead of intent-tagged items */
+interface BackupV1 {
+  app: "investor-research";
+  version: 1;
+  portfolio: PortfolioPosition[];
+  watchlists: WatchlistDef[];
+  settings?: Settings;
+}
+
 export async function exportBackup(): Promise<Backup> {
-  const [portfolio, watchlists, settings] = await Promise.all([loadPortfolio(), loadWatchlists(), loadSettings()]);
+  const [portfolio, watchlist, settings] = await Promise.all([loadPortfolio(), loadWatchlist(), loadSettings()]);
   return {
     app: "investor-research",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     portfolio,
-    watchlists,
+    watchlist,
     settings: { baseCurrency: settings.baseCurrency, profile: settings.profile },
   };
 }
 
-export async function importBackup(raw: unknown): Promise<{ positions: number; lists: number }> {
-  const b = raw as Partial<Backup>;
-  if (!b || b.app !== "investor-research" || !Array.isArray(b.portfolio) || !Array.isArray(b.watchlists)) {
+export async function importBackup(raw: unknown): Promise<{ positions: number; watched: number }> {
+  const b = raw as Partial<Backup> & Partial<BackupV1>;
+  if (!b || b.app !== "investor-research" || !Array.isArray(b.portfolio)) {
     throw new Error("This file isn't an Investor Research backup.");
   }
+  const watchlist = Array.isArray(b.watchlist) ? b.watchlist : Array.isArray(b.watchlists) ? listsToItems(b.watchlists) : null;
+  if (!watchlist) throw new Error("This backup has no watchlist data.");
   await savePortfolio(b.portfolio);
-  await saveWatchlists(b.watchlists);
+  await saveWatchlist(watchlist);
   if (b.settings) await saveSettings(mergeSettings(b.settings));
-  return { positions: b.portfolio.length, lists: b.watchlists.length };
+  return { positions: b.portfolio.length, watched: watchlist.length };
 }

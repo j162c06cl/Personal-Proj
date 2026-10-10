@@ -143,10 +143,19 @@ export async function GET(request: NextRequest) {
     ],
   };
 
-  const baseOps = [exchangeFilter];
+  const baseOps: unknown[] = [exchangeFilter];
+
+  // Swing presets pre-select liquid candidates here; their rules then run in the browser
+  const minCap = Number(params.minCap) || 0;
+  const minPrice = Number(params.minPrice) || 0;
+  const minChange = params.minChange !== undefined ? Number(params.minChange) : null;
+  if (minCap) baseOps.push({ operator: "gt", operands: ["intradaymarketcap", minCap] });
+  if (minPrice) baseOps.push({ operator: "gt", operands: ["price", minPrice] });
+  if (minChange !== null && Number.isFinite(minChange)) baseOps.push({ operator: "gt", operands: ["percentchange", minChange] });
+  const sortField = params.sort === "intradaymarketcap" ? "intradaymarketcap" : "percentchange";
 
   // Default when no filters: top US exchange-listed stocks by market cap
-  const allOps = operands.length > 0
+  const allOps = operands.length > 0 || baseOps.length > 1
     ? [...baseOps, ...operands]
     : [...baseOps, { operator: "gt", operands: ["intradaymarketcap", 1_000_000_000] }];
 
@@ -156,7 +165,7 @@ export async function GET(request: NextRequest) {
   const body = {
     offset: 0,
     size: 250,
-    sortField: "percentchange",
+    sortField,
     sortType: "DESC",
     quoteType: "EQUITY",
     query: query,
@@ -211,6 +220,11 @@ export async function GET(request: NextRequest) {
           divYield:      (q.trailingAnnualDividendYield     as number | null) ?? null,
           floatShares:   (q.floatShares                     as number | null) ?? null,
           relVolume:     vol && avgVol && avgVol > 0 ? vol / avgVol : null,
+          // Trend data for the swing preset rules
+          sma50:         (q.fiftyDayAverage                 as number | null) ?? null,
+          sma200:        (q.twoHundredDayAverage            as number | null) ?? null,
+          high52:        (q.fiftyTwoWeekHigh                as number | null) ?? null,
+          low52:         (q.fiftyTwoWeekLow                 as number | null) ?? null,
         };
       });
 

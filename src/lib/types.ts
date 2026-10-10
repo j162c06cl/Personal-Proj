@@ -1,28 +1,3 @@
-export interface WatchlistEntry {
-  id: string;
-  ticker: string;
-  name: string;
-  category: string;
-  addedAt: string;
-}
-
-export interface WatchlistEntryWithData extends WatchlistEntry {
-  price: number | null;
-  open: number | null;
-  change: number | null;
-  changePercent: number | null;
-  weekHigh52: number | null;
-  weekLow52: number | null;
-  marketCap: number | null;
-  volume: number | null;
-  avgVolume: number | null;
-  dayHigh: number | null;
-  dayLow: number | null;
-  pe: number | null;
-  divYield: number | null;
-  error?: string;
-}
-
 export interface PortfolioPosition {
   id: string;
   ticker: string;
@@ -106,10 +81,25 @@ export interface CalculatorResult {
   investmentAmount: number;
 }
 
+/** Legacy (v2) named-list watchlist; only read during migration */
 export interface WatchlistDef {
   id: string;
   name: string;
   tickers: string[];
+}
+
+export type WatchIntent = "long-term" | "swing" | "research";
+export type ResearchStatus = "not-started" | "researching" | "done";
+
+export interface WatchlistItem {
+  ticker: string;
+  intent: WatchIntent;
+  /** Why the stock was added, in the user's own words (or the screener's reasons) */
+  note: string;
+  status: ResearchStatus;
+  addedAt: string;
+  /** Name of the list it came from before intents existed, kept so nothing is lost */
+  legacyList?: string;
 }
 
 export type BaseCurrency = "USD" | "SGD";
@@ -200,10 +190,3 @@ export interface NewsFeed {
   duplicatesRemoved: number;
 }
 
-export interface DayTradeEntry {
-  id: string;
-  ticker: string;
-  name: string;
-  addedAt: string;   // ISO timestamp
-  addedPrice: number;
-}

@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getChart, getFundamentals, getNews, getQuote } from "@/lib/data";
-import { loadPortfolio, loadWatchlists } from "@/lib/store";
+import { loadPortfolio, loadWatchlist } from "@/lib/store";
 import { computeTechnicals, smaOverlay, Technicals } from "@/lib/indicators";
-import { ChartData, ChartRange, Fundamentals, NewsFeed, PortfolioPosition, QuoteData, ResearchMinutes, Sourced } from "@/lib/types";
+import { ChartData, ChartRange, Fundamentals, NewsFeed, PortfolioPosition, QuoteData, ResearchMinutes, Sourced, WatchlistItem } from "@/lib/types";
+import WatchButton from "@/components/WatchButton";
 import { formatLargeNumber, formatVolume } from "@/lib/formatters";
 import { useMoney, useSettings } from "@/hooks/useSettings";
 import SourceTag from "@/components/SourceTag";
@@ -159,7 +160,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const [weekly, setWeekly] = useState<Sourced<ChartData> | null | undefined>(undefined);
   const [news, setNews] = useState<Sourced<NewsFeed> | null | undefined>(undefined);
   const [holdings, setHoldings] = useState<PortfolioPosition[]>([]);
-  const [inLists, setInLists] = useState<string[]>([]);
+  const [watchItem, setWatchItem] = useState<WatchlistItem | null>(null);
 
   // Default depth comes from the investor profile; the toggle overrides it for this visit
   useEffect(() => {
@@ -171,7 +172,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
     getFundamentals(ticker).then(setFund);
     getChart(ticker, "2y").then(setDaily); // one daily series feeds 1M–1Y views and the indicators
     loadPortfolio().then((p) => setHoldings(p.filter((x) => x.ticker === ticker)));
-    loadWatchlists().then((ls) => setInLists(ls.filter((l) => l.tickers.includes(ticker)).map((l) => l.name)));
+    loadWatchlist().then((items) => setWatchItem(items.find((i) => i.ticker === ticker) ?? null));
   }, [ticker]);
 
   // News waits for the company name so headlines like "Nvidia beats…" are matched too
@@ -293,23 +294,24 @@ export default function StockResearchPage({ params }: { params: { ticker: string
       </div>
 
       {/* ── Your position / watchlists ── */}
-      {(shares > 0 || inLists.length > 0) && (
-        <div className="flex items-center gap-2 flex-wrap mb-5">
-          {shares > 0 && (
-            <span className="text-[13px] bg-[#EBF2FF] text-[#1F65F0] border border-[#C7DAFE] px-3 py-1.5 rounded-xl font-medium">
-              You own {shares} share{shares !== 1 ? "s" : ""} · avg cost {px(cost / shares)}
-              {holdingPL !== null && (
-                <> · <span className={holdingPL >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}>{holdingPL >= 0 ? "+" : ""}{money.fmt(holdingPL)}</span></>
-              )}
-            </span>
-          )}
-          {inLists.map((l) => (
-            <span key={l} className="text-[13px] bg-white text-[#525252] border border-[#E5E5E5] px-3 py-1.5 rounded-xl font-medium">
-              In watchlist: {l}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="flex items-center gap-2 flex-wrap mb-5">
+        {shares > 0 && (
+          <span className="text-[13px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] px-3 py-1.5 rounded-xl font-medium">
+            You own {shares} share{shares !== 1 ? "s" : ""} · avg cost {px(cost / shares)}
+            {holdingPL !== null && (
+              <> · <span className={holdingPL >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}>{holdingPL >= 0 ? "+" : ""}{money.fmt(holdingPL)}</span></>
+            )}
+          </span>
+        )}
+        <WatchButton
+          ticker={ticker}
+          current={watchItem}
+          onSaved={(items) => setWatchItem(items.find((i) => i.ticker === ticker) ?? null)}
+        />
+        {watchItem?.note && (
+          <span className="text-[13px] text-[#525252] italic truncate max-w-md" title={watchItem.note}>&ldquo;{watchItem.note}&rdquo;</span>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* ── Left: chart + deeper sections ── */}

@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
 import { formatCurrency, formatPercent, formatLargeNumber, formatVolume } from "@/lib/formatters";
 import TickerLink from "@/components/TickerLink";
+import WatchButton from "@/components/WatchButton";
+import { SWING_PRESETS, SwingPresetId, Reason, evaluate, contextReasons, Holding, MIN_MARKET_CAP, MIN_PRICE } from "@/lib/rules";
+import { getFundamentals, getQuotes } from "@/lib/data";
+import { loadPortfolio, loadWatchlist } from "@/lib/store";
+import { useSettings } from "@/hooks/useSettings";
+import { PortfolioPosition, WatchlistItem } from "@/lib/types";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -36,7 +42,16 @@ interface ScreenerRow {
   divYield: number | null;
   relVolume: number | null;
   floatShares?: number | null;
+  sma50: number | null;
+  sma200: number | null;
+  high52: number | null;
+  low52: number | null;
+  /** Why this row matched: rule sentences for swing presets, filter descriptions otherwise */
+  reasons: Reason[];
 }
+
+// How many top results get sector/industry looked up for portfolio context
+const CONTEXT_LOOKUPS = 25;
 
 type SortKey = "ticker" | "name" | "price" | "changePercent" | "volume" | "relVolume" | "marketCap" | "pe" | "divYield";
 type SortDir = "asc" | "desc";
@@ -46,22 +61,6 @@ type SortDir = "asc" | "desc";
 const EMPTY_FILTERS: Filters = {
   sector: "", marketCap: "", pe: "", price: "", change: "",
   relVolume: "", float: "", divYield: "",
-};
-
-const DAY_TRADE_PRESET: Preset = {
-  name: "Day Trade",
-  builtIn: true,
-  note: "Verify each result has a news catalyst before trading — this condition cannot be automated.",
-  filters: {
-    sector:     "",
-    marketCap:  "",
-    pe:         "",
-    price:      "1-20",
-    change:     "u10plus",
-    relVolume:  "o5",
-    float:      "u10",
-    divYield:   "",
-  },
 };
 
 const LS_KEY = "screener_presets_v1";
@@ -162,6 +161,28 @@ function ChgBadge({ v }: { v: number | null }) {
   );
 }
 
+/** For manual filters: one sentence per active filter, showing the stock's actual value */
+function filterReasons(filters: Filters, r: Omit<ScreenerRow, "reasons">): Reason[] {
+  const label = (k: keyof Filters) => FILTER_OPTIONS[k].find((o) => o.value === filters[k])?.label ?? filters[k];
+  const out: Reason[] = [];
+  const add = (k: keyof Filters, actual: string) => out.push({ text: `${FILTER_LABELS[k]} ${label(k)}: ${actual}`, tone: "neutral", kind: "signal" });
+  if (filters.sector) add("sector", "matches");
+  if (filters.change && r.changePercent !== null) add("change", formatPercent(r.changePercent));
+  if (filters.relVolume && r.relVolume !== null) add("relVolume", `${r.relVolume.toFixed(1)}× average`);
+  if (filters.price && r.price !== null) add("price", formatCurrency(r.price));
+  if (filters.marketCap && r.marketCap !== null) add("marketCap", formatLargeNumber(r.marketCap));
+  if (filters.pe && r.pe !== null) add("pe", r.pe.toFixed(1));
+  if (filters.divYield) add("divYield", r.divYield ? `${(r.divYield * 100).toFixed(2)}%` : "none");
+  if (filters.float && r.floatShares) add("float", formatVolume(r.floatShares));
+  return out;
+}
+
+const TONE_CLS: Record<Reason["tone"], string> = {
+  good: "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]",
+  warn: "bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]",
+  neutral: "bg-[#F7F7F8] text-[#404040] border-[#E5E5E5]",
+};
+
 function Skeleton() {
   return <span className="inline-block h-3.5 w-14 bg-[#F0F0F0] rounded animate-pulse" />;
 }
@@ -171,6 +192,14 @@ function Skeleton() {
 export default function ScreenerPage() {
   const [userPresets, setUserPresets] = useState<Preset[]>([]);
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [swingId, setSwingId] = useState<SwingPresetId | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  // Portfolio context for "why am I seeing this?"
+  const { settings } = useSettings();
+  const [positions, setPositions] = useState<PortfolioPosition[]>([]);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, { sector: string | null; industry: string | null }>>({});
   const [filters, setFilters]     = useState<Filters>(EMPTY_FILTERS);
   const [results, setResults]     = useState<ScreenerRow[]>([]);
   const [loading, setLoading]     = useState(false);
@@ -191,6 +220,32 @@ export default function ScreenerPage() {
     } catch {}
   }, []);
 
+  // Load portfolio + watchlist, and each holding's industry, for portfolio-context reasons
+  useEffect(() => {
+    loadWatchlist().then(setWatchlist);
+    loadPortfolio().then(async (ps) => {
+      setPositions(ps);
+      const tickers = Array.from(new Set(ps.map((p) => p.ticker)));
+      const [quotes, funds] = await Promise.all([
+        getQuotes(tickers),
+        Promise.all(tickers.map((t) => getFundamentals(t))),
+      ]);
+      setHoldings(tickers.map((t, i) => ({
+        ticker: t,
+        sector: funds[i]?.value.profile.sector ?? ps.find((p) => p.ticker === t)?.sector ?? null,
+        industry: funds[i]?.value.profile.industry ?? null,
+        value: ps.filter((p) => p.ticker === t).reduce((s, p) => s + p.quantity * (quotes[t]?.value.price ?? p.purchasePrice), 0),
+      })));
+    });
+  }, []);
+
+  function loadSwing(id: SwingPresetId) {
+    if (swingId === id) { setSwingId(null); return; }
+    setSwingId(id);
+    setActivePreset(null);
+    setFilters(EMPTY_FILTERS);
+  }
+
   function persistPresets(list: Preset[]) {
     setUserPresets(list);
     localStorage.setItem(LS_KEY, JSON.stringify(list));
@@ -199,11 +254,13 @@ export default function ScreenerPage() {
   function loadPreset(preset: Preset) {
     setFilters(preset.filters);
     setActivePreset(preset.name);
+    setSwingId(null);
   }
 
   function clearAllFilters() {
     setFilters(EMPTY_FILTERS);
     setActivePreset(null);
+    setSwingId(null);
     setSearch("");
   }
 
@@ -252,6 +309,13 @@ export default function ScreenerPage() {
     (Object.entries(filters) as [keyof Filters, string][]).forEach(([k, v]) => {
       if (v) params.set(k, v);
     });
+    const swing = SWING_PRESETS.find((p) => p.id === swingId) ?? null;
+    if (swing) {
+      params.set("minCap", String(MIN_MARKET_CAP));
+      params.set("minPrice", String(MIN_PRICE));
+      params.set("sort", swing.query.sort);
+      if (swing.query.minChange !== undefined) params.set("minChange", String(swing.query.minChange));
+    }
 
     try {
       const resp = await fetch(`/api/finviz?${params.toString()}`);
@@ -264,7 +328,7 @@ export default function ScreenerPage() {
         return;
       }
 
-      let rows: ScreenerRow[] = data.results ?? [];
+      let rows: Omit<ScreenerRow, "reasons">[] = data.results ?? [];
 
       // Drop stocks with negligible volume (warrants, thin issues)
       rows = rows.filter((r) => r.volume === null || r.volume >= 10_000);
@@ -369,14 +433,24 @@ export default function ScreenerPage() {
         if (max) rows = rows.filter((r) => r.floatShares == null || r.floatShares <= max);
       }
 
-      setResults(rows);
+      // Attach the reasons each row matched. Swing presets run their rules here and
+      // drop anything that fails; plain filters describe the stock's value for each filter.
+      const withReasons: ScreenerRow[] = swing
+        ? rows.flatMap((r) => {
+            const res = evaluate(swing, { ...r, high52: r.high52, low52: r.low52 });
+            return res.pass ? [{ ...r, reasons: [...res.reasons, ...filterReasons(filters, r)] }] : [];
+          })
+        : rows.map((r) => ({ ...r, reasons: filterReasons(filters, r) }));
+
+      setResults(withReasons);
+      setExpanded(null);
     } catch (e) {
       setScreenerError(String(e));
       setResults([]);
     }
 
     setLoading(false);
-  }, [filters]);
+  }, [filters, swingId]);
 
   // Sorted & searched results
   const displayed = useMemo(() => {
@@ -411,9 +485,37 @@ export default function ScreenerPage() {
     });
   }, [results, search, sortKey, sortDir]);
 
+  // Look up sector/industry for the top results (cached 6h) so context reasons can compare
+  // them with what the investor already holds
+  useEffect(() => {
+    const missing = displayed.slice(0, CONTEXT_LOOKUPS).map((r) => r.ticker).filter((t) => !(t in profiles));
+    if (!missing.length) return;
+    let cancelled = false;
+    Promise.all(missing.map(async (t) => [t, (await getFundamentals(t))?.value.profile] as const)).then((pairs) => {
+      if (cancelled) return;
+      setProfiles((prev) => {
+        const next = { ...prev };
+        for (const [t, p] of pairs) next[t] = { sector: p?.sector ?? null, industry: p?.industry ?? null };
+        return next;
+      });
+    });
+    return () => { cancelled = true; };
+  }, [displayed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const contextFor = useCallback((ticker: string): Reason[] => contextReasons({
+    ticker,
+    sector: profiles[ticker]?.sector ?? null,
+    industry: profiles[ticker]?.industry ?? null,
+    holdings,
+    positions,
+    watchlist,
+    watchedSectors: settings?.profile.sectors ?? [],
+  }), [profiles, holdings, positions, watchlist, settings]);
+
+  const activeSwing   = SWING_PRESETS.find((p) => p.id === swingId) ?? null;
   const activeFilters = (Object.entries(filters) as [keyof Filters, string][]).filter(([, v]) => v !== "");
-  const hasFilters    = activeFilters.length > 0;
-  const allPresets    = [DAY_TRADE_PRESET, ...userPresets];
+  const hasFilters    = activeFilters.length > 0 || swingId !== null;
+  const allPresets    = userPresets;
 
   const thCls = (key: SortKey) =>
     `px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap cursor-pointer select-none transition-colors ${
@@ -453,7 +555,27 @@ export default function ScreenerPage() {
       {/* ── Preset bar ── */}
       <div className="bg-white rounded-2xl border border-[#E5E5E5] mb-3 px-4 py-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-semibold text-[#A3A3A3] uppercase tracking-wider shrink-0">Presets</span>
+          <span className="text-[11px] font-semibold text-[#A3A3A3] uppercase tracking-wider shrink-0">Swing setups</span>
+
+          {SWING_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => loadSwing(p.id)}
+              title={p.summary}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold transition-all border ${
+                swingId === p.id
+                  ? "bg-[#0A0A0A] text-white border-[#0A0A0A]"
+                  : "bg-[#F7F7F8] text-[#525252] border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A]"
+              }`}
+            >
+              <svg className={`w-3 h-3 ${swingId === p.id ? "text-white" : "text-[#A3A3A3]"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              {p.name}
+            </button>
+          ))}
+
+          {allPresets.length > 0 && <span className="w-px h-5 bg-[#E5E5E5] mx-1" />}
 
           {allPresets.map((preset) => {
             const isActive = activePreset === preset.name;
@@ -504,15 +626,15 @@ export default function ScreenerPage() {
         </div>
       </div>
 
-      {/* ── Day Trade note banner ── */}
-      {activePreset === "Day Trade" && (
-        <div className="mb-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5">
-          <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <p className="text-[13px] text-amber-800">
-            <span className="font-semibold">Day Trade preset active.</span>{" "}
-            {DAY_TRADE_PRESET.note}
+      {/* ── Swing setup explainer ── */}
+      {activeSwing && (
+        <div className="mb-3 px-4 py-3 bg-[#F5F8FF] border border-[#D6E4FF] rounded-2xl">
+          <p className="text-[13px] text-[#0A0A0A]">
+            <span className="font-bold">{activeSwing.name}:</span> {activeSwing.summary}
+          </p>
+          <p className="text-[12px] text-[#525252] mt-1">
+            Only US-listed stocks over $2B market cap and $5 a share. Every result lists the exact rules it passed, plus how it fits your portfolio.
+            These describe the chart, not where it goes next.
           </p>
         </div>
       )}
@@ -648,12 +770,14 @@ export default function ScreenerPage() {
                 <th className={`${thCls("divYield")} text-right`} onClick={() => handleSort("divYield")}>
                   Div % <SortIcon active={sortKey === "divYield"} dir={sortDir} />
                 </th>
+                <th className="px-3 py-2.5 text-[11px] font-semibold text-[#525252] text-left whitespace-nowrap">Why it matched</th>
+                <th className="px-3 py-2.5 w-24" />
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F0F0F0]">
               {!hasRun ? (
                 <tr>
-                  <td colSpan={10} className="py-20 text-center">
+                  <td colSpan={12} className="py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <svg className="w-10 h-10 text-[#E5E5E5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -664,18 +788,18 @@ export default function ScreenerPage() {
                 </tr>
               ) : loading ? (
                 <tr>
-                  <td colSpan={10} className="py-20 text-center">
+                  <td colSpan={12} className="py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <svg className="w-8 h-8 text-[#1F65F0] animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
-                      <p className="text-[#525252] text-[13px]">Fetching results from FinViz…</p>
+                      <p className="text-[#525252] text-[13px]">Fetching results from Yahoo Finance…</p>
                     </div>
                   </td>
                 </tr>
               ) : screenerError ? (
                 <tr>
-                  <td colSpan={10} className="py-20 text-center">
+                  <td colSpan={12} className="py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <svg className="w-10 h-10 text-[#E5E5E5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -695,13 +819,26 @@ export default function ScreenerPage() {
                 </tr>
               ) : displayed.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center">
-                    <p className="text-[#525252] text-[13px]">No stocks matched these filters.</p>
+                  <td colSpan={12} className="py-16 text-center">
+                    {activeSwing ? (
+                      <>
+                        <p className="text-[#0A0A0A] font-semibold text-[13px]">No stocks passed every {activeSwing.name} rule in the latest session.</p>
+                        <p className="text-[#525252] text-[12px] mt-1">That&apos;s normal: clean setups are rare on any given day. Try another setup, or run it again after the next session.</p>
+                      </>
+                    ) : (
+                      <p className="text-[#525252] text-[13px]">No stocks matched these filters.</p>
+                    )}
                   </td>
                 </tr>
               ) : (
-                displayed.map((r, i) => (
-                  <tr key={r.ticker} className="hover:bg-[#F7F7F8] transition-colors">
+                displayed.map((r, i) => {
+                  const ctx = contextFor(r.ticker);
+                  const all = [...r.reasons, ...ctx];
+                  const isOpen = expanded === r.ticker;
+                  const watched = watchlist.find((w) => w.ticker === r.ticker) ?? null;
+                  return (
+                  <Fragment key={r.ticker}>
+                  <tr className={`transition-colors ${isOpen ? "bg-[#F5F8FF]" : "hover:bg-[#F7F7F8]"}`}>
                     <td className="pl-4 pr-1 py-2.5 text-[11px] text-[#A3A3A3] tabular-nums">{i + 1}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap"><TickerLink ticker={r.ticker} /></td>
                     <td className="px-3 py-2.5 text-[#0A0A0A] text-[13px] max-w-[160px] truncate">{r.name}</td>
@@ -730,8 +867,70 @@ export default function ScreenerPage() {
                     <td className="px-3 py-2.5 text-right text-[#525252] text-[13px] tabular-nums">
                       {r.divYield !== null && r.divYield > 0 ? `${(r.divYield * 100).toFixed(2)}%` : "—"}
                     </td>
+                    <td className="px-3 py-2.5 max-w-[260px]">
+                      {all.length ? (
+                        <button
+                          onClick={() => setExpanded(isOpen ? null : r.ticker)}
+                          className="flex items-center gap-1.5 text-left w-full group"
+                          title="Why am I seeing this?"
+                        >
+                          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-lg border truncate ${TONE_CLS[all[0].tone]}`}>{all[0].text}</span>
+                          {all.length > 1 && <span className="text-[11px] font-semibold text-[#1F65F0] shrink-0 group-hover:underline">+{all.length - 1}</span>}
+                        </button>
+                      ) : <span className="text-[11px] text-[#A3A3A3]">—</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <WatchButton
+                        ticker={r.ticker}
+                        current={watched}
+                        size="sm"
+                        defaultIntent={activeSwing ? "swing" : "research"}
+                        defaultNote={activeSwing
+                          ? `${activeSwing.name} setup: ${r.reasons.filter((x) => x.kind === "signal").map((x) => x.text).join("; ")}`
+                          : r.reasons.map((x) => x.text).join("; ")}
+                        onSaved={setWatchlist}
+                      />
+                    </td>
                   </tr>
-                ))
+                  {isOpen && (
+                    <tr className="bg-[#F5F8FF]">
+                      <td />
+                      <td colSpan={11} className="px-3 pb-4 pt-1">
+                        <p className="text-[12px] font-bold text-[#0A0A0A] mb-2">Why am I seeing {r.ticker}?</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-1.5">
+                              {activeSwing ? `Passed every ${activeSwing.name} rule` : "Matched your filters"}
+                            </p>
+                            {r.reasons.length ? (
+                              <ul className="space-y-1">
+                                {r.reasons.map((x) => <li key={x.text} className="text-[13px] text-[#262626]">✓ {x.text}</li>)}
+                              </ul>
+                            ) : <p className="text-[13px] text-[#A3A3A3]">No filters set: showing the largest US-listed stocks.</p>}
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-1.5">For your portfolio</p>
+                            {ctx.length ? (
+                              <ul className="space-y-1">
+                                {ctx.map((x) => (
+                                  <li key={x.text} className={`text-[13px] ${x.tone === "warn" ? "text-[#92400E]" : x.tone === "good" ? "text-[#166534]" : "text-[#262626]"}`}>
+                                    {x.tone === "warn" ? "⚠" : "•"} {x.text}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-[13px] text-[#A3A3A3]">
+                                {profiles[r.ticker] ? "No overlap with your holdings or watchlist." : "Looking up sector…"}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>

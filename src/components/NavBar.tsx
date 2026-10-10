@@ -17,7 +17,6 @@ const links = [
   { href: "/", label: "Dashboard" },
   { href: "/watchlist", label: "Watchlist" },
   { href: "/calculator", label: "Screener" },
-  { href: "/daytrade", label: "Day Trade" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/retirement", label: "Retirement" },
   { href: "/glossary", label: "Glossary" },

@@ -103,13 +103,13 @@ export default function SettingsPage() {
     a.download = `investor-research-backup-${data.exportedAt.slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-    setBackupMsg({ ok: true, text: `Exported ${data.portfolio.length} positions and ${data.watchlists.length} watchlists.` });
+    setBackupMsg({ ok: true, text: `Exported ${data.portfolio.length} positions and ${data.watchlist.length} watchlist stocks.` });
   }
 
   async function handleImport(file: File) {
     try {
       const res = await importBackup(JSON.parse(await file.text()));
-      setBackupMsg({ ok: true, text: `Restored ${res.positions} positions and ${res.lists} watchlists.` });
+      setBackupMsg({ ok: true, text: `Restored ${res.positions} positions and ${res.watched} watchlist stocks.` });
     } catch (e) {
       setBackupMsg({ ok: false, text: e instanceof Error ? e.message : "Could not read that file." });
     }
