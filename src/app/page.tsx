@@ -15,6 +15,8 @@ import {
   ReferenceLine,
 } from "recharts";
 import StockHeatmap from "@/components/StockHeatmap";
+import SourceTag from "@/components/SourceTag";
+import { getMarket } from "@/lib/data";
 
 const UPCOMING_EVENTS = [
   { date: "2026-06-26", name: "GDP (Q1 Final)",       importance: "high",   description: "Final Q1 2026 economic growth estimate" },
@@ -119,16 +121,17 @@ export default function DashboardPage() {
   const [indices, setIndices] = useState<IndexData[]>([]);
   const [sectors, setSectors] = useState<SectorData[]>([]);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [marketSource, setMarketSource] = useState<{ source: string; cached: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
 
-  async function loadMarket() {
+  async function loadMarket(force = false) {
     setLoading(true); setErr(false);
-    try {
-      const r = await fetch("/api/market");
-      const d = await r.json();
-      setIndices(d.indices ?? []); setSectors(d.sectors ?? []); setLastUpdated(d.lastUpdated ?? null);
-    } catch { setErr(true); }
+    const d = await getMarket({ force });
+    if (d) {
+      setIndices(d.value.indices); setSectors(d.value.sectors); setLastUpdated(d.asOf);
+      setMarketSource({ source: d.source, cached: d.cached });
+    } else setErr(true);
     setLoading(false);
   }
 
@@ -153,7 +156,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-4 shrink-0">
             <button
-              onClick={loadMarket}
+              onClick={() => loadMarket(true)}
               disabled={loading}
               className="flex items-center gap-2 px-5 py-2.5 bg-[#1F65F0] text-white text-[14px] font-semibold rounded-xl hover:bg-[#1550D8] disabled:opacity-50 transition-colors"
             >
@@ -178,7 +181,7 @@ export default function DashboardPage() {
           {err ? (
             <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-2xl p-4 text-[13px] text-[#EF4444]">
               Could not load market data.{" "}
-              <button onClick={loadMarket} className="underline font-semibold">Retry</button>
+              <button onClick={() => loadMarket(true)} className="underline font-semibold">Retry</button>
             </div>
           ) : loading ? (
             <div className="flex gap-3 overflow-x-auto pb-1">
@@ -191,9 +194,14 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {indices.map((d) => <IndexCard key={d.symbol} d={d} />)}
-            </div>
+            <>
+              <div className="flex gap-3 overflow-x-auto pb-1">
+                {indices.map((d) => <IndexCard key={d.symbol} d={d} />)}
+              </div>
+              {marketSource && (
+                <SourceTag className="mt-2" source={marketSource.source} asOf={lastUpdated} cached={marketSource.cached} />
+              )}
+            </>
           )}
         </section>
 

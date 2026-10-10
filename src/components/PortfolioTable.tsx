@@ -8,6 +8,7 @@ interface Props {
   positions: PortfolioPositionWithData[];
   onEdit?: (position: PortfolioPositionWithData) => void;
   onDelete?: (id: string) => void;
+  fmt?: (usd: number | null) => string;
 }
 
 function PencilIcon() {
@@ -26,7 +27,7 @@ function TrashIcon() {
   );
 }
 
-export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
+export default function PortfolioTable({ positions, onEdit, onDelete, fmt = formatCurrency }: Props) {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   if (positions.length === 0) {
@@ -65,16 +66,16 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
                   <td className="px-4 py-3 text-[#0A0A0A] text-[13px] max-w-[140px] truncate">{p.name}</td>
                   <td className="px-4 py-3 text-[#525252] text-[11px] whitespace-nowrap">{p.sector}</td>
                   <td className="px-4 py-3 text-right text-[#525252] tabular-nums text-[13px]">{p.quantity}</td>
-                  <td className="px-4 py-3 text-right text-[#525252] tabular-nums text-[13px]">{formatCurrency(p.purchasePrice)}</td>
+                  <td className="px-4 py-3 text-right text-[#525252] tabular-nums text-[13px]">{fmt(p.purchasePrice)}</td>
                   <td className="px-4 py-3 text-[#525252] whitespace-nowrap text-[13px]">{formatDate(p.purchaseDate)}</td>
                   <td className="px-4 py-3 text-right font-semibold text-[#0A0A0A] tabular-nums">
-                    {p.error ? "—" : formatCurrency(p.currentPrice)}
+                    {p.error ? "—" : fmt(p.currentPrice)}
                   </td>
                   <td className="px-4 py-3 text-right font-semibold text-[#0A0A0A] tabular-nums">
-                    {p.error ? "—" : formatCurrency(p.currentValue)}
+                    {p.error ? "—" : fmt(p.currentValue)}
                   </td>
                   <td className={`px-4 py-3 text-right font-semibold tabular-nums ${plColor}`}>
-                    {p.error ? "—" : formatCurrency(pl)}
+                    {p.error ? "—" : fmt(pl)}
                   </td>
                   <td className={`px-4 py-3 text-right font-semibold tabular-nums ${plColor}`}>
                     {p.error ? "—" : formatPercent(p.percentReturn)}
@@ -149,7 +150,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
                     <span className="text-[#EF4444] text-[11px]">Unavailable</span>
                   ) : (
                     <>
-                      <p className="font-bold text-[#0A0A0A] tabular-nums">{formatCurrency(p.currentPrice)}</p>
+                      <p className="font-bold text-[#0A0A0A] tabular-nums">{fmt(p.currentPrice)}</p>
                       <p className={`text-[13px] font-semibold tabular-nums ${plColor}`}>{formatPercent(p.percentReturn)}</p>
                     </>
                   )}
@@ -159,7 +160,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
               <div className="grid grid-cols-2 gap-2 text-[11px] pt-3 border-t border-[#F0F0F0]">
                 <div>
                   <p className="text-[#A3A3A3]">Buy Price</p>
-                  <p className="text-[#0A0A0A] font-medium tabular-nums">{formatCurrency(p.purchasePrice)}</p>
+                  <p className="text-[#0A0A0A] font-medium tabular-nums">{fmt(p.purchasePrice)}</p>
                 </div>
                 <div>
                   <p className="text-[#A3A3A3]">Buy Date</p>
@@ -167,12 +168,12 @@ export default function PortfolioTable({ positions, onEdit, onDelete }: Props) {
                 </div>
                 <div>
                   <p className="text-[#A3A3A3]">Current Value</p>
-                  <p className="text-[#0A0A0A] font-medium tabular-nums">{p.error ? "—" : formatCurrency(p.currentValue)}</p>
+                  <p className="text-[#0A0A0A] font-medium tabular-nums">{p.error ? "—" : fmt(p.currentValue)}</p>
                 </div>
                 <div>
                   <p className="text-[#A3A3A3]">P&L</p>
                   <p className={`font-semibold tabular-nums ${plColor}`}>
-                    {p.error ? "—" : `${formatCurrency(pl)} (${formatPercent(p.percentReturn)})`}
+                    {p.error ? "—" : `${fmt(pl)} (${formatPercent(p.percentReturn)})`}
                   </p>
                 </div>
               </div>

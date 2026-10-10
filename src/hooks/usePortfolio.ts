@@ -2,44 +2,34 @@
 
 import { useState, useEffect } from "react";
 import { PortfolioPosition } from "@/lib/types";
-import { getPortfolio, savePortfolio } from "@/lib/localStorage";
-import { PORTFOLIO_PRESETS } from "@/lib/presets";
+import { loadPortfolio, savePortfolio } from "@/lib/store";
 
 export function usePortfolio() {
   const [positions, setPositions] = useState<PortfolioPosition[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("portfolio");
-      if (raw === null) {
-        savePortfolio(PORTFOLIO_PRESETS);
-        setPositions(PORTFOLIO_PRESETS);
-      } else {
-        setPositions(JSON.parse(raw));
-      }
-    } catch {
-      setPositions(PORTFOLIO_PRESETS);
-    }
-    setReady(true);
+    loadPortfolio().then((p) => {
+      setPositions(p);
+      setReady(true);
+    });
   }, []);
 
-  function addPosition(position: PortfolioPosition) {
-    const updated = [...positions, position];
-    setPositions(updated);
-    savePortfolio(updated);
-  }
-
-  function updatePosition(updated: PortfolioPosition) {
-    const next = positions.map((p) => (p.id === updated.id ? updated : p));
+  function commit(next: PortfolioPosition[]) {
     setPositions(next);
     savePortfolio(next);
   }
 
+  function addPosition(position: PortfolioPosition) {
+    commit([...positions, position]);
+  }
+
+  function updatePosition(updated: PortfolioPosition) {
+    commit(positions.map((p) => (p.id === updated.id ? updated : p)));
+  }
+
   function removePosition(id: string) {
-    const updated = positions.filter((p) => p.id !== id);
-    setPositions(updated);
-    savePortfolio(updated);
+    commit(positions.filter((p) => p.id !== id));
   }
 
   return { positions, ready, addPosition, updatePosition, removePosition };

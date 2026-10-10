@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PortfolioPosition } from "@/lib/types";
+import { getQuote } from "@/lib/data";
 import { SECTOR_COLORS } from "@/lib/presets";
 import TickerAutocomplete from "@/components/TickerAutocomplete";
 
@@ -39,9 +40,8 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
     setLookingUp(true);
     setError("");
     try {
-      const res = await fetch(`/api/quote?ticker=${t}`);
-      const data = await res.json();
-      if (data.name && !data.error) {
+      const data = (await getQuote(t))?.value;
+      if (data?.name && !data.error) {
         setName(data.name);
         setTicker(t);
       } else {

@@ -1,11 +1,13 @@
-export function formatCurrency(n: number | null): string {
+export function formatCurrency(n: number | null, currency: "USD" | "SGD" = "USD"): string {
   if (n === null || isNaN(n)) return "N/A";
-  return new Intl.NumberFormat("en-US", {
+  const body = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n);
+  // Intl renders SGD as a bare "$" in en-SG, so label it explicitly as S$
+  return currency === "SGD" ? body.replace("$", "S$") : body;
 }
 
 export function formatLargeNumber(n: number | null): string {

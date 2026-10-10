@@ -15,7 +15,14 @@ export interface PresetPosition {
   quantity: number;
 }
 
-export const WATCHLIST_CATEGORIES = ["Stocks", "ETF", "REIT", "Dividend"];
+export const DEFAULT_WATCHLISTS = [
+  { id: "stocks",   name: "Stocks",   tickers: ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"] },
+  { id: "etf",      name: "ETF",      tickers: ["VOO", "SPY", "QQQ", "VTI", "SCHD", "VGT"] },
+  { id: "reit",     name: "REIT",     tickers: ["O", "AMT", "WELL", "VICI", "PSA", "PLD"] },
+  { id: "dividend", name: "Dividend", tickers: ["JNJ", "KO", "PG", "PEP", "MCD", "T"] },
+];
+
+export const WATCHLIST_CATEGORIES =["Stocks", "ETF", "REIT", "Dividend"];
 
 export const WATCHLIST_PRESETS: PresetEntry[] = [
   // MAG 7

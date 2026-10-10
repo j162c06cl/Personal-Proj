@@ -43,6 +43,7 @@ async function yahooChart(symbol: string) {
       price,
       change: prev ? price - prev : null as number | null,
       changePercent: prev ? ((price - prev) / prev) * 100 : null as number | null,
+      source: "Yahoo Finance" as string | null,
     };
   } catch { return null; }
 }
@@ -64,6 +65,7 @@ async function stooqFetch(sym: string) {
       price: close,
       change: close - open,
       changePercent: ((close - open) / open) * 100,
+      source: "Stooq" as string | null,
     };
   } catch { return null; }
 }
@@ -78,7 +80,7 @@ export async function GET() {
           symbol: idx.symbol,
           label: idx.label,
           format: idx.format,
-          ...(data ?? { price: null, change: null, changePercent: null }),
+          ...(data ?? { price: null, change: null, changePercent: null, source: null }),
         };
       })
     ),
@@ -89,7 +91,7 @@ export async function GET() {
         return {
           symbol: sec.symbol,
           label: sec.label,
-          ...(data ?? { price: null, change: null, changePercent: null }),
+          ...(data ?? { price: null, change: null, changePercent: null, source: null }),
         };
       })
     ),

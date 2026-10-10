@@ -36,7 +36,7 @@ const V7_FIELDS = [
   "regularMarketChangePercent", "regularMarketOpen", "regularMarketDayHigh",
   "regularMarketDayLow", "regularMarketVolume", "averageDailyVolume10Day",
   "averageDailyVolume3Month", "fiftyTwoWeekHigh", "fiftyTwoWeekLow",
-  "marketCap", "trailingPE", "trailingAnnualDividendYield",
+  "marketCap", "trailingPE", "trailingAnnualDividendYield", "regularMarketTime",
 ].join(",");
 
 async function yahooV7Batch(symbols: string[], auth: { cookie: string; crumb: string }) {
@@ -66,6 +66,10 @@ async function yahooV7Batch(symbols: string[], auth: { cookie: string; crumb: st
   } catch { return null; }
 }
 
+function epochToIso(sec: number | undefined): string {
+  return sec ? new Date(sec * 1000).toISOString() : new Date().toISOString();
+}
+
 function extractV7(q: Record<string, unknown>) {
   const price = (q.regularMarketPrice as number | null) ?? null;
   const prev = (q.regularMarketPreviousClose as number | null) ?? null;
@@ -86,6 +90,8 @@ function extractV7(q: Record<string, unknown>) {
     dayLow: (q.regularMarketDayLow as number | null) ?? null,
     pe: (q.trailingPE as number | null) ?? null,
     divYield: (q.trailingAnnualDividendYield as number | null) ?? null,
+    source: "Yahoo Finance",
+    asOf: epochToIso(q.regularMarketTime as number | undefined),
   };
 }
 
@@ -116,6 +122,8 @@ async function yahooChart(symbol: string) {
       dayLow: (meta.regularMarketDayLow ?? null) as number | null,
       pe: (meta.trailingPE ?? null) as number | null,
       divYield: (meta.dividendYield ?? null) as number | null,
+      source: "Yahoo Finance (chart)",
+      asOf: epochToIso(meta.regularMarketTime as number | undefined),
     };
   } catch { return null; }
 }
@@ -147,13 +155,15 @@ async function stooqQuote(ticker: string) {
       avgVolume: null as number | null, dayHigh: null as number | null,
       dayLow: null as number | null, pe: null as number | null,
       divYield: null as number | null,
+      source: "Stooq",
+      asOf: new Date().toISOString(), // Stooq's own timestamp is exchange-local, so record retrieval time
     };
   } catch { return null; }
 }
 
 function toResult(t: string, data: ReturnType<typeof extractV7> | Awaited<ReturnType<typeof yahooChart>> | Awaited<ReturnType<typeof stooqQuote>>) {
-  if (!data) return { ticker: t, name: t, price: null, open: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, volume: null, avgVolume: null, dayHigh: null, dayLow: null, pe: null, divYield: null, error: "Not found" };
-  return { ticker: t, name: data.name || t, price: data.price, open: data.open, change: data.change, changePercent: data.changePercent, weekHigh52: data.weekHigh52, weekLow52: data.weekLow52, marketCap: data.marketCap, volume: data.volume, avgVolume: data.avgVolume, dayHigh: data.dayHigh, dayLow: data.dayLow, pe: data.pe, divYield: data.divYield };
+  if (!data) return { ticker: t, name: t, price: null, open: null, change: null, changePercent: null, weekHigh52: null, weekLow52: null, marketCap: null, volume: null, avgVolume: null, dayHigh: null, dayLow: null, pe: null, divYield: null, error: "Not found", source: null, asOf: new Date().toISOString() };
+  return { ticker: t, name: data.name || t, price: data.price, open: data.open, change: data.change, changePercent: data.changePercent, weekHigh52: data.weekHigh52, weekLow52: data.weekLow52, marketCap: data.marketCap, volume: data.volume, avgVolume: data.avgVolume, dayHigh: data.dayHigh, dayLow: data.dayLow, pe: data.pe, divYield: data.divYield, source: data.source, asOf: data.asOf };
 }
 
 export async function GET(request: NextRequest) {

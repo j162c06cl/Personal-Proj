@@ -4,7 +4,10 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { SECTOR_COLORS } from "@/lib/presets";
 import { PortfolioPosition, PortfolioPositionWithData } from "@/lib/types";
-import { formatCurrency, formatPercent } from "@/lib/formatters";
+import { formatPercent } from "@/lib/formatters";
+import { getQuotes, QuoteMap } from "@/lib/data";
+import { useMoney } from "@/hooks/useSettings";
+import SourceTag from "@/components/SourceTag";
 import PortfolioTable from "@/components/PortfolioTable";
 import PositionForm from "@/components/AddPositionForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -13,11 +16,9 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie,
 } from "recharts";
 
-type QuoteMap = Record<string, { price: number | null; error?: string }>;
-
-function shortNum(v: number) {
-  if (Math.abs(v) >= 1000) return `$${(v / 1000).toFixed(1)}k`;
-  return `$${v.toFixed(0)}`;
+function shortNum(v: number, symbol: string) {
+  if (Math.abs(v) >= 1000) return `${symbol}${(v / 1000).toFixed(1)}k`;
+  return `${symbol}${v.toFixed(0)}`;
 }
 
 const tooltipStyle = {
@@ -34,22 +35,14 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingPosition, setEditingPosition] = useState<PortfolioPosition | null>(null);
+  const money = useMoney();
+  const sym = money.currency === "SGD" ? "S$" : "$";
 
-  const fetchQuotes = useCallback(async (tickers: string[]) => {
+  const fetchQuotes = useCallback(async (tickers: string[], force = false) => {
     if (!tickers.length) return;
     setLoading(true);
-    try {
-      const res = await fetch(`/api/quote?ticker=${tickers.join(",")}`);
-      const data = await res.json();
-      const arr = Array.isArray(data) ? data : [data];
-      setQuotes((prev) => {
-        const next = { ...prev };
-        arr.forEach((d: { ticker: string; price: number | null; error?: string }) => {
-          next[d.ticker] = { price: d.price, error: d.error };
-        });
-        return next;
-      });
-    } catch {}
+    const map = await getQuotes(tickers, { force });
+    setQuotes((prev) => ({ ...prev, ...map }));
     setLoading(false);
   }, []);
 
@@ -61,7 +54,7 @@ export default function PortfolioPage() {
 
   const enriched: PortfolioPositionWithData[] = useMemo(() => {
     return positions.map((p) => {
-      const q = quotes[p.ticker];
+      const q = quotes[p.ticker]?.value;
       if (!q || q.price === null) {
         return { ...p, currentPrice: null, currentValue: null, profitLoss: null, percentReturn: null, error: q?.error ?? "Loading" };
       }
@@ -142,8 +135,20 @@ export default function PortfolioPage() {
 
   function handleRefresh() {
     const tickers = Array.from(new Set(positions.map((p) => p.ticker)));
-    fetchQuotes(tickers);
+    fetchQuotes(tickers, true);
   }
+
+  // Newest timestamp per provider, for the source line under the summary
+  const quoteSources = useMemo(() => {
+    const bySource: Record<string, { asOf: string; cached: boolean }> = {};
+    positions.forEach((p) => {
+      const q = quotes[p.ticker];
+      if (!q) return;
+      const prev = bySource[q.source];
+      if (!prev || q.asOf > prev.asOf) bySource[q.source] = { asOf: q.asOf, cached: q.cached };
+    });
+    return Object.entries(bySource);
+  }, [positions, quotes]);
 
   if (!ready) return null;
 
@@ -201,11 +206,11 @@ export default function PortfolioPage() {
       ) : (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
             {[
-              { label: "Total Invested", value: formatCurrency(totalInvested), color: "text-[#0A0A0A]" },
-              { label: "Current Value",  value: formatCurrency(totalCurrent),  color: "text-[#0A0A0A]" },
-              { label: "Total P&L",      value: formatCurrency(totalPL),       color: isUp ? "text-[#22C55E]" : "text-[#EF4444]" },
+              { label: "Total Invested", value: money.fmt(totalInvested), color: "text-[#0A0A0A]" },
+              { label: "Current Value",  value: money.fmt(totalCurrent),  color: "text-[#0A0A0A]" },
+              { label: "Total P&L",      value: money.fmt(totalPL),       color: isUp ? "text-[#22C55E]" : "text-[#EF4444]" },
               { label: "Total Return",   value: formatPercent(totalReturn),    color: isUp ? "text-[#22C55E]" : "text-[#EF4444]" },
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-2xl p-5 border border-[#E5E5E5] hover:border-[#C8C8C8] hover:shadow-[0_2px_12px_rgba(0,0,0,0.07)] transition-all duration-200">
@@ -214,12 +219,20 @@ export default function PortfolioPage() {
               </div>
             ))}
           </div>
+          <div className="flex items-center gap-3 flex-wrap mb-6">
+            {quoteSources.map(([source, s]) => (
+              <SourceTag key={source} source={`Prices: ${source}`} asOf={s.asOf} cached={s.cached} />
+            ))}
+            {money.fx && (
+              <SourceTag source={`FX 1 US$ = S$${money.fx.value.toFixed(4)} (${money.fx.source})`} asOf={money.fx.asOf} />
+            )}
+          </div>
 
           {/* Table */}
           {loading && enriched.every((e) => e.currentPrice === null) ? (
             <LoadingSpinner text="Fetching market data…" />
           ) : (
-            <PortfolioTable positions={enriched} onEdit={handleEdit} onDelete={removePosition} />
+            <PortfolioTable positions={enriched} onEdit={handleEdit} onDelete={removePosition} fmt={money.fmt} />
           )}
 
           {/* Charts */}
@@ -233,9 +246,9 @@ export default function PortfolioPage() {
                     <BarChart data={plChartData} margin={{ top: 4, right: 16, left: 8, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.04)" vertical={false} />
                       <XAxis dataKey="ticker" tick={{ fontSize: 11, fill: "#525252" }} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={shortNum} tick={{ fontSize: 11, fill: "#525252" }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={(v: number) => shortNum(money.convert(v) ?? v, sym)} tick={{ fontSize: 11, fill: "#525252" }} axisLine={false} tickLine={false} />
                       <Tooltip
-                        formatter={(v) => [formatCurrency(v as number), "P&L"]}
+                        formatter={(v) => [money.fmt(v as number), "P&L"]}
                         contentStyle={tooltipStyle}
                       />
                       <Bar dataKey="pl" radius={[4, 4, 0, 0]} maxBarSize={48}>
@@ -256,9 +269,9 @@ export default function PortfolioPage() {
                     <BarChart data={valueChartData} margin={{ top: 4, right: 16, left: 8, bottom: 0 }} barCategoryGap="30%">
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.04)" vertical={false} />
                       <XAxis dataKey="ticker" tick={{ fontSize: 11, fill: "#525252" }} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={shortNum} tick={{ fontSize: 11, fill: "#525252" }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={(v: number) => shortNum(money.convert(v) ?? v, sym)} tick={{ fontSize: 11, fill: "#525252" }} axisLine={false} tickLine={false} />
                       <Tooltip
-                        formatter={(v) => [formatCurrency(v as number)]}
+                        formatter={(v) => [money.fmt(v as number)]}
                         contentStyle={tooltipStyle}
                       />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -292,7 +305,7 @@ export default function PortfolioPage() {
                             ))}
                           </Pie>
                           <Tooltip
-                            formatter={(v) => [formatCurrency(v as number)]}
+                            formatter={(v) => [money.fmt(v as number)]}
                             contentStyle={tooltipStyle}
                           />
                         </PieChart>
@@ -309,7 +322,7 @@ export default function PortfolioPage() {
                                 <div className="h-1.5 rounded-full" style={{ width: `${a.pct}%`, backgroundColor: SECTOR_COLORS[a.name] ?? "#9ca3af" }} />
                               </div>
                               <span className="text-[13px] font-semibold text-[#0A0A0A] w-10 text-right">{a.pct.toFixed(1)}%</span>
-                              <span className="text-[11px] text-[#525252] w-20 text-right">{formatCurrency(a.value)}</span>
+                              <span className="text-[11px] text-[#525252] w-20 text-right">{money.fmt(a.value)}</span>
                             </div>
                           </div>
                         </div>

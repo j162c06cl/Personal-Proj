@@ -75,6 +75,8 @@ export interface QuoteData {
   pe: number | null;
   divYield: number | null;
   error?: string;
+  source?: string | null;
+  asOf?: string;
 }
 
 export interface HistoricalResult {
@@ -102,6 +104,36 @@ export interface CalculatorResult {
   profitLoss: number;
   percentReturn: number;
   investmentAmount: number;
+}
+
+export interface WatchlistDef {
+  id: string;
+  name: string;
+  tickers: string[];
+}
+
+export type BaseCurrency = "USD" | "SGD";
+export type Strategy = "long-term" | "swing" | "mixed";
+export type ResearchMinutes = 5 | 15 | 30;
+
+export interface InvestorProfile {
+  strategy: Strategy;
+  researchMinutes: ResearchMinutes;
+  sectors: string[];
+}
+
+export interface Settings {
+  apiKeys: { anthropic: string };
+  baseCurrency: BaseCurrency;
+  profile: InvestorProfile;
+}
+
+// Every value that comes out of the data layer carries where it came from and when.
+export interface Sourced<T> {
+  value: T;
+  source: string;
+  asOf: string; // ISO timestamp of when the provider returned it
+  cached: boolean;
 }
 
 export interface DayTradeEntry {

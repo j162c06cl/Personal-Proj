@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { SCREENER_UNIVERSE } from "@/lib/screenerUniverse";
 import { QuoteData } from "@/lib/types";
+import { getQuotes } from "@/lib/data";
 
 interface StockWithData {
   ticker: string;
@@ -121,17 +122,10 @@ export default function StockHeatmap() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     const tickers = SCREENER_UNIVERSE.map((s) => s.ticker);
-    const BATCH = 20;
-    const batches: string[][] = [];
-    for (let i = 0; i < tickers.length; i += BATCH)
-      batches.push(tickers.slice(i, i + BATCH));
 
     try {
-      const responses = await Promise.all(
-        batches.map((b) => fetch(`/api/quote?ticker=${b.join(",")}`).then((r) => r.json()))
-      );
-      const flat: QuoteData[] = responses.flat();
-      const map = new Map(flat.map((d) => [d.ticker, d]));
+      const quotes = await getQuotes(tickers);
+      const map = new Map<string, QuoteData>(Object.entries(quotes).map(([t, q]) => [t, q.value]));
 
       setStocks(
         SCREENER_UNIVERSE.map((s) => {

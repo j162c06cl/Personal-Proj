@@ -4,35 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import WatchlistTable from "@/components/WatchlistTable";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import TickerAutocomplete from "@/components/TickerAutocomplete";
-import { WatchlistEntryWithData } from "@/lib/types";
-
-interface WatchlistDef {
-  id: string;
-  name: string;
-  tickers: string[];
-}
-
-const DEFAULT_WATCHLISTS: WatchlistDef[] = [
-  { id: "stocks",   name: "Stocks",   tickers: ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"] },
-  { id: "etf",      name: "ETF",      tickers: ["VOO", "SPY", "QQQ", "VTI", "SCHD", "VGT"] },
-  { id: "reit",     name: "REIT",     tickers: ["O", "AMT", "WELL", "VICI", "PSA", "PLD"] },
-  { id: "dividend", name: "Dividend", tickers: ["JNJ", "KO", "PG", "PEP", "MCD", "T"] },
-];
-
-const LS_KEY = "watchlists_v2";
-
-function loadLists(): WatchlistDef[] {
-  try {
-    const s = localStorage.getItem(LS_KEY);
-    return s ? JSON.parse(s) : DEFAULT_WATCHLISTS;
-  } catch { return DEFAULT_WATCHLISTS; }
-}
-
-function saveLists(lists: WatchlistDef[]) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(lists)); } catch {}
-}
-
-type QuoteMap = Record<string, WatchlistEntryWithData>;
+import SourceTag from "@/components/SourceTag";
+import { WatchlistDef, WatchlistEntryWithData } from "@/lib/types";
+import { loadWatchlists, saveWatchlists } from "@/lib/store";
+import { getQuotes, QuoteMap } from "@/lib/data";
 
 export default function WatchlistPage() {
   const [lists, setLists] = useState<WatchlistDef[]>([]);
@@ -48,25 +23,18 @@ export default function WatchlistPage() {
   const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
-    const stored = loadLists();
-    setLists(stored);
-    setActiveId(stored[0]?.id ?? "");
-    setReady(true);
+    loadWatchlists().then((stored) => {
+      setLists(stored);
+      setActiveId(stored[0]?.id ?? "");
+      setReady(true);
+    });
   }, []);
 
-  const fetchQuotes = useCallback(async (tickers: string[]) => {
+  const fetchQuotes = useCallback(async (tickers: string[], force = false) => {
     if (!tickers.length) return;
     setLoading(true);
-    try {
-      const res = await fetch(`/api/quote?ticker=${tickers.join(",")}`);
-      const data = await res.json();
-      const arr: WatchlistEntryWithData[] = Array.isArray(data) ? data : [data];
-      setQuotes((prev) => {
-        const next = { ...prev };
-        arr.forEach((d) => { if (d.ticker) next[d.ticker] = d; });
-        return next;
-      });
-    } catch {}
+    const map = await getQuotes(tickers, { force });
+    setQuotes((prev) => ({ ...prev, ...map }));
     setLoading(false);
   }, []);
 
@@ -80,7 +48,7 @@ export default function WatchlistPage() {
   const activeList = lists.find((l) => l.id === activeId);
 
   const entries: WatchlistEntryWithData[] = (activeList?.tickers ?? []).map((ticker) => {
-    const q = quotes[ticker];
+    const q = quotes[ticker]?.value;
     return {
       id: ticker,
       ticker,
@@ -114,7 +82,7 @@ export default function WatchlistPage() {
 
   function applyLists(updated: WatchlistDef[]) {
     setLists(updated);
-    saveLists(updated);
+    saveWatchlists(updated);
   }
 
   function handleAddTicker() {
@@ -168,8 +136,17 @@ export default function WatchlistPage() {
 
   function handleRefresh() {
     const all = Array.from(new Set(lists.flatMap((l) => l.tickers)));
-    fetchQuotes(all);
+    fetchQuotes(all, true);
   }
+
+  // Newest timestamp per provider across the active list
+  const sourceRows = Object.entries(
+    (activeList?.tickers ?? []).reduce<Record<string, { asOf: string; cached: boolean }>>((acc, t) => {
+      const q = quotes[t];
+      if (q && (!acc[q.source] || q.asOf > acc[q.source].asOf)) acc[q.source] = { asOf: q.asOf, cached: q.cached };
+      return acc;
+    }, {})
+  );
 
   if (!ready) return null;
 
@@ -328,6 +305,13 @@ export default function WatchlistPage() {
         <LoadingSpinner text="Fetching market data…" />
       ) : (
         <WatchlistTable entries={filtered} onDelete={editMode ? handleDeleteTicker : undefined} editMode={editMode} />
+      )}
+      {sourceRows.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap mt-3">
+          {sourceRows.map(([source, s]) => (
+            <SourceTag key={source} source={`Prices: ${source}`} asOf={s.asOf} cached={s.cached} />
+          ))}
+        </div>
       )}
     </div>
   );
