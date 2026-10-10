@@ -2,14 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { getChart, getFundamentals, getQuote } from "@/lib/data";
+import { getChart, getFundamentals, getNews, getQuote, SummaryInput } from "@/lib/data";
 import { loadPortfolio, loadWatchlists } from "@/lib/store";
 import { computeTechnicals, smaOverlay, Technicals } from "@/lib/indicators";
-import { ChartData, ChartRange, Fundamentals, PortfolioPosition, QuoteData, ResearchMinutes, Sourced } from "@/lib/types";
+import { ChartData, ChartRange, Fundamentals, NewsFeed, PortfolioPosition, QuoteData, ResearchMinutes, Sourced } from "@/lib/types";
 import { formatLargeNumber, formatVolume } from "@/lib/formatters";
 import { useMoney, useSettings } from "@/hooks/useSettings";
 import SourceTag from "@/components/SourceTag";
 import PriceChart, { RANGE_LABELS } from "@/components/research/PriceChart";
+import NewsList from "@/components/research/NewsList";
+import AiSummaryCard from "@/components/research/AiSummaryCard";
 
 // ── Research modes ──────────────────────────────────────────────────────────
 
@@ -156,6 +158,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const [fund, setFund] = useState<Sourced<Fundamentals> | null | undefined>(undefined);
   const [daily, setDaily] = useState<Sourced<ChartData> | null | undefined>(undefined);
   const [weekly, setWeekly] = useState<Sourced<ChartData> | null | undefined>(undefined);
+  const [news, setNews] = useState<Sourced<NewsFeed> | null | undefined>(undefined);
   const [holdings, setHoldings] = useState<PortfolioPosition[]>([]);
   const [inLists, setInLists] = useState<string[]>([]);
 
@@ -171,6 +174,13 @@ export default function StockResearchPage({ params }: { params: { ticker: string
     loadPortfolio().then((p) => setHoldings(p.filter((x) => x.ticker === ticker)));
     loadWatchlists().then((ls) => setInLists(ls.filter((l) => l.tickers.includes(ticker)).map((l) => l.name)));
   }, [ticker]);
+
+  // News waits for the company name so headlines like "Nvidia beats…" are matched too
+  const companyName = fund?.value.name ?? quote?.value.name;
+  const namesReady = fund !== undefined && quote !== undefined;
+  useEffect(() => {
+    if (namesReady) getNews(ticker, companyName).then(setNews);
+  }, [ticker, namesReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (range === "5y" && weekly === undefined) getChart(ticker, "5y").then(setWeekly);
@@ -224,6 +234,68 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const shares = holdings.reduce((s, h) => s + h.quantity, 0);
   const cost = holdings.reduce((s, h) => s + h.quantity * h.purchasePrice, 0);
   const holdingPL = price !== null && shares ? price * shares - cost : null;
+
+  // The facts the AI summary may use, each block citable by its letter id.
+  // Built only from data already fetched for this page.
+  const summaryInput: SummaryInput | null = useMemo(() => {
+    if (quote === undefined || fund === undefined || daily === undefined || news === undefined) return null;
+    const facts: SummaryInput["facts"] = [];
+    const pts = daily?.value.points ?? [];
+    const changeOver = (bars: number) =>
+      pts.length > bars ? `${(((pts[pts.length - 1].c - pts[pts.length - 1 - bars].c) / pts[pts.length - 1 - bars].c) * 100).toFixed(1)}%` : "n/a";
+
+    if (q && q.price !== null) {
+      facts.push({
+        id: "Q", label: "Quote and price action", source: quote!.source, asOf: quote!.asOf,
+        lines: [
+          `Price ${px(q.price)}, today ${q.changePercent !== null ? `${q.changePercent.toFixed(2)}%` : "n/a"}`,
+          `Volume ${formatVolume(q.volume)} vs average ${formatVolume(q.avgVolume)}`,
+          `52-week range ${px(q.weekLow52)} to ${px(q.weekHigh52)}`,
+          `Change over ~1 month ${changeOver(21)}, ~3 months ${changeOver(63)}, ~1 year ${changeOver(252)}`,
+        ],
+      });
+    }
+    if (tech) {
+      facts.push({
+        id: "T", label: "Technical indicators (computed from daily closes)", source: daily!.source, asOf: daily!.asOf,
+        lines: [
+          `Trend: ${tech.trend}. 50-day avg ${px(tech.sma50)}, 200-day avg ${px(tech.sma200)}`,
+          `RSI(14) ${num(tech.rsi14, 1)}; MACD ${tech.macdCross ? `${tech.macdCross.dir} crossover ${tech.macdCross.barsAgo} days ago` : "no recent crossover"}`,
+          `Latest volume ${tech.volumeRatio !== null ? tech.volumeRatio.toFixed(2) : "n/a"}x its 50-day average; ${tech.pctFromHigh52?.toFixed(1)}% from 52-week high`,
+        ],
+      });
+    }
+    if (f) {
+      facts.push({
+        id: "F", label: "Fundamentals and analyst views", source: fund!.source, asOf: fund!.asOf,
+        lines: [
+          `Sector ${f.profile.sector ?? "n/a"}, industry ${f.profile.industry ?? "n/a"}`,
+          `P/E trailing ${num(f.valuation.trailingPE, 1)}, forward ${num(f.valuation.forwardPE, 1)}`,
+          `Revenue growth ${signedPct(f.growth.revenueGrowth)}, earnings growth ${signedPct(f.growth.earningsGrowth)} (year over year)`,
+          `Net margin ${pct(f.profitability.profitMargin)}, debt/equity ${f.health.debtToEquity !== null ? (f.health.debtToEquity / 100).toFixed(2) : "n/a"}`,
+          `Analyst mean target ${px(f.analysts.targetMean)} from ${f.analysts.count ?? "n/a"} analysts; consensus ${f.analysts.recommendation ?? "n/a"}`,
+        ],
+      });
+      const ev = [
+        f.events.earningsDate && `Next earnings ${f.events.earningsDate} (${f.events.earningsIsEstimate ? "estimated" : "confirmed"}); EPS estimate ${px(f.events.epsEstimate)}`,
+        f.events.exDividendDate && `Ex-dividend date ${f.events.exDividendDate}`,
+      ].filter(Boolean) as string[];
+      if (ev.length) facts.push({ id: "E", label: "Scheduled events", source: fund!.source, asOf: fund!.asOf, lines: ev });
+    }
+    if (shares > 0 && price !== null) {
+      facts.push({
+        id: "P", label: "The investor's own position", source: "Your portfolio (this device)", asOf: new Date().toISOString(),
+        lines: [`Holds ${shares} shares at average cost ${px(cost / shares)}; unrealised return ${(((price * shares - cost) / cost) * 100).toFixed(1)}%`],
+      });
+    }
+    return {
+      ticker,
+      name,
+      news: news?.value.items ?? [],
+      facts,
+      profile: settings ? { strategy: settings.profile.strategy } : undefined,
+    };
+  }, [quote, fund, daily, news, tech, shares, cost, price, settings, ticker, name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const notFound = quote !== undefined && (!q || q.price === null) && fund === null && daily === null;
 
@@ -305,6 +377,13 @@ export default function StockResearchPage({ params }: { params: { ticker: string
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* ── Left: chart + deeper sections ── */}
         <div className="lg:col-span-2 space-y-5">
+          <AiSummaryCard
+            ticker={ticker}
+            input={summaryInput}
+            apiKey={settings ? settings.apiKeys.anthropic || null : null}
+            compact={!show(15)}
+          />
+
           <Section
             title="Price chart"
             right={
@@ -560,6 +639,14 @@ export default function StockResearchPage({ params }: { params: { ticker: string
                 )}
                 <SourceTag source={fund!.source} asOf={fund!.asOf} cached={fund!.cached} />
               </div>
+            )}
+          </Section>
+
+          <Section title="Latest news" subtitle="Duplicate stories are merged; every outlet's link is kept.">
+            {news === undefined ? <Skeleton h={160} /> : !news ? (
+              <p className="text-[13px] text-[#A3A3A3]">News is unavailable right now.</p>
+            ) : (
+              <NewsList feed={news} limit={m === 5 ? 3 : m === 15 ? 6 : 12} />
             )}
           </Section>
 

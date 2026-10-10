@@ -182,6 +182,44 @@ export interface Fundamentals {
   };
 }
 
+export interface NewsItem {
+  id: string;
+  title: string;
+  publisher: string;
+  link: string;
+  publishedAt: string;
+  /** direct: headline names the company; related: tagged with few tickers incl. this one; broad: market-wide story */
+  relevance: "direct" | "related" | "broad";
+  /** Other outlets that ran the same story; kept so de-duplication never loses a source link */
+  alsoReportedBy: { publisher: string; link: string }[];
+}
+
+export interface NewsFeed {
+  ticker: string;
+  items: NewsItem[];
+  fetched: number;
+  duplicatesRemoved: number;
+}
+
+/** One cited point in an AI summary. Citations are source ids like "N2" (news item 2) or "Q" (quote data). */
+export interface CitedPoint {
+  text: string;
+  citations: string[];
+}
+
+export interface AiSummary {
+  ticker: string;
+  whatHappened: CitedPoint[];
+  why: CitedPoint[];
+  doesItMatter: CitedPoint[];
+  whatToInvestigate: CitedPoint[];
+  /** Source id → what it refers to, so citations stay resolvable from the cache */
+  sources: Record<string, { label: string; link?: string }>;
+  model: string;
+  /** Local calendar date the summary was generated for (YYYY-MM-DD) */
+  forDate: string;
+}
+
 export interface DayTradeEntry {
   id: string;
   ticker: string;
