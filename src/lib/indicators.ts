@@ -1,5 +1,5 @@
 // Technical indicators computed client-side from daily price history.
-import { PricePoint } from "./types";
+import type { PricePoint } from "./types";
 
 type Series = (number | null)[];
 
@@ -98,8 +98,12 @@ export function computeTechnicals(points: PricePoint[]): Technicals | null {
   for (let i = closes.length - 1; i > closes.length - 11 && i > 0; i--) {
     const a = m.line[i], b = m.signal[i], pa = m.line[i - 1], pb = m.signal[i - 1];
     if (a === null || b === null || pa === null || pb === null) break;
-    if (pa <= pb && a > b) { macdCross = { dir: "bullish", barsAgo: closes.length - 1 - i }; break; }
-    if (pa >= pb && a < b) { macdCross = { dir: "bearish", barsAgo: closes.length - 1 - i }; break; }
+    // Treat differences within floating-point noise as "equal", or a steady trend
+    // (line == signal) followed by a turn would never register as a cross
+    const eps = 1e-9 * Math.max(1, Math.abs(b));
+    const d = a - b, pd = pa - pb;
+    if (pd <= eps && d > eps) { macdCross = { dir: "bullish", barsAgo: closes.length - 1 - i }; break; }
+    if (pd >= -eps && d < -eps) { macdCross = { dir: "bearish", barsAgo: closes.length - 1 - i }; break; }
   }
 
   const vols = points.map((p) => p.v ?? 0);
