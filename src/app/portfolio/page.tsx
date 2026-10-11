@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { SECTOR_COLORS } from "@/lib/presets";
 import { PortfolioPosition, PortfolioPositionWithData } from "@/lib/types";
-import { formatPercent } from "@/lib/formatters";
 import { getQuotes, QuoteMap } from "@/lib/data";
 import { useMoney } from "@/hooks/useSettings";
-import SourceTag from "@/components/SourceTag";
+import { PortfolioDay, PortfolioSummary } from "@/components/portfolio/PortfolioToday";
+import GrowthChart from "@/components/portfolio/GrowthChart";
 import PortfolioTable from "@/components/PortfolioTable";
 import PositionForm from "@/components/AddPositionForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -33,6 +33,7 @@ export default function PortfolioPage() {
   const { positions, ready, addPosition, updatePosition, removePosition } = usePortfolio();
   const [quotes, setQuotes] = useState<QuoteMap>({});
   const [loading, setLoading] = useState(false);
+  const [quotesLoaded, setQuotesLoaded] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingPosition, setEditingPosition] = useState<PortfolioPosition | null>(null);
   const money = useMoney();
@@ -43,6 +44,7 @@ export default function PortfolioPage() {
     setLoading(true);
     const map = await getQuotes(tickers, { force });
     setQuotes((prev) => ({ ...prev, ...map }));
+    setQuotesLoaded(true);
     setLoading(false);
   }, []);
 
@@ -65,12 +67,6 @@ export default function PortfolioPage() {
       return { ...p, currentPrice, currentValue, profitLoss, percentReturn };
     });
   }, [positions, quotes]);
-
-  const totalInvested = enriched.reduce((s, p) => s + p.purchasePrice * p.quantity, 0);
-  const totalCurrent = enriched.reduce((s, p) => s + (p.currentValue ?? p.purchasePrice * p.quantity), 0);
-  const totalPL = totalCurrent - totalInvested;
-  const totalReturn = totalInvested > 0 ? (totalPL / totalInvested) * 100 : 0;
-  const isUp = totalPL >= 0;
 
   const sectorAllocation = useMemo(() => {
     const bySector: Record<string, number> = {};
@@ -138,18 +134,6 @@ export default function PortfolioPage() {
     fetchQuotes(tickers, true);
   }
 
-  // Newest timestamp per provider, for the source line under the summary
-  const quoteSources = useMemo(() => {
-    const bySource: Record<string, { asOf: string; cached: boolean }> = {};
-    positions.forEach((p) => {
-      const q = quotes[p.ticker];
-      if (!q) return;
-      const prev = bySource[q.source];
-      if (!prev || q.asOf > prev.asOf) bySource[q.source] = { asOf: q.asOf, cached: q.cached };
-    });
-    return Object.entries(bySource);
-  }, [positions, quotes]);
-
   if (!ready) return null;
 
   return (
@@ -205,29 +189,16 @@ export default function PortfolioPage() {
         </div>
       ) : (
         <>
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
-            {[
-              { label: "Total Invested", value: money.fmt(totalInvested), color: "text-[#0A0A0A]" },
-              { label: "Current Value",  value: money.fmt(totalCurrent),  color: "text-[#0A0A0A]" },
-              { label: "Total P&L",      value: money.fmt(totalPL),       color: isUp ? "text-[#22C55E]" : "text-[#EF4444]" },
-              { label: "Total Return",   value: formatPercent(totalReturn),    color: isUp ? "text-[#22C55E]" : "text-[#EF4444]" },
-            ].map((s) => (
-              <div key={s.label} className="bg-white rounded-2xl p-5 border border-[#E5E5E5] hover:border-[#C8C8C8] hover:shadow-[0_2px_12px_rgba(0,0,0,0.07)] transition-all duration-200">
-                <p className="text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">{s.label}</p>
-                <p className={`text-[17px] font-bold ${s.color}`}>{s.value}</p>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center gap-3 flex-wrap mb-6">
-            {quoteSources.map(([source, s]) => (
-              <SourceTag key={source} source={`Prices: ${source}`} asOf={s.asOf} cached={s.cached} />
-            ))}
-            {money.fx && (
-              <SourceTag source={`FX 1 US$ = S$${money.fx.value.toFixed(4)} (${money.fx.source})`} asOf={money.fx.asOf} />
-            )}
+          <PortfolioSummary positions={positions} quotes={quotesLoaded ? quotes : null} />
+
+          <div className="mt-5">
+            <GrowthChart positions={positions} quotes={quotes} />
           </div>
 
+          <h2 className="text-[20px] font-black tracking-tight text-[#0A0A0A] mt-10 mb-4">Your holdings today</h2>
+          <PortfolioDay positions={positions} quotes={quotesLoaded ? quotes : null} />
+
+          <h2 className="text-[20px] font-black tracking-tight text-[#0A0A0A] mt-10 mb-4">Positions</h2>
           {/* Table */}
           {loading && enriched.every((e) => e.currentPrice === null) ? (
             <LoadingSpinner text="Fetching market data…" />

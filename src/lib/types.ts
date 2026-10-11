@@ -100,6 +100,8 @@ export interface WatchlistItem {
   addedAt: string;
   /** Name of the list it came from before intents existed, kept so nothing is lost */
   legacyList?: string;
+  /** Auto-detected group (sector, or "ETFs"); saved once looked up so grouping is instant */
+  category?: string;
 }
 
 export type BaseCurrency = "USD" | "SGD";

@@ -211,6 +211,8 @@ export default function ScreenerPage() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveName, setSaveName]   = useState("");
   const saveInputRef              = useRef<HTMLInputElement>(null);
+  // Only the newest screen may set results, so a slow earlier request can't overwrite it
+  const screenId                  = useRef(0);
 
   // Load user presets from localStorage on mount
   useEffect(() => {
@@ -301,6 +303,7 @@ export default function ScreenerPage() {
 
   // Run the screen via Yahoo Finance screener API
   const runScreen = useCallback(async () => {
+    const id = ++screenId.current;
     setLoading(true);
     setHasRun(true);
     setScreenerError(null);
@@ -320,6 +323,7 @@ export default function ScreenerPage() {
     try {
       const resp = await fetch(`/api/finviz?${params.toString()}`);
       const data = await resp.json();
+      if (id !== screenId.current) return;
 
       if (data.error) {
         setScreenerError(data.error);
@@ -445,12 +449,20 @@ export default function ScreenerPage() {
       setResults(withReasons);
       setExpanded(null);
     } catch (e) {
+      if (id !== screenId.current) return;
       setScreenerError(String(e));
       setResults([]);
     }
 
     setLoading(false);
   }, [filters, swingId]);
+
+  // Screen on open (no setup = the default list of large US stocks) and again whenever the
+  // setup or filters change; the short delay lets several quick filter changes run once
+  useEffect(() => {
+    const t = setTimeout(runScreen, 250);
+    return () => clearTimeout(t);
+  }, [runScreen]);
 
   // Sorted & searched results
   const displayed = useMemo(() => {
@@ -530,7 +542,7 @@ export default function ScreenerPage() {
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
         <div>
           <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Stock Screener</h1>
-          <p className="text-[14px] text-[#525252] mt-0.5">Real-time stock screening via Yahoo Finance</p>
+          <p className="text-[14px] text-[#525252] mt-0.5">Pick a setup, or narrow the list with filters. Results update automatically.</p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
@@ -544,39 +556,54 @@ export default function ScreenerPage() {
               </svg>
             ) : (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             )}
-            {loading ? "Scanning…" : "Run Screen"}
+            {loading ? "Scanning…" : "Refresh"}
           </button>
         </div>
       </div>
 
-      {/* ── Preset bar ── */}
-      <div className="bg-white rounded-2xl border border-[#E5E5E5] mb-3 px-4 py-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-semibold text-[#A3A3A3] uppercase tracking-wider shrink-0">Swing setups</span>
+      {/* ── Screener setups ── */}
+      <section className="bg-white rounded-2xl border border-[#E5E5E5] mb-4 p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-[15px] font-bold text-[#0A0A0A]">Screener setups</h2>
+          <span className="text-[12px] text-[#A3A3A3] hidden sm:inline">Every result lists the exact rules it passed</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {[{ id: null, name: "All large US stocks", summary: "No setup: US-listed stocks over $1B market cap, biggest movers first." }, ...SWING_PRESETS].map((p) => {
+            const active = p.id === null ? swingId === null && !activePreset : swingId === p.id;
+            return (
+              <button
+                key={p.id ?? "default"}
+                onClick={() => (p.id === null ? clearAllFilters() : loadSwing(p.id))}
+                aria-pressed={active}
+                className={`text-left rounded-xl border px-3.5 py-3 transition-all ${
+                  active
+                    ? "border-[#1F65F0] bg-[#F5F8FF] shadow-[0_0_0_3px_rgba(31,101,240,0.10)]"
+                    : "border-[#E5E5E5] hover:border-[#A3A3A3] bg-white"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${active ? "bg-[#1F65F0] text-white" : "bg-[#F0F0F0] text-[#525252]"}`}>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {p.id === null
+                        ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />}
+                    </svg>
+                  </span>
+                  <span className={`text-[14px] font-bold ${active ? "text-[#1F65F0]" : "text-[#0A0A0A]"}`}>{p.name}</span>
+                </span>
+                <span className="block text-[12px] text-[#525252] mt-1.5 leading-snug">{p.summary}</span>
+              </button>
+            );
+          })}
+        </div>
 
-          {SWING_PRESETS.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => loadSwing(p.id)}
-              title={p.summary}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold transition-all border ${
-                swingId === p.id
-                  ? "bg-[#0A0A0A] text-white border-[#0A0A0A]"
-                  : "bg-[#F7F7F8] text-[#525252] border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A]"
-              }`}
-            >
-              <svg className={`w-3 h-3 ${swingId === p.id ? "text-white" : "text-[#A3A3A3]"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-              {p.name}
-            </button>
-          ))}
-
-          {allPresets.length > 0 && <span className="w-px h-5 bg-[#E5E5E5] mx-1" />}
-
+        {/* Saved filter sets */}
+        <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-[#F0F0F0]">
+          <span className="text-[11px] font-semibold text-[#A3A3A3] uppercase tracking-wider shrink-0">Your saved filters</span>
+          {allPresets.length === 0 && <span className="text-[12px] text-[#A3A3A3]">None yet</span>}
           {allPresets.map((preset) => {
             const isActive = activePreset === preset.name;
             return (
@@ -586,55 +613,39 @@ export default function ScreenerPage() {
                     if (isActive) { setActivePreset(null); setFilters(EMPTY_FILTERS); }
                     else loadPreset(preset);
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold transition-all border ${
-                    isActive
-                      ? preset.builtIn
-                        ? "bg-[#0A0A0A] text-white border-[#0A0A0A]"
-                        : "bg-[#1F65F0] text-white border-[#1F65F0]"
-                      : "bg-[#F7F7F8] text-[#525252] border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A]"
+                  className={`px-3 py-1 rounded-full text-[12px] font-semibold transition-all border ${
+                    isActive ? "bg-[#1F65F0] text-white border-[#1F65F0]" : "bg-[#F7F7F8] text-[#525252] border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A]"
                   }`}
                 >
-                  {preset.builtIn && (
-                    <svg className={`w-3 h-3 ${isActive ? "text-white" : "text-[#A3A3A3]"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  )}
                   {preset.name}
                 </button>
-                {!preset.builtIn && (
-                  <button
-                    onClick={() => deleteUserPreset(preset.name)}
-                    className="ml-1 w-4 h-4 rounded-full bg-[#E5E5E5] hover:bg-[#EF4444] hover:text-white text-[#525252] text-[10px] font-bold flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
-                    title="Delete preset"
-                  >
-                    ×
-                  </button>
-                )}
+                <button
+                  onClick={() => deleteUserPreset(preset.name)}
+                  className="ml-1 w-4 h-4 rounded-full bg-[#E5E5E5] hover:bg-[#EF4444] hover:text-white text-[#525252] text-[10px] font-bold flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                  title="Delete saved filters"
+                >
+                  ×
+                </button>
               </div>
             );
           })}
-
           <button
             onClick={openSaveModal}
-            className="flex items-center gap-1 px-3 py-1 rounded-full text-[12px] font-semibold text-[#525252] border border-dashed border-[#E5E5E5] hover:border-[#1F65F0] hover:text-[#1F65F0] transition-all"
+            disabled={activeFilters.length === 0}
+            title={activeFilters.length === 0 ? "Set some filters below first" : "Save the current filters"}
+            className="flex items-center gap-1 px-3 py-1 rounded-full text-[12px] font-semibold text-[#525252] border border-dashed border-[#D4D4D4] hover:border-[#1F65F0] hover:text-[#1F65F0] disabled:opacity-40 disabled:hover:border-[#D4D4D4] disabled:hover:text-[#525252] transition-all"
           >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Save current
+            + Save current filters
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* ── Swing setup explainer ── */}
+      {/* ── Setup explainer ── */}
       {activeSwing && (
-        <div className="mb-3 px-4 py-3 bg-[#F5F8FF] border border-[#D6E4FF] rounded-2xl">
-          <p className="text-[13px] text-[#0A0A0A]">
-            <span className="font-bold">{activeSwing.name}:</span> {activeSwing.summary}
-          </p>
-          <p className="text-[12px] text-[#525252] mt-1">
-            Only US-listed stocks over $2B market cap and $5 a share. Every result lists the exact rules it passed, plus how it fits your portfolio.
-            These describe the chart, not where it goes next.
+        <div className="mb-4 px-4 py-3 bg-[#F5F8FF] border border-[#D6E4FF] rounded-2xl">
+          <p className="text-[12px] text-[#525252]">
+            <span className="font-semibold text-[#0A0A0A]">{activeSwing.name}</span> only looks at US-listed stocks over $2B market cap and $5 a share.
+            These rules describe the chart, not where it goes next.
           </p>
         </div>
       )}
@@ -642,7 +653,7 @@ export default function ScreenerPage() {
       {/* ── Filter panel ── */}
       <div className="bg-white rounded-2xl border border-[#E5E5E5] mb-4 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E5E5]">
-          <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Filters</span>
+          <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Filters <span className="normal-case tracking-normal font-normal text-[#A3A3A3]">· optional, combine with any setup</span></span>
           {hasFilters && (
             <button
               onClick={clearAllFilters}
@@ -654,18 +665,6 @@ export default function ScreenerPage() {
         </div>
 
         <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {/* Search box spans full width */}
-          <div className="col-span-2 sm:col-span-3 lg:col-span-4">
-            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Search results</label>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Ticker or company name…"
-              className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#1F65F0] focus:bg-white focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all"
-            />
-          </div>
-
           {(Object.keys(FILTER_OPTIONS) as (keyof Filters)[]).map((key) => (
             <div key={key}>
               <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">{FILTER_LABELS[key]}</label>
@@ -711,30 +710,36 @@ export default function ScreenerPage() {
           </div>
         )}
 
-        {/* Float note */}
-        <div className="px-4 pb-3 flex items-center gap-1.5">
-          <svg className="w-3 h-3 text-[#A3A3A3] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="text-[11px] text-[#A3A3A3]">
-            All filters applied server-side via Yahoo Finance. Relative Volume is post-filtered from returned data.
-          </span>
-        </div>
       </div>
 
       {/* ── Results info bar ── */}
-      {hasRun && (
-        <div className="flex items-center justify-between mb-2 px-0.5">
-          <p className="text-[13px] text-[#525252]">
-            {loading
-              ? "Scanning…"
-              : screenerError
-              ? <span className="text-[#EF4444]">Screener unavailable — try again in a moment</span>
-              : <><span className="font-semibold text-[#0A0A0A]">{displayed.length}</span> results</>
-            }
-          </p>
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-2 px-0.5">
+        <p className="text-[13px] text-[#525252]">
+          {loading
+            ? "Scanning…"
+            : screenerError
+            ? <span className="text-[#EF4444]">Screener unavailable — try again in a moment</span>
+            : <>
+                <span className="font-semibold text-[#0A0A0A]">{displayed.length}</span>
+                {search.trim() ? ` of ${results.length}` : ""} results
+                <span className="text-[#A3A3A3]"> · {activeSwing ? `${activeSwing.name} setup` : activePreset ? activePreset : activeFilters.length ? "custom filters" : "default list: large US stocks"}</span>
+              </>
+          }
+        </p>
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A3A3A3] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Find in these results…"
+            aria-label="Find a ticker or company in these results"
+            className="w-56 bg-white border border-[#E5E5E5] rounded-xl pl-8 pr-3 py-1.5 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#1F65F0]"
+          />
         </div>
-      )}
+      </div>
 
       {/* ── Results table ── */}
       <div className="bg-white rounded-2xl border border-[#E5E5E5] overflow-hidden">
@@ -782,7 +787,7 @@ export default function ScreenerPage() {
                       <svg className="w-10 h-10 text-[#E5E5E5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
-                      <p className="text-[#525252] text-[13px]">Set your filters and click <span className="font-semibold text-[#0A0A0A]">Run Screen</span></p>
+                      <p className="text-[#525252] text-[13px]">Loading the default list…</p>
                     </div>
                   </td>
                 </tr>
@@ -825,6 +830,8 @@ export default function ScreenerPage() {
                         <p className="text-[#0A0A0A] font-semibold text-[13px]">No stocks passed every {activeSwing.name} rule in the latest session.</p>
                         <p className="text-[#525252] text-[12px] mt-1">That&apos;s normal: clean setups are rare on any given day. Try another setup, or run it again after the next session.</p>
                       </>
+                    ) : search.trim() && results.length ? (
+                      <p className="text-[#525252] text-[13px]">None of the {results.length} results match &ldquo;{search.trim()}&rdquo;.</p>
                     ) : (
                       <p className="text-[#525252] text-[13px]">No stocks matched these filters.</p>
                     )}
@@ -906,7 +913,7 @@ export default function ScreenerPage() {
                               <ul className="space-y-1">
                                 {r.reasons.map((x) => <li key={x.text} className="text-[13px] text-[#262626]">✓ {x.text}</li>)}
                               </ul>
-                            ) : <p className="text-[13px] text-[#A3A3A3]">No filters set: showing the largest US-listed stocks.</p>}
+                            ) : <p className="text-[13px] text-[#A3A3A3]">No setup or filters: part of the default list of US-listed stocks over $1B market cap.</p>}
                           </div>
                           <div>
                             <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-1.5">For your portfolio</p>

@@ -6,7 +6,7 @@
 //   • records per-feed health for the data status panel
 
 import { dbClear, dbGet, dbKeys, dbSet } from "./db";
-import { ChartData, ChartRange, Fundamentals, MarketIndex, NewsFeed, QuoteData, SectorPerf, Sourced } from "./types";
+import { ChartData, ChartRange, Fundamentals, MarketIndex, NewsFeed, NewsItem, QuoteData, SectorPerf, Sourced } from "./types";
 
 interface CacheEntry<T> {
   value: T;
@@ -232,6 +232,27 @@ export function getNews(ticker: string, name?: string, opts: { force?: boolean }
     30 * MINUTE,
     async () => {
       const d = await getJson<NewsFeed & { source: string; asOf: string }>(`/api/news?${q}`);
+      const { source, asOf, ...value } = d;
+      return { value, source, asOf };
+    },
+    opts
+  );
+}
+
+export interface TrendingFeed {
+  /** Tickers trending on Yahoo Finance right now */
+  tickers: string[];
+  news: (NewsItem & { tickers: string[] })[];
+}
+
+/** Market-wide trending tickers and headlines, for the dashboard */
+export function getTrending(opts: { force?: boolean } = {}) {
+  return cached<TrendingFeed>(
+    "Trending",
+    "trending",
+    15 * MINUTE,
+    async () => {
+      const d = await getJson<TrendingFeed & { source: string; asOf: string }>("/api/trending");
       const { source, asOf, ...value } = d;
       return { value, source, asOf };
     },

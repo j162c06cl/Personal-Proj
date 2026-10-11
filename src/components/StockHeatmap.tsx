@@ -152,7 +152,8 @@ export default function StockHeatmap() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // ── Layout computation ────────────────────────────────────────────────────
-  const boxH = Math.round(boxW * 0.58);
+  // Full-width on the dashboard: wide and tall on desktop, closer to square on phones
+  const boxH = Math.round(boxW < 640 ? boxW * 0.9 : Math.min(boxW * 0.5, 760));
 
   const { sectorBoxes, stockCells } = useMemo(() => {
     if (!stocks.length || boxW < 10 || boxH < 10)

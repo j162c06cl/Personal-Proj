@@ -35,16 +35,21 @@ export default function TickerAutocomplete({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Only the newest request may update the list, so a slow early response can't replace a later one
+  const requestId = useRef(0);
 
   const fetchSuggestions = useCallback(async (q: string) => {
     if (q.length < 1) { setSuggestions([]); setOpen(false); return; }
+    const id = ++requestId.current;
     setLoading(true);
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       const data = await res.json();
+      if (id !== requestId.current) return;
       setSuggestions(data.results ?? []);
       setOpen((data.results?.length ?? 0) > 0);
     } catch {
+      if (id !== requestId.current) return;
       setSuggestions([]);
     }
     setLoading(false);
@@ -55,11 +60,14 @@ export default function TickerAutocomplete({
     const v = e.target.value.toUpperCase();
     onChange(v);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!v.trim()) { setSuggestions([]); setOpen(false); return; }
+    if (!v.trim()) { requestId.current++; setSuggestions([]); setOpen(false); setLoading(false); return; }
     debounceRef.current = setTimeout(() => fetchSuggestions(v), 250);
   }
 
   function handleSelect(s: Suggestion) {
+    requestId.current++;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setLoading(false);
     onSelect(s.ticker, s.name);
     onChange(s.ticker);
     setOpen(false);
@@ -84,6 +92,7 @@ export default function TickerAutocomplete({
         handleSelect(suggestions[highlighted]);
         return;
       }
+      if (e.key === "Enter") setOpen(false);
       if (e.key === "Escape") {
         setOpen(false);
         setHighlighted(-1);
@@ -142,7 +151,8 @@ export default function TickerAutocomplete({
 
       {/* Dropdown */}
       {open && suggestions.length > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+        // At least as wide as the input, but wide enough for company names even when the input is narrow
+        <div className="absolute left-0 top-full mt-1 z-50 w-[max(100%,min(420px,calc(100vw-2rem)))] max-h-[360px] overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg">
           {suggestions.map((s, i) => (
             <button
               key={s.ticker}
@@ -153,8 +163,8 @@ export default function TickerAutocomplete({
                 i === highlighted ? "bg-blue-50" : "hover:bg-gray-50"
               } ${i > 0 ? "border-t border-gray-100" : ""}`}
             >
-              <span className="font-bold text-sm text-gray-900 w-16 shrink-0 font-mono">{s.ticker}</span>
-              <span className="text-sm text-gray-600 flex-1 truncate">{s.name}</span>
+              <span className="font-bold text-sm text-gray-900 min-w-[4rem] shrink-0 font-mono">{s.ticker}</span>
+              <span className="text-sm text-gray-600 flex-1 min-w-0 truncate" title={s.name}>{s.name}</span>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${typeBadgeColor[s.type] ?? "bg-gray-100 text-gray-500"}`}>
                   {s.type}

@@ -4,21 +4,23 @@ A personal stock research app that puts your own portfolio first, explains every
 
 Built with Next.js 14, TypeScript, Tailwind CSS and Recharts. No accounts, no database, no paid APIs.
 
-![Dashboard: Your Day](docs/screenshots/dashboard.png)
+![Dashboard: Market Overview](docs/screenshots/dashboard.png)
 
 ## What it does
 
-**Your Day dashboard.** Opens with your portfolio: value, the latest session's change and total return (in US$ or S$), holdings that moved ±2% or on unusual volume, headlines that name a company you own, and the next 30 days of earnings, ex-dividend dates and major US economic releases. Market indices and a sector heatmap sit below as *Market Overview*.
+**Market overview dashboard.** Major indices across the top, a full-width market heatmap (sized by market cap, coloured by the day's move), trending news and tickers from across the market, and the next two major US economic releases.
+
+**Portfolio with "your holdings today".** Value, the latest session's change, total return and money invested (in US$ or S$); a growth chart of portfolio value against money put in since your first purchase; holdings that moved ±2% or on unusual volume; headlines that name a company you own; and the next 30 days of earnings, ex-dividend dates and major US releases.
 
 **Stock research page.** Every ticker in the app links to `/stock/[ticker]`: price chart with 50/200-day averages, technical indicators (RSI, MACD, ATR, volume vs. average), fundamentals, upcoming events, analyst targets and de-duplicated news. A **5 / 15 / 30-minute research mode** controls how deep each section goes.
 
 ![Research page](docs/screenshots/research.png)
 
-**Swing screener with "Why am I seeing this?"** Three setups (Momentum, Breakout, Pullback) defined as plain, readable rules. Every result lists the exact rules it passed, plus how it relates to your portfolio, such as concentration in an industry you already hold, or a sector you don't own yet.
+**Screener with "Why am I seeing this?"** Opens on a default list of large US-listed stocks; three setups (Momentum, Breakout, Pullback) are defined as plain, readable rules, and results update as you change the setup or filters. Every result lists the exact rules it passed, plus how it relates to your portfolio, such as concentration in an industry you already hold, or a sector you don't own yet.
 
 ![Screener](docs/screenshots/screener.png)
 
-**Watchlist grouped by intent.** Long-term, Swing or Research later, each stock with a "reason added" note and a research status. Adding from the screener carries the matched rules over as the note.
+**Watchlist that sorts itself.** Search a ticker to preview it (price, 52-week range, key numbers) before adding it; stocks then group automatically by sector, with funds under ETFs. A plan (Long-term, Swing, Research later), a note and a research status are optional, per stock. Adding from the screener carries the matched rules over as the note.
 
 ![Watchlist](docs/screenshots/watchlist.png)
 
@@ -71,7 +73,7 @@ Browser                                           Next.js API routes (proxy)    
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # unit tests (rules, indicators, news de-duplication)
+npm test           # unit tests (rules, indicators, news, portfolio history, categories)
 npm run build      # production build
 ```
 
