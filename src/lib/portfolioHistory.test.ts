@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGrowthSeries, periodGain, rangeCovering } from "./portfolioHistory";
+import { buildGrowthSeries, closeOnOrBefore, periodGain, rangeCovering } from "./portfolioHistory";
 
 const prices = {
   AAA: [{ t: "2026-01-02", c: 10 }, { t: "2026-01-05", c: 11 }, { t: "2026-01-06", c: 12 }],
@@ -52,5 +52,14 @@ describe("rangeCovering", () => {
     expect(rangeCovering("2026-09-20", now)).toBe("1mo");
     expect(rangeCovering("2026-03-01", now)).toBe("1y");
     expect(rangeCovering("2022-01-03", now)).toBe("5y");
+  });
+});
+
+describe("closeOnOrBefore", () => {
+  const pts = [{ t: "2026-01-02", c: 10 }, { t: "2026-01-05", c: 11 }];
+  it("uses the last close on or before the date", () => {
+    expect(closeOnOrBefore(pts, "2026-01-05")).toBe(11);
+    expect(closeOnOrBefore(pts, "2026-01-04")).toBe(10);
+    expect(closeOnOrBefore(pts, "2026-01-01")).toBeNull();
   });
 });

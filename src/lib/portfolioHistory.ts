@@ -67,3 +67,13 @@ export function rangeCovering(since: string, now = new Date()): ChartRange {
   if (months <= 24) return "2y";
   return "5y";
 }
+
+/** Closing price on `date`, or the last close before it (null if the series starts later) */
+export function closeOnOrBefore(points: { t: string; c: number }[], date: string): number | null {
+  let out: number | null = null;
+  for (const p of points) {
+    if (p.t > date) break;
+    out = p.c;
+  }
+  return out;
+}

@@ -102,6 +102,8 @@ export interface WatchlistItem {
   legacyList?: string;
   /** Auto-detected group (sector, or "ETFs"); saved once looked up so grouping is instant */
   category?: string;
+  /** Price when it was added (or the close that day, filled in later), for "since added" */
+  addedPrice?: number;
 }
 
 export type BaseCurrency = "USD" | "SGD";

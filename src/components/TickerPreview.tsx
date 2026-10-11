@@ -20,7 +20,7 @@ export default function TickerPreview({
 }: {
   ticker: string;
   watching: boolean;
-  onAdd: (category: string | null) => void;
+  onAdd: (category: string | null, price: number | null) => void;
   onClose: () => void;
 }) {
   const [quote, setQuote] = useState<Sourced<QuoteData> | null | undefined>(undefined);
@@ -97,7 +97,7 @@ export default function TickerPreview({
             </div>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+          <div className="grid grid-cols-2 gap-3 mt-4">
             {stats.map((s) => (
               <div key={s.label}>
                 <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">{s.label}</p>
@@ -106,7 +106,7 @@ export default function TickerPreview({
             ))}
           </div>
 
-          {f?.profile.summary && <p className="text-[12px] text-[#525252] mt-4 line-clamp-2 leading-relaxed">{f.profile.summary}</p>}
+          {f?.profile.summary && <p className="text-[12px] text-[#525252] mt-4 line-clamp-4 leading-relaxed">{f.profile.summary}</p>}
         </>
       )}
 
@@ -119,7 +119,7 @@ export default function TickerPreview({
           {watching ? (
             <span className="px-3.5 py-2 text-[13px] font-semibold text-[#1F65F0] bg-[#EBF2FF] rounded-xl">✓ On your watchlist</span>
           ) : (
-            <button onClick={() => onAdd(category)} disabled={notFound} className="px-3.5 py-2 text-[13px] font-semibold text-white bg-[#1F65F0] rounded-xl hover:bg-[#1550D8] disabled:opacity-40">
+            <button onClick={() => onAdd(category, q?.price ?? null)} disabled={notFound} className="px-3.5 py-2 text-[13px] font-semibold text-white bg-[#1F65F0] rounded-xl hover:bg-[#1550D8] disabled:opacity-40">
               + Add to watchlist
             </button>
           )}

@@ -20,7 +20,7 @@ Built with Next.js 14, TypeScript, Tailwind CSS and Recharts. No accounts, no da
 
 ![Screener](docs/screenshots/screener.png)
 
-**Watchlist that sorts itself.** Search a ticker to preview it (price, 52-week range, key numbers) before adding it; stocks then group automatically by sector, with funds under ETFs. A plan (Long-term, Swing, Research later), a note and a research status are optional, per stock. Adding from the screener carries the matched rules over as the note.
+**Watchlist as one sortable table.** Sector tabs (All, ETFs, Technology, Energy…) filter a single table showing price, today's move, a 5-day sparkline, where the price sits in its 52-week range, and the change since you added it. Look up a ticker to preview it in a side drawer before adding.
 
 ![Watchlist](docs/screenshots/watchlist.png)
 
