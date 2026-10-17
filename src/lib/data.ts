@@ -6,7 +6,7 @@
 //   • records per-feed health for the data status panel
 
 import { dbClear, dbGet, dbKeys, dbSet } from "./db";
-import { ChartData, ChartRange, Fundamentals, MarketIndex, NewsFeed, NewsItem, QuoteData, SectorPerf, Sourced } from "./types";
+import { ChartData, ChartRange, FinancialHistory, Fundamentals, Market, MarketIndex, NewsFeed, NewsItem, QuoteData, ScreenerRow, SectorPerf, Sourced } from "./types";
 
 interface CacheEntry<T> {
   value: T;
@@ -220,6 +220,46 @@ export function getFundamentals(ticker: string, opts: { force?: boolean } = {}) 
   );
 }
 
+/** Reported annual financials (about four fiscal years). Cached for a day: they change quarterly. */
+export function getFinancials(ticker: string, opts: { force?: boolean } = {}) {
+  const t = ticker.trim().toUpperCase();
+  return cached<FinancialHistory>(
+    "Financial history",
+    `financials:${t}`,
+    24 * 60 * MINUTE,
+    async () => {
+      const d = await getJson<FinancialHistory & { source: string; asOf: string }>(`/api/financials?ticker=${encodeURIComponent(t)}`);
+      const { source, asOf, ...value } = d;
+      return { value, source, asOf };
+    },
+    opts
+  );
+}
+
+// ── Screener ────────────────────────────────────────────────────────────────
+
+export interface ScreenerData {
+  results: ScreenerRow[];
+  market: Market;
+  /** "provider": the provider's own screener; "universe": the app's curated list of large stocks */
+  coverage: "provider" | "universe";
+}
+
+/** Raw candidates for one market; the screener page runs every filter and rule itself. */
+export function getScreenerData(market: Market, opts: { force?: boolean } = {}) {
+  return cached<ScreenerData>(
+    "Screener",
+    `screener:${market}`,
+    5 * MINUTE,
+    async () => {
+      const d = await getJson<ScreenerData & { source: string; asOf: string; error?: string }>(`/api/screener?market=${market}${opts.force ? "&force=1" : ""}`);
+      if (d.error || !d.results?.length) throw new Error(d.error ?? "No screener results");
+      return { value: { results: d.results, market: d.market, coverage: d.coverage }, source: d.source, asOf: d.asOf };
+    },
+    opts
+  );
+}
+
 // ── News ────────────────────────────────────────────────────────────────────
 
 /** `name` (the company name) lets the news route match headlines that don't use the ticker. */
@@ -269,4 +309,19 @@ export function getUsdSgd() {
     if (!q.price) throw new Error("No USD/SGD rate available");
     return { value: q.price, source: q.source ?? "Unknown", asOf: q.asOf };
   });
+}
+
+/**
+ * US dollars per one unit of a currency, for adding up holdings listed in different markets.
+ * London prices in pence ("GBp") are a hundredth of a pound.
+ */
+export function getFxToUsd(ccy: string) {
+  if (ccy === "USD") return Promise.resolve({ value: 1, source: "Fixed", asOf: new Date().toISOString(), cached: true } as Sourced<number>);
+  const pence = ccy === "GBp" || ccy === "GBX";
+  const code = pence ? "GBP" : ccy.toUpperCase();
+  return cached<number>("FX", `fx:${code}USD`, 60 * MINUTE, async () => {
+    const q = await getJson<QuoteData>(`/api/quote?ticker=${encodeURIComponent(`${code}USD=X`)}`);
+    if (!q.price) throw new Error(`No ${code}/USD rate available`);
+    return { value: q.price, source: q.source ?? "Unknown", asOf: q.asOf };
+  }).then((r) => (r && pence ? { ...r, value: r.value / 100 } : r));
 }

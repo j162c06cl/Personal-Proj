@@ -6,6 +6,9 @@ export interface PortfolioPosition {
   purchasePrice: number;
   purchaseDate: string;
   quantity: number;
+  /** Listing venue and trading currency; filled in from the provider when first looked up */
+  exchange?: string;
+  currency?: string;
 }
 
 export interface PortfolioPositionWithData extends PortfolioPosition {
@@ -49,6 +52,9 @@ export interface QuoteData {
   dayLow: number | null;
   pe: number | null;
   divYield: number | null;
+  /** Trading currency (ISO code) and listing exchange, when the provider reports them */
+  currency?: string | null;
+  exchange?: string | null;
   error?: string;
   source?: string | null;
   asOf?: string;
@@ -66,6 +72,7 @@ export interface SearchResult {
   ticker: string;
   name: string;
   type: string;
+  exchange?: string;
 }
 
 export interface CalculatorResult {
@@ -89,21 +96,83 @@ export interface WatchlistDef {
 }
 
 export type WatchIntent = "long-term" | "swing" | "research";
+/** Pre-tag research status; only read when migrating older saves */
 export type ResearchStatus = "not-started" | "researching" | "done";
+export type WatchTag = "researching" | "watching" | "setup-ready" | "archived";
 
 export interface WatchlistItem {
   ticker: string;
+  /** Which strategy the stock is being judged by */
   intent: WatchIntent;
+  tag: WatchTag;
   /** Why the stock was added, in the user's own words (or the screener's reasons) */
   note: string;
-  status: ResearchStatus;
+  /** The case for owning or trading it */
+  thesis?: string;
+  /** Price the thesis expects, in the listing's currency */
+  targetPrice?: number | null;
+  /** Price at which the thesis is wrong, in the listing's currency */
+  invalidation?: number | null;
   addedAt: string;
+  updatedAt?: string;
+  exchange?: string;
+  currency?: string;
   /** Name of the list it came from before intents existed, kept so nothing is lost */
   legacyList?: string;
   /** Auto-detected group (sector, or "ETFs"); saved once looked up so grouping is instant */
   category?: string;
   /** Price when it was added (or the close that day, filled in later), for "since added" */
   addedPrice?: number;
+  /** Legacy (v3) research status, replaced by tag */
+  status?: ResearchStatus;
+}
+
+export interface Watchlist {
+  id: string;
+  name: string;
+  createdAt: string;
+  items: WatchlistItem[];
+}
+
+export type Market = "US" | "SG";
+export type ScreenStrategy = "swing" | "long-term";
+
+/** One candidate stock as the screener sees it */
+export interface ScreenerRow {
+  ticker: string;
+  name: string;
+  quoteType: string;
+  exchange: string | null;
+  currency: string | null;
+  price: number | null;
+  changePercent: number | null;
+  change52w: number | null;
+  volume: number | null;
+  avgVolume: number | null;
+  relVolume: number | null;
+  marketCap: number | null;
+  pe: number | null;
+  forwardPE: number | null;
+  priceToBook: number | null;
+  divYield: number | null;
+  sma50: number | null;
+  sma200: number | null;
+  high52: number | null;
+  low52: number | null;
+  /** Next earnings date, YYYY-MM-DD in the exchange's time zone */
+  earningsDate: string | null;
+}
+
+/** A saved screener configuration */
+export interface SavedScreen {
+  id: string;
+  name: string;
+  strategy: ScreenStrategy;
+  market: Market;
+  /** Built-in setup id, or null for filters only */
+  setup: string | null;
+  filters: Record<string, string>;
+  updatedAt: string;
 }
 
 export type BaseCurrency = "USD" | "SGD";
@@ -173,6 +242,30 @@ export interface Fundamentals {
     exDividendDate: string | null;
     dividendDate: string | null;
   };
+}
+
+/** One fiscal year of reported financials, in the company's reporting currency */
+export interface FinancialYear {
+  /** Fiscal year end, YYYY-MM-DD */
+  date: string;
+  revenue: N;
+  grossProfit: N;
+  operatingIncome: N;
+  netIncome: N;
+  dilutedEps: N;
+  operatingCashFlow: N;
+  capex: N;
+  freeCashFlow: N;
+  totalDebt: N;
+  cash: N;
+  equity: N;
+  sharesOutstanding: N;
+}
+
+export interface FinancialHistory {
+  ticker: string;
+  currency: string | null;
+  years: FinancialYear[];
 }
 
 export interface NewsItem {

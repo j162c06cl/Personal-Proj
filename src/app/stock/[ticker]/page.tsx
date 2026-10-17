@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { getChart, getFundamentals, getNews, getQuote } from "@/lib/data";
-import { loadPortfolio, loadWatchlist } from "@/lib/store";
+import { getChart, getFinancials, getFundamentals, getNews, getQuote } from "@/lib/data";
+import { loadPortfolio, loadWatchlists } from "@/lib/store";
 import { computeTechnicals, smaOverlay, Technicals } from "@/lib/indicators";
-import { ChartData, ChartRange, Fundamentals, NewsFeed, PortfolioPosition, QuoteData, ResearchMinutes, Sourced, WatchlistItem } from "@/lib/types";
-import WatchButton from "@/components/WatchButton";
-import { formatLargeNumber, formatVolume } from "@/lib/formatters";
+import { ChartData, ChartRange, FinancialHistory as FinHistory, Fundamentals, NewsFeed, PortfolioPosition, QuoteData, ResearchMinutes, Sourced, Watchlist } from "@/lib/types";
+import WatchButton, { tagInfo, watchedIn } from "@/components/WatchButton";
+import { formatVolume } from "@/lib/formatters";
+import { currencySymbol, defaultCurrency, formatBig } from "@/lib/markets";
+import { longTermVerdict, researchSummary, swingVerdict } from "@/lib/analysis";
+import FinancialHistory from "@/components/research/FinancialHistory";
+import { ResearchSummaryView, Verdicts } from "@/components/research/Verdicts";
 import { useMoney, useSettings } from "@/hooks/useSettings";
 import SourceTag from "@/components/SourceTag";
 import PriceChart, { RANGE_LABELS } from "@/components/research/PriceChart";
@@ -159,8 +163,11 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const [daily, setDaily] = useState<Sourced<ChartData> | null | undefined>(undefined);
   const [weekly, setWeekly] = useState<Sourced<ChartData> | null | undefined>(undefined);
   const [news, setNews] = useState<Sourced<NewsFeed> | null | undefined>(undefined);
+  const [fin, setFin] = useState<Sourced<FinHistory> | null | undefined>(undefined);
   const [holdings, setHoldings] = useState<PortfolioPosition[]>([]);
-  const [watchItem, setWatchItem] = useState<WatchlistItem | null>(null);
+  const [lists, setLists] = useState<Watchlist[] | null>(null);
+  const [judgeAs, setJudgeAs] = useState<"long-term" | "swing" | null>(null);
+  const [showFullSummary, setShowFullSummary] = useState(false);
 
   // Default depth comes from the investor profile; the toggle overrides it for this visit
   useEffect(() => {
@@ -171,9 +178,13 @@ export default function StockResearchPage({ params }: { params: { ticker: string
     getQuote(ticker).then(setQuote);
     getFundamentals(ticker).then(setFund);
     getChart(ticker, "2y").then(setDaily); // one daily series feeds 1M–1Y views and the indicators
+    getChart(ticker, "5y").then(setWeekly); // the 5Y view, and year-end prices for historical P/E
+    getFinancials(ticker).then(setFin);
     loadPortfolio().then((p) => setHoldings(p.filter((x) => x.ticker === ticker)));
-    loadWatchlist().then((items) => setWatchItem(items.find((i) => i.ticker === ticker) ?? null));
+    loadWatchlists().then(setLists);
   }, [ticker]);
+
+  const { lists: onLists, item: watchItem } = watchedIn(lists, ticker);
 
   // News waits for the company name so headlines like "Nvidia beats…" are matched too
   const companyName = fund?.value.name ?? quote?.value.name;
@@ -182,9 +193,6 @@ export default function StockResearchPage({ params }: { params: { ticker: string
     if (namesReady) getNews(ticker, companyName).then(setNews);
   }, [ticker, namesReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (range === "5y" && weekly === undefined) getChart(ticker, "5y").then(setWeekly);
-  }, [range, weekly, ticker]);
 
   const m = mode ?? 15;
   const show = (min: ResearchMinutes) => m >= min;
@@ -217,13 +225,38 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const price = q?.price ?? tech?.last ?? null;
   const up = (q?.changePercent ?? 0) >= 0;
   const name = f?.name ?? q?.name ?? ticker;
-  const ccy = f?.currency ?? "USD";
-  const sym = ccy === "USD" ? "$" : `${ccy} `;
+  const ccy = f?.currency ?? q?.currency ?? defaultCurrency(ticker);
+  const sym = currencySymbol(ccy);
+  const formatLargeNumber = (v: number | null) => formatBig(v, ccy);
+  const exchange = f?.exchange || q?.exchange || null;
   const px = (v: number | null) => (v === null ? NA : `${sym}${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
   const qSrc = quote ? quote.source : "";
   const fSrc = fund ? fund.source : "";
   const tSrc = daily ? `Calculated from ${daily.source} daily prices` : "";
+
+  // Verdict order follows the stock's own watchlist strategy, then the investor profile
+  const primary: "long-term" | "swing" = judgeAs
+    ?? (watchItem?.intent === "swing" || watchItem?.intent === "long-term" ? watchItem.intent : settings?.profile.strategy === "swing" ? "swing" : "long-term");
+  const analysis = useMemo(() => {
+    if (quote === undefined || fund === undefined || daily === undefined || fin === undefined) return null;
+    // Historical P/E divides a trading-currency price by reporting-currency EPS, so only when they match
+    const sameCcy = !fin?.value.currency || fin.value.currency === ccy;
+    const input = {
+      price,
+      currency: ccy,
+      fund: fund ?? null,
+      fin: fin ?? null,
+      tech,
+      techSource: daily ? { label: `Calculated from ${daily.source} daily prices`, date: daily.asOf } : null,
+      longPrices: sameCcy ? weekly?.value.points : undefined,
+      news: news ?? null,
+      baseCurrency: settings?.baseCurrency,
+    };
+    const long = longTermVerdict(input);
+    const swing = swingVerdict(input);
+    return { long, swing, summary: researchSummary(input, long, swing) };
+  }, [quote, fund, daily, fin, weekly, news, tech, price, ccy, settings?.baseCurrency]);
 
   const earningsDays = daysUntil(f?.events.earningsDate ?? null);
   const exDivDays = daysUntil(f?.events.exDividendDate ?? null);
@@ -256,7 +289,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
         <div className="min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-[36px] font-black tracking-tight text-[#0A0A0A] leading-none">{ticker}</h1>
-            {f?.exchange && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg">{f.exchange}</span>}
+            {exchange && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg" title="Listing exchange and trading currency">{exchange} · {ccy}</span>}
             {f?.profile.sector && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg">{f.profile.sector}</span>}
           </div>
           <p className="text-[15px] text-[#525252] mt-2 truncate">{name}</p>
@@ -305,12 +338,43 @@ export default function StockResearchPage({ params }: { params: { ticker: string
         )}
         <WatchButton
           ticker={ticker}
-          current={watchItem}
-          onSaved={(items) => setWatchItem(items.find((i) => i.ticker === ticker) ?? null)}
+          lists={lists}
+          defaultIntent={primary}
+          meta={{ exchange: exchange ?? undefined, currency: ccy, addedPrice: price ?? undefined }}
+          onSaved={setLists}
         />
-        {watchItem?.note && (
-          <span className="text-[13px] text-[#525252] italic truncate max-w-md" title={watchItem.note}>&ldquo;{watchItem.note}&rdquo;</span>
+        {watchItem && <span className={`text-[11px] font-semibold px-2 py-1 rounded-lg border ${tagInfo(watchItem.tag).cls}`}>{tagInfo(watchItem.tag).label}</span>}
+        {watchItem?.targetPrice != null && (
+          <span className="text-[12px] text-[#525252]">Target <span className="font-semibold text-[#0A0A0A]">{px(watchItem.targetPrice)}</span></span>
         )}
+        {watchItem?.invalidation != null && (
+          <span className="text-[12px] text-[#525252]">Invalidation <span className="font-semibold text-[#0A0A0A]">{px(watchItem.invalidation)}</span></span>
+        )}
+        {(watchItem?.thesis || watchItem?.note) && (
+          <span className="text-[13px] text-[#525252] italic truncate max-w-md" title={watchItem.thesis || watchItem.note}>&ldquo;{watchItem.thesis || watchItem.note}&rdquo;</span>
+        )}
+        {onLists.length > 0 && (
+          <Link href="/watchlist" className="text-[12px] font-semibold text-[#1F65F0] hover:underline">Edit plan →</Link>
+        )}
+      </div>
+
+      {/* ── Conclusions: one per strategy, never blended into a single score ── */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <div>
+            <h2 className="text-[18px] font-black text-[#0A0A0A]">Conclusions</h2>
+            <p className="text-[12px] text-[#525252]">Each strategy has its own rules. There is no overall score: read the checks.</p>
+          </div>
+          <div className="inline-flex items-center bg-[#EBEBEB] rounded-xl p-1 gap-0.5" role="group" aria-label="Your strategy">
+            {(["long-term", "swing"] as const).map((st) => (
+              <button key={st} onClick={() => setJudgeAs(st)}
+                className={`px-3 py-1.5 rounded-lg text-[13px] font-medium ${primary === st ? "bg-white text-[#0A0A0A] font-semibold shadow-sm" : "text-[#525252] hover:text-[#0A0A0A]"}`}>
+                {st === "long-term" ? "Long-term first" : "Swing first"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {analysis ? <Verdicts long={analysis.long} swing={analysis.swing} primary={primary} /> : <Skeleton h={260} />}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -355,6 +419,38 @@ export default function StockResearchPage({ params }: { params: { ticker: string
             )}
           </Section>
 
+          {/* Company overview */}
+          <Section title="Company overview">
+            {fund === undefined ? <Skeleton h={120} /> : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 mb-3">
+                  <Stat label="Sector" value={f?.profile.sector ?? NA} hint={f?.profile.industry ?? undefined} src={fSrc} />
+                  <Stat label="Exchange" value={exchange ?? NA} hint={f?.profile.country ? `HQ: ${f.profile.country}` : undefined} src={f?.exchange ? fSrc : qSrc} />
+                  <Stat label="Currency" value={ccy} hint={settings && settings.baseCurrency !== ccy ? `Your base currency is ${settings.baseCurrency}` : undefined} hintTone="warn" src={f?.currency ? fSrc : qSrc} />
+                  <Stat label="Market cap" value={formatLargeNumber(q?.marketCap ?? f?.valuation.marketCap ?? null)} src={q?.marketCap != null ? qSrc : fSrc} />
+                </div>
+                {f?.profile.summary ? (
+                  <>
+                    <p className={`text-[14px] leading-relaxed text-[#262626] ${show(30) || showFullSummary ? "" : "line-clamp-3"}`}>{f.profile.summary}</p>
+                    {!show(30) && (
+                      <button onClick={() => setShowFullSummary((v) => !v)} className="text-[12px] font-semibold text-[#1F65F0] mt-1">{showFullSummary ? "Show less" : "Read more"}</button>
+                    )}
+                  </>
+                ) : <p className="text-[13px] text-[#A3A3A3]">No business description available.</p>}
+                <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-[#525252] mt-3">
+                  {f?.profile.employees && <span><span className="font-semibold text-[#0A0A0A]">Employees:</span> {f.profile.employees.toLocaleString()}</span>}
+                  {f?.profile.website && <a href={f.profile.website} target="_blank" rel="noreferrer" className="text-[#1F65F0] hover:underline">{f.profile.website.replace(/^https?:\/\//, "")}</a>}
+                </div>
+                {fund && <SourceTag className="mt-2" source={fund.source} asOf={fund.asOf} cached={fund.cached} />}
+              </>
+            )}
+          </Section>
+
+          {/* Research summary */}
+          <Section title="Research summary" subtitle="Strengths, weaknesses, catalysts and risks, each with its source and date.">
+            {analysis ? <ResearchSummaryView summary={analysis.summary} limit={show(30) ? undefined : m === 5 ? 2 : 4} /> : <Skeleton h={200} />}
+          </Section>
+
           {/* Technicals */}
           {show(15) && (
             <Section title="Technical indicators" subtitle="Computed from daily closing prices. Describes the chart, not where it goes next.">
@@ -382,6 +478,31 @@ export default function StockResearchPage({ params }: { params: { ticker: string
                   />
                   <Stat label="From 52-wk high" value={tech.pctFromHigh52 === null ? NA : `${tech.pctFromHigh52.toFixed(1)}%`} hint={`High ${px(tech.high52)}`} src={tSrc} />
                   <Stat label="Daily range (ATR)" value={tech.atrPct === null ? NA : `${tech.atrPct.toFixed(1)}%`} hint="Typical daily move" src={tSrc} />
+                  <Stat label="From 52-wk low" value={tech.low52Pct === null ? NA : `+${tech.low52Pct.toFixed(1)}%`} hint={`Low ${px(tech.low52)}`} src={tSrc} />
+                  <Stat
+                    label="Volatility (1y)"
+                    value={tech.volatility1y === null ? NA : `${tech.volatility1y.toFixed(0)}%`}
+                    hint={tech.volatility30 !== null ? `${tech.volatility30.toFixed(0)}% over the last 30 days` : "Annualised"}
+                    hintTone={tech.volatility1y !== null && tech.volatility1y >= 45 ? "warn" : "neutral"}
+                    src={tSrc}
+                  />
+                  <Stat label="Max drawdown (1y)" value={tech.maxDrawdown1y === null ? NA : `${tech.maxDrawdown1y.toFixed(1)}%`} hint="Largest peak-to-trough fall" src={tSrc} />
+                </div>
+              )}
+              {tech && (
+                <div className="mt-5 pt-4 border-t border-[#F0F0F0]">
+                  <p className="text-[12px] font-bold text-[#0A0A0A] mb-2">Returns</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {([["1M", tech.returns.m1], ["3M", tech.returns.m3], ["6M", tech.returns.m6], ["YTD", tech.returns.ytd], ["1Y", tech.returns.y1]] as const).map(([label, v]) => (
+                      <div key={label} className="rounded-xl bg-[#F7F7F8] px-2 py-2 text-center">
+                        <p className="text-[11px] font-semibold text-[#525252]">{label}</p>
+                        <p className={`text-[15px] font-bold tabular-nums ${v === null ? "text-[#A3A3A3]" : v >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
+                          {v === null ? NA : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-[#A3A3A3] mt-1">{tSrc} · price change only, dividends excluded</p>
                 </div>
               )}
             </Section>
@@ -445,19 +566,28 @@ export default function StockResearchPage({ params }: { params: { ticker: string
             </Section>
           )}
 
-          {/* Company profile */}
-          {show(30) && f?.profile.summary && (
-            <Section title={`About ${name}`}>
-              <div className="flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-[#525252] mb-3">
-                {f.profile.industry && <span><span className="font-semibold text-[#0A0A0A]">Industry:</span> {f.profile.industry}</span>}
-                {f.profile.employees && <span><span className="font-semibold text-[#0A0A0A]">Employees:</span> {f.profile.employees.toLocaleString()}</span>}
-                {f.profile.country && <span><span className="font-semibold text-[#0A0A0A]">HQ:</span> {f.profile.country}</span>}
-                {f.profile.website && <a href={f.profile.website} target="_blank" rel="noreferrer" className="text-[#1F65F0] hover:underline">{f.profile.website.replace(/^https?:\/\//, "")}</a>}
-              </div>
-              <p className="text-[14px] leading-relaxed text-[#262626]">{f.profile.summary}</p>
-              <SourceTag className="mt-3" source={fund!.source} asOf={fund!.asOf} cached={fund!.cached} />
+          {/* Fundamentals over time */}
+          {show(15) && (
+            <Section title="Financial history" subtitle="Reported annual figures. Each chart has its own scale.">
+              {fin === undefined ? <Skeleton h={240} /> : !fin ? (
+                <p className="text-[13px] text-[#A3A3A3]">No reported financials for this symbol (funds and some foreign listings don&apos;t have them).</p>
+              ) : (
+                <>
+                  <FinancialHistory
+                    years={fin.value.years}
+                    currency={fin.value.currency}
+                    prices={!fin.value.currency || fin.value.currency === ccy ? weekly?.value.points : undefined}
+                    pe={f?.valuation.trailingPE ?? null}
+                  />
+                  {fin.value.currency && fin.value.currency !== ccy && (
+                    <p className="text-[11px] text-[#92400E] mt-2">Reports in {fin.value.currency} but trades in {ccy}, so historical P/E isn&apos;t shown.</p>
+                  )}
+                  <SourceTag className="mt-3" source={fin.source} asOf={fin.asOf} cached={fin.cached} />
+                </>
+              )}
             </Section>
           )}
+
         </div>
 
         {/* ── Right column ── */}

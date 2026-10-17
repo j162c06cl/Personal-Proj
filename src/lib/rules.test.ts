@@ -111,7 +111,7 @@ describe("portfolio context", () => {
   it("mentions an existing position and watchlist entry", () => {
     const texts = ctx({
       positions: [{ id: "1", ticker: "AMD", name: "AMD", sector: "Technology", purchasePrice: 100, purchaseDate: "2024-01-02", quantity: 5 }],
-      watchlist: [{ ticker: "AMD", intent: "swing", note: "", status: "not-started", addedAt: "" }],
+      watchlist: [{ ticker: "AMD", intent: "swing", tag: "watching", note: "", addedAt: "" }],
     }).map((r) => r.text);
     expect(texts).toContain("You already own 5 shares");
     expect(texts).toContain("On your watchlist (Swing)");

@@ -77,6 +77,14 @@ export interface Technicals {
   low52: number | null;
   pctFromHigh52: number | null;
   atrPct: number | null; // 14-day average true range as % of price
+  low52Pct: number | null; // % above the 52-week low
+  /** Price returns in %, oldest bar on or before each lookback date to the latest close */
+  returns: { m1: number | null; m3: number | null; m6: number | null; ytd: number | null; y1: number | null };
+  /** Annualised standard deviation of daily returns, in % */
+  volatility30: number | null;
+  volatility1y: number | null;
+  /** Largest peak-to-trough fall over the last year, in % (negative) */
+  maxDrawdown1y: number | null;
   trend: Trend;
   bars: number;
 }
@@ -132,6 +140,21 @@ export function computeTechnicals(points: PricePoint[]): Technicals | null {
     else if (price < s20 && s20 < s50) trend = "Downtrend";
   }
 
+  const vol = (days: number) => {
+    const slice = closes.slice(-(days + 1));
+    if (slice.length < Math.min(days, 20) + 1) return null;
+    const rets = slice.slice(1).map((c, i) => Math.log(c / slice[i]));
+    const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+    const variance = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / (rets.length - 1);
+    return Math.sqrt(variance * 252) * 100;
+  };
+
+  let peak = -Infinity, maxDd = 0;
+  for (const p of yearBars) {
+    peak = Math.max(peak, p.c);
+    maxDd = Math.min(maxDd, (p.c - peak) / peak);
+  }
+
   return {
     last: price,
     sma20: s20,
@@ -146,6 +169,11 @@ export function computeTechnicals(points: PricePoint[]): Technicals | null {
     low52,
     pctFromHigh52: ((price - high52) / high52) * 100,
     atrPct: (atr / price) * 100,
+    low52Pct: ((price - low52) / low52) * 100,
+    returns: periodReturns(points),
+    volatility30: vol(30),
+    volatility1y: vol(252),
+    maxDrawdown1y: yearBars.length > 20 ? maxDd * 100 : null,
     trend,
     bars: points.length,
   };
@@ -154,4 +182,27 @@ export function computeTechnicals(points: PricePoint[]): Technicals | null {
 /** SMA overlay series aligned to the given points, for the price chart. */
 export function smaOverlay(points: PricePoint[], n: number): Series {
   return sma(points.map((p) => p.c), n);
+}
+
+/** % change from the last close on or before each lookback date to the latest close. */
+export function periodReturns(points: PricePoint[]): Technicals["returns"] {
+  const out: Technicals["returns"] = { m1: null, m3: null, m6: null, ytd: null, y1: null };
+  if (points.length < 2) return out;
+  const lastPt = points[points.length - 1];
+  const end = new Date(`${lastPt.t}T00:00:00Z`);
+  const from = (date: Date) => {
+    const cut = date.toISOString().slice(0, 10);
+    if (points[0].t > cut) return null; // not enough history
+    let base: PricePoint | null = null;
+    for (const p of points) { if (p.t <= cut) base = p; else break; }
+    return base ? ((lastPt.c - base.c) / base.c) * 100 : null;
+  };
+  const monthsBack = (m: number) => { const d = new Date(end); d.setUTCMonth(d.getUTCMonth() - m); return d; };
+  out.m1 = from(monthsBack(1));
+  out.m3 = from(monthsBack(3));
+  out.m6 = from(monthsBack(6));
+  out.y1 = from(monthsBack(12));
+  // Year to date: from the last close of the previous year
+  out.ytd = from(new Date(Date.UTC(end.getUTCFullYear() - 1, 11, 31)));
+  return out;
 }

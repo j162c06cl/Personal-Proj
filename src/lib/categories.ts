@@ -1,6 +1,6 @@
 // Watchlist groups: every stock files itself under its sector, and funds under "ETFs".
 import { normaliseSector } from "./rules";
-import { SCREENER_UNIVERSE } from "./screenerUniverse";
+import { SCREENER_UNIVERSE, SG_UNIVERSE } from "./screenerUniverse";
 
 /** Display order of watchlist groups; anything unrecognised goes under "Other" */
 export const CATEGORY_ORDER = [
@@ -23,7 +23,7 @@ export function categoryFrom(info: { quoteType?: string | null; sector?: string 
 
 /** Instant guess for well-known tickers, so most rows are grouped before any lookup */
 export function knownCategory(ticker: string): string | null {
-  const s = SCREENER_UNIVERSE.find((u) => u.ticker === ticker);
+  const s = SCREENER_UNIVERSE.find((u) => u.ticker === ticker) ?? SG_UNIVERSE.find((u) => u.ticker === ticker);
   if (!s) return null;
   return s.type === "ETF" ? "ETFs" : s.sector;
 }

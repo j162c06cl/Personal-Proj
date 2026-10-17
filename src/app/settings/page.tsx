@@ -103,7 +103,7 @@ export default function SettingsPage() {
     a.download = `investor-research-backup-${data.exportedAt.slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-    setBackupMsg({ ok: true, text: `Exported ${data.portfolio.length} positions and ${data.watchlist.length} watchlist stocks.` });
+    setBackupMsg({ ok: true, text: `Exported ${data.portfolio.length} positions, ${data.watchlists.length} watchlists and ${data.screens.length} saved screens.` });
   }
 
   async function handleImport(file: File) {
@@ -203,7 +203,7 @@ export default function SettingsPage() {
               onChange={(e) => e.target.files?.[0] && handleImport(e.target.files[0])}
             />
           </div>
-          <p className="text-[12px] text-[#A3A3A3]">Backups include portfolio, watchlists, currency and profile. Importing replaces your current data.</p>
+          <p className="text-[12px] text-[#A3A3A3]">Backups include portfolio, watchlists, saved screens, currency and profile. Importing replaces your current data.</p>
           {backupMsg && (
             <p className={`text-[13px] font-medium ${backupMsg.ok ? "text-[#22C55E]" : "text-[#EF4444]"}`}>{backupMsg.text}</p>
           )}

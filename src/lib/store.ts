@@ -3,7 +3,7 @@
 
 import { dbGet, dbSet } from "./db";
 import { DEFAULT_WATCHLISTS, PORTFOLIO_PRESETS } from "./presets";
-import { PortfolioPosition, Settings, WatchIntent, WatchlistDef, WatchlistItem } from "./types";
+import { PortfolioPosition, SavedScreen, Settings, WatchIntent, WatchTag, Watchlist, WatchlistDef, WatchlistItem } from "./types";
 
 export const DEFAULT_SETTINGS: Settings = {
   baseCurrency: "USD",
@@ -50,7 +50,7 @@ export function savePortfolio(positions: PortfolioPosition[]): Promise<void> {
   return dbSet("kv", "portfolio", positions);
 }
 
-// ── Watchlist (grouped by intent) ──────────────────────────────────────────
+// ── Watchlists (named lists of intent-tagged items) ─────────────────────────
 
 /** Best guess at intent from an old list's name; the user can change it per stock. */
 function intentForListName(name: string): WatchIntent {
@@ -58,6 +58,27 @@ function intentForListName(name: string): WatchIntent {
   if (n.includes("swing") || n.includes("trade")) return "swing";
   if (/long|core|etf|dividend|reit|income|retire/.test(n)) return "long-term";
   return "research";
+}
+
+export const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+
+/** Fills fields added since an item was saved (tag replaced the old research status). */
+export function normaliseItem(i: WatchlistItem): WatchlistItem {
+  const tag: WatchTag = i.tag
+    ?? (i.status === "researching" ? "researching" : i.status === "done" ? "watching" : i.intent === "research" ? "researching" : "watching");
+  const { status: _legacy, ...rest } = i; // eslint-disable-line @typescript-eslint/no-unused-vars
+  return { ...rest, tag, note: i.note ?? "" };
+}
+
+export function newItem(ticker: string, fields: Partial<WatchlistItem> = {}): WatchlistItem {
+  return {
+    intent: "research",
+    tag: "researching",
+    note: "",
+    addedAt: new Date().toISOString(),
+    ...fields,
+    ticker: ticker.trim().toUpperCase(),
+  };
 }
 
 /** Converts v2 named lists into intent-tagged items, keeping the old list name on each item. */
@@ -68,36 +89,109 @@ export function listsToItems(lists: WatchlistDef[]): WatchlistItem[] {
     for (const t of l.tickers) {
       if (seen.has(t)) continue;
       seen.add(t);
-      items.push({ ticker: t, intent: intentForListName(l.name), note: "", status: "not-started", addedAt: new Date().toISOString(), legacyList: l.name });
+      items.push(newItem(t, { intent: intentForListName(l.name), tag: "watching", legacyList: l.name }));
     }
   }
   return items;
 }
 
-export async function loadWatchlist(): Promise<WatchlistItem[]> {
+/** v2 named lists become real lists again, each item's intent guessed from the list name. */
+export function defsToWatchlists(defs: WatchlistDef[]): Watchlist[] {
+  const now = new Date().toISOString();
+  return defs.map((d) => ({
+    id: d.id || newId(),
+    name: d.name,
+    createdAt: now,
+    items: Array.from(new Set(d.tickers)).map((t) => newItem(t, { intent: intentForListName(d.name), tag: "watching" })),
+  }));
+}
+
+export function itemsToWatchlists(items: WatchlistItem[]): Watchlist[] {
+  return [{ id: "main", name: "My watchlist", createdAt: new Date().toISOString(), items: items.map(normaliseItem) }];
+}
+
+export async function loadWatchlists(): Promise<Watchlist[]> {
   await ensureMigrated();
-  const stored = await dbGet<WatchlistItem[]>("kv", "watchlist");
-  if (stored) return stored;
-  const legacy = await dbGet<WatchlistDef[]>("kv", "watchlists");
-  const items = listsToItems(legacy ?? DEFAULT_WATCHLISTS);
-  await dbSet("kv", "watchlist", items);
-  return items;
+  const stored = await dbGet<Watchlist[]>("kv", "watchlists_v4");
+  if (stored) return stored.map((l) => ({ ...l, items: l.items.map(normaliseItem) }));
+  // Older saves: one flat intent-tagged list (v3), named ticker lists (v2), or nothing yet
+  const flat = await dbGet<WatchlistItem[]>("kv", "watchlist");
+  const defs = await dbGet<WatchlistDef[]>("kv", "watchlists");
+  const lists = flat ? itemsToWatchlists(flat) : defsToWatchlists(defs ?? DEFAULT_WATCHLISTS);
+  await saveWatchlists(lists);
+  return lists;
 }
 
-export function saveWatchlist(items: WatchlistItem[]): Promise<void> {
-  return dbSet("kv", "watchlist", items);
+export function saveWatchlists(lists: Watchlist[]): Promise<void> {
+  return dbSet("kv", "watchlists_v4", lists);
 }
 
-/** Adds a stock (or updates its intent/note if already there). Returns the new list. */
-export async function addToWatchlist(item: Pick<WatchlistItem, "ticker" | "intent" | "note">): Promise<WatchlistItem[]> {
-  const items = await loadWatchlist();
+/** Every watched stock across all lists, once each (first list wins), for context lookups. */
+export function flattenLists(lists: Watchlist[]): WatchlistItem[] {
+  const seen = new Set<string>();
+  const out: WatchlistItem[] = [];
+  for (const l of lists) for (const i of l.items) if (!seen.has(i.ticker)) { seen.add(i.ticker); out.push(i); }
+  return out;
+}
+
+export async function loadWatchlist(): Promise<WatchlistItem[]> {
+  return flattenLists(await loadWatchlists());
+}
+
+/** Adds a stock to one list (or updates it there). Returns all lists. */
+export async function addToWatchlist(listId: string, item: Partial<WatchlistItem> & { ticker: string }): Promise<Watchlist[]> {
+  const lists = await loadWatchlists();
   const t = item.ticker.trim().toUpperCase();
-  const existing = items.find((i) => i.ticker === t);
-  const next = existing
-    ? items.map((i) => (i.ticker === t ? { ...i, intent: item.intent, note: item.note || i.note } : i))
-    : [...items, { ticker: t, intent: item.intent, note: item.note, status: "not-started" as const, addedAt: new Date().toISOString() }];
-  await saveWatchlist(next);
+  const next = lists.map((l) => {
+    if (l.id !== listId) return l;
+    const existing = l.items.find((i) => i.ticker === t);
+    const items = existing
+      ? l.items.map((i) => (i.ticker === t ? { ...i, ...item, ticker: t, note: item.note || i.note, updatedAt: new Date().toISOString() } : i))
+      : [...l.items, newItem(t, item)];
+    return { ...l, items };
+  });
+  await saveWatchlists(next);
   return next;
+}
+
+/** Adds several stocks to one list, skipping any already on it. Returns all lists. */
+export async function addManyToWatchlist(listId: string, items: (Partial<WatchlistItem> & { ticker: string })[]): Promise<Watchlist[]> {
+  const lists = await loadWatchlists();
+  const next = lists.map((l) => {
+    if (l.id !== listId) return l;
+    const have = new Set(l.items.map((i) => i.ticker));
+    const added = items.filter((i) => !have.has(i.ticker.toUpperCase())).map((i) => newItem(i.ticker, i));
+    return { ...l, items: [...l.items, ...added] };
+  });
+  await saveWatchlists(next);
+  return next;
+}
+
+// ── Saved screens ───────────────────────────────────────────────────────────
+
+/** Filters that only make sense for short-term trading */
+const SWING_ONLY = ["relVolume", "change", "float"];
+
+export async function loadScreens(): Promise<SavedScreen[]> {
+  const stored = await dbGet<SavedScreen[]>("kv", "screens");
+  if (stored) return stored;
+  // Screener presets used to live in localStorage as { name, filters }
+  const legacy = readLegacy<{ name: string; filters: Record<string, string> }[]>("screener_presets_v1") ?? [];
+  const screens: SavedScreen[] = legacy.map((p) => ({
+    id: newId(),
+    name: p.name,
+    strategy: SWING_ONLY.some((k) => p.filters[k]) ? "swing" : "long-term",
+    market: "US",
+    setup: null,
+    filters: Object.fromEntries(Object.entries(p.filters).filter(([, v]) => v)),
+    updatedAt: new Date().toISOString(),
+  }));
+  await saveScreens(screens);
+  return screens;
+}
+
+export function saveScreens(screens: SavedScreen[]): Promise<void> {
+  return dbSet("kv", "screens", screens);
 }
 
 // ── Settings (shared across components via a tiny subscription) ────────────
@@ -135,43 +229,58 @@ export function subscribeSettings(fn: (s: Settings) => void): () => void {
 
 export interface Backup {
   app: "investor-research";
-  version: 2;
+  version: 3;
   exportedAt: string;
   portfolio: PortfolioPosition[];
-  watchlist: WatchlistItem[];
+  watchlists: Watchlist[];
+  screens: SavedScreen[];
   settings: Settings;
 }
 
-/** Version 1 backups stored named lists instead of intent-tagged items */
-interface BackupV1 {
+/** Older backups: v1 stored named ticker lists, v2 one flat intent-tagged list */
+interface OlderBackup {
   app: "investor-research";
-  version: 1;
+  version: 1 | 2;
   portfolio: PortfolioPosition[];
-  watchlists: WatchlistDef[];
+  watchlists?: WatchlistDef[];
+  watchlist?: WatchlistItem[];
   settings?: Settings;
 }
 
 export async function exportBackup(): Promise<Backup> {
-  const [portfolio, watchlist, settings] = await Promise.all([loadPortfolio(), loadWatchlist(), loadSettings()]);
+  const [portfolio, watchlists, screens, settings] = await Promise.all([loadPortfolio(), loadWatchlists(), loadScreens(), loadSettings()]);
   return {
     app: "investor-research",
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     portfolio,
-    watchlist,
+    watchlists,
+    screens,
     settings: { baseCurrency: settings.baseCurrency, profile: settings.profile },
   };
 }
 
+/** Turns any backup version's watchlist data into lists */
+export function backupLists(b: Partial<Backup> | Partial<OlderBackup>): Watchlist[] | null {
+  if (b.version === 3 && Array.isArray(b.watchlists)) {
+    return (b.watchlists as Watchlist[]).map((l) => ({ ...l, items: l.items.map(normaliseItem) }));
+  }
+  const old = b as Partial<OlderBackup>;
+  if (Array.isArray(old.watchlist)) return itemsToWatchlists(old.watchlist);
+  if (Array.isArray(old.watchlists)) return defsToWatchlists(old.watchlists);
+  return null;
+}
+
 export async function importBackup(raw: unknown): Promise<{ positions: number; watched: number }> {
-  const b = raw as Partial<Backup> & Partial<BackupV1>;
+  const b = raw as Partial<Backup> | Partial<OlderBackup>;
   if (!b || b.app !== "investor-research" || !Array.isArray(b.portfolio)) {
     throw new Error("This file isn't an Investor Research backup.");
   }
-  const watchlist = Array.isArray(b.watchlist) ? b.watchlist : Array.isArray(b.watchlists) ? listsToItems(b.watchlists) : null;
-  if (!watchlist) throw new Error("This backup has no watchlist data.");
+  const lists = backupLists(b);
+  if (!lists) throw new Error("This backup has no watchlist data.");
   await savePortfolio(b.portfolio);
-  await saveWatchlist(watchlist);
+  await saveWatchlists(lists);
+  if (b.version === 3 && Array.isArray((b as Partial<Backup>).screens)) await saveScreens((b as Backup).screens);
   if (b.settings) await saveSettings(mergeSettings(b.settings));
-  return { positions: b.portfolio.length, watched: watchlist.length };
+  return { positions: b.portfolio.length, watched: flattenLists(lists).length };
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PortfolioPosition } from "@/lib/types";
 import { getQuote } from "@/lib/data";
+import { defaultCurrency } from "@/lib/markets";
 import { SECTOR_COLORS } from "@/lib/presets";
 import TickerAutocomplete from "@/components/TickerAutocomplete";
 
@@ -24,6 +25,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
   const [purchasePrice, setPurchasePrice] = useState(initial ? String(initial.purchasePrice) : "");
   const [purchaseDate, setPurchaseDate] = useState(initial?.purchaseDate ?? "");
   const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : "");
+  const [listing, setListing] = useState<{ exchange?: string; currency?: string }>({ exchange: initial?.exchange, currency: initial?.currency });
   const [lookingUp, setLookingUp] = useState(false);
   const [fetchingPrice, setFetchingPrice] = useState(false);
   const [error, setError] = useState("");
@@ -44,6 +46,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
       if (data?.name && !data.error) {
         setName(data.name);
         setTicker(t);
+        setListing({ exchange: data.exchange ?? undefined, currency: data.currency ?? undefined });
       } else {
         setError(`Could not find "${t}"`);
       }
@@ -69,6 +72,17 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
     setFetchingPrice(false);
   }
 
+  // Record the listing's exchange and currency as soon as a ticker is picked
+  async function pick(t: string, n: string) {
+    setTicker(t);
+    setName(n);
+    setError("");
+    const q = (await getQuote(t))?.value;
+    if (q) setListing({ exchange: q.exchange ?? undefined, currency: q.currency ?? undefined });
+  }
+
+  const ccy = listing.currency ?? defaultCurrency(ticker || "X");
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -87,6 +101,8 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
       purchasePrice: parseFloat(purchasePrice),
       purchaseDate,
       quantity: parseFloat(quantity),
+      ...(listing.exchange ? { exchange: listing.exchange } : {}),
+      currency: ccy,
     });
   }
 
@@ -112,7 +128,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
             <TickerAutocomplete
               value={ticker}
               onChange={setTicker}
-              onSelect={(t, n) => { setTicker(t); setName(n); setError(""); }}
+              onSelect={(t, n) => { pick(t, n); }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookupTicker(); } }}
               placeholder="e.g. AAPL"
               inputClassName={`${inputCls} font-mono tracking-wider`}
@@ -153,7 +169,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
 
           {/* Purchase Price */}
           <div>
-            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Purchase Price (USD)</label>
+            <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Purchase Price ({ccy}){listing.exchange ? ` · ${listing.exchange}` : ""}</label>
             <div className="flex gap-2">
               <input
                 type="number"

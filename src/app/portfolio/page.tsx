@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { SECTOR_COLORS } from "@/lib/presets";
 import { PortfolioPosition, PortfolioPositionWithData } from "@/lib/types";
-import { getQuotes, QuoteMap } from "@/lib/data";
+import { getFxToUsd, getQuotes, QuoteMap } from "@/lib/data";
+import { defaultCurrency } from "@/lib/markets";
 import { useMoney } from "@/hooks/useSettings";
 import { PortfolioDay, PortfolioSummary } from "@/components/portfolio/PortfolioToday";
 import GrowthChart from "@/components/portfolio/GrowthChart";
@@ -30,7 +31,8 @@ const tooltipStyle = {
 };
 
 export default function PortfolioPage() {
-  const { positions, ready, addPosition, updatePosition, removePosition } = usePortfolio();
+  const { positions: rawPositions, ready, addPosition, updatePosition, removePosition, patchPositions } = usePortfolio();
+  const [fx, setFx] = useState<Record<string, number>>({ USD: 1 });
   const [quotes, setQuotes] = useState<QuoteMap>({});
   const [loading, setLoading] = useState(false);
   const [quotesLoaded, setQuotesLoaded] = useState(false);
@@ -49,14 +51,49 @@ export default function PortfolioPage() {
   }, []);
 
   useEffect(() => {
-    if (!ready || !positions.length) return;
-    const tickers = Array.from(new Set(positions.map((p) => p.ticker)));
+    if (!ready || !rawPositions.length) return;
+    const tickers = Array.from(new Set(rawPositions.map((p) => p.ticker)));
     fetchQuotes(tickers);
-  }, [ready, positions, fetchQuotes]);
+  }, [ready, rawPositions, fetchQuotes]);
+
+  // Every position records its listing's exchange and currency, filled in from the quote once known
+  useEffect(() => {
+    const patches: Record<string, Partial<PortfolioPosition>> = {};
+    for (const p of rawPositions) {
+      const q = quotes[p.ticker]?.value;
+      if (q?.currency && (!p.currency || (!p.exchange && q.exchange))) patches[p.id] = { currency: q.currency, ...(q.exchange ? { exchange: q.exchange } : {}) };
+    }
+    if (Object.keys(patches).length) patchPositions(patches);
+  }, [quotes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const ccyOf = useCallback((p: PortfolioPosition) => p.currency ?? quotes[p.ticker]?.value.currency ?? defaultCurrency(p.ticker), [quotes]);
+  const currencies = useMemo(() => Array.from(new Set(rawPositions.map(ccyOf))).filter((c) => !(c in fx)), [rawPositions, ccyOf, fx]);
+  useEffect(() => {
+    for (const c of currencies) getFxToUsd(c).then((r) => { if (r) setFx((prev) => ({ ...prev, [c]: r.value })); });
+  }, [currencies.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Totals add up holdings from different markets, so everything below works in US dollars.
+  // Costs convert at today's rate, so a non-USD cost basis is approximate.
+  const rateOf = useCallback((p: PortfolioPosition) => fx[ccyOf(p)] ?? 1, [fx, ccyOf]);
+  const positions = useMemo(() => rawPositions.map((p) => ({ ...p, purchasePrice: p.purchasePrice * rateOf(p) })), [rawPositions, rateOf]);
+  const usdQuotes: QuoteMap = useMemo(() => {
+    const out: QuoteMap = { ...quotes };
+    for (const p of rawPositions) {
+      const q = quotes[p.ticker];
+      const r = rateOf(p);
+      if (!q || r === 1) continue;
+      const v = q.value;
+      const conv = (n: number | null) => (n === null ? null : n * r);
+      out[p.ticker] = { ...q, value: { ...v, price: conv(v.price), change: conv(v.change), open: conv(v.open), dayHigh: conv(v.dayHigh), dayLow: conv(v.dayLow), weekHigh52: conv(v.weekHigh52), weekLow52: conv(v.weekLow52) } };
+    }
+    return out;
+  }, [quotes, rawPositions, rateOf]);
+  const nonUsd = useMemo(() => Array.from(new Set(rawPositions.map(ccyOf).filter((c) => c !== "USD"))), [rawPositions, ccyOf]);
+  const toUsd = useMemo(() => Object.fromEntries(rawPositions.map((p) => [p.ticker, rateOf(p)])), [rawPositions, rateOf]);
 
   const enriched: PortfolioPositionWithData[] = useMemo(() => {
     return positions.map((p) => {
-      const q = quotes[p.ticker]?.value;
+      const q = usdQuotes[p.ticker]?.value;
       if (!q || q.price === null) {
         return { ...p, currentPrice: null, currentValue: null, profitLoss: null, percentReturn: null, error: q?.error ?? "Loading" };
       }
@@ -66,7 +103,7 @@ export default function PortfolioPage() {
       const percentReturn = ((currentPrice - p.purchasePrice) / p.purchasePrice) * 100;
       return { ...p, currentPrice, currentValue, profitLoss, percentReturn };
     });
-  }, [positions, quotes]);
+  }, [positions, usdQuotes]);
 
   const sectorAllocation = useMemo(() => {
     const bySector: Record<string, number> = {};
@@ -113,9 +150,8 @@ export default function PortfolioPage() {
   }
 
   function handleEdit(pos: PortfolioPositionWithData) {
-    const { currentPrice, currentValue, profitLoss, percentReturn, error, ...base } = pos;
-    void currentPrice; void currentValue; void profitLoss; void percentReturn; void error;
-    setEditingPosition(base);
+    // Edit the saved position, in its own currency, not the converted copy shown in the table
+    setEditingPosition(rawPositions.find((p) => p.id === pos.id) ?? null);
     setShowForm(true);
   }
 
@@ -189,14 +225,14 @@ export default function PortfolioPage() {
         </div>
       ) : (
         <>
-          <PortfolioSummary positions={positions} quotes={quotesLoaded ? quotes : null} />
+          <PortfolioSummary positions={positions} quotes={quotesLoaded ? usdQuotes : null} />
 
           <div className="mt-5">
-            <GrowthChart positions={positions} quotes={quotes} />
+            <GrowthChart positions={positions} quotes={usdQuotes} toUsd={toUsd} />
           </div>
 
           <h2 className="text-[20px] font-black tracking-tight text-[#0A0A0A] mt-10 mb-4">Your holdings today</h2>
-          <PortfolioDay positions={positions} quotes={quotesLoaded ? quotes : null} />
+          <PortfolioDay positions={positions} quotes={quotesLoaded ? usdQuotes : null} />
 
           <h2 className="text-[20px] font-black tracking-tight text-[#0A0A0A] mt-10 mb-4">Positions</h2>
           {/* Table */}
@@ -204,6 +240,12 @@ export default function PortfolioPage() {
             <LoadingSpinner text="Fetching market data…" />
           ) : (
             <PortfolioTable positions={enriched} onEdit={handleEdit} onDelete={removePosition} fmt={money.fmt} />
+          )}
+          {nonUsd.length > 0 && (
+            <p className="text-[11px] text-[#A3A3A3] mt-2">
+              Holdings listed in {nonUsd.join(", ")} are converted at today&apos;s exchange rate
+              {nonUsd.filter((c) => !(c in fx)).length ? " (rate still loading)" : ""}, so their cost basis is approximate. Returns in % are in each listing&apos;s own currency.
+            </p>
           )}
 
           {/* Charts */}

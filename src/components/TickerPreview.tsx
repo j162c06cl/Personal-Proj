@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getFundamentals, getQuote } from "@/lib/data";
 import { Fundamentals, QuoteData, Sourced } from "@/lib/types";
-import { formatCurrency, formatLargeNumber, formatPercent } from "@/lib/formatters";
+import { formatPercent } from "@/lib/formatters";
+import { defaultCurrency, formatBig, formatMoney } from "@/lib/markets";
 import { categoryFrom, knownCategory } from "@/lib/categories";
 import SourceTag from "@/components/SourceTag";
 
@@ -17,10 +18,13 @@ export default function TickerPreview({
   watching,
   onAdd,
   onClose,
+  listName,
 }: {
   ticker: string;
   watching: boolean;
-  onAdd: (category: string | null, price: number | null) => void;
+  onAdd: (meta: { category: string | null; price: number | null; exchange: string | null; currency: string | null }) => void;
+  /** Name of the list the stock will be added to */
+  listName?: string;
   onClose: () => void;
 }) {
   const [quote, setQuote] = useState<Sourced<QuoteData> | null | undefined>(undefined);
@@ -40,6 +44,10 @@ export default function TickerPreview({
   const notFound = quote !== undefined && (!q || q.price === null) && fund !== undefined && !f;
   const category = f ? categoryFrom({ quoteType: f.quoteType, sector: f.profile.sector }) : knownCategory(ticker);
   const up = (q?.changePercent ?? 0) >= 0;
+  const ccy = f?.currency ?? q?.currency ?? defaultCurrency(ticker);
+  const exchange = f?.exchange || q?.exchange || null;
+  const formatCurrency = (n: number | null) => formatMoney(n, ccy);
+  const formatLargeNumber = (n: number | null) => formatBig(n, ccy);
 
   // Position of today's price inside the 52-week range, 0–100
   const lo = q?.weekLow52 ?? null, hi = q?.weekHigh52 ?? null;
@@ -62,6 +70,7 @@ export default function TickerPreview({
             <span className="text-[20px] font-black tracking-tight text-[#0A0A0A]">{ticker}</span>
             {category && <span className="text-[11px] font-semibold text-[#1F65F0] bg-[#EBF2FF] rounded-lg px-2 py-0.5">{category}</span>}
             {f?.profile.industry && <span className="text-[12px] text-[#525252]">{f.profile.industry}</span>}
+            {exchange && <span className="text-[11px] font-semibold text-[#525252] border border-[#E5E5E5] rounded-lg px-1.5 py-0.5">{exchange} · {ccy}</span>}
           </div>
           <p className="text-[13px] text-[#525252] truncate">{q?.name || f?.name || (quote === undefined ? "Loading…" : "")}</p>
         </div>
@@ -117,10 +126,10 @@ export default function TickerPreview({
             Full research →
           </Link>
           {watching ? (
-            <span className="px-3.5 py-2 text-[13px] font-semibold text-[#1F65F0] bg-[#EBF2FF] rounded-xl">✓ On your watchlist</span>
+            <span className="px-3.5 py-2 text-[13px] font-semibold text-[#1F65F0] bg-[#EBF2FF] rounded-xl">✓ On {listName ?? "your watchlist"}</span>
           ) : (
-            <button onClick={() => onAdd(category, q?.price ?? null)} disabled={notFound} className="px-3.5 py-2 text-[13px] font-semibold text-white bg-[#1F65F0] rounded-xl hover:bg-[#1550D8] disabled:opacity-40">
-              + Add to watchlist
+            <button onClick={() => onAdd({ category, price: q?.price ?? null, exchange, currency: ccy })} disabled={notFound} className="px-3.5 py-2 text-[13px] font-semibold text-white bg-[#1F65F0] rounded-xl hover:bg-[#1550D8] disabled:opacity-40">
+              + Add to {listName ?? "watchlist"}
             </button>
           )}
         </div>

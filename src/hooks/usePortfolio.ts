@@ -32,5 +32,14 @@ export function usePortfolio() {
     commit(positions.filter((p) => p.id !== id));
   }
 
-  return { positions, ready, addPosition, updatePosition, removePosition };
+  /** Fills in details on several positions at once (e.g. exchange and currency once looked up) */
+  function patchPositions(patches: Record<string, Partial<PortfolioPosition>>) {
+    setPositions((prev) => {
+      const next = prev.map((p) => (patches[p.id] ? { ...p, ...patches[p.id] } : p));
+      savePortfolio(next);
+      return next;
+    });
+  }
+
+  return { positions, ready, addPosition, updatePosition, removePosition, patchPositions };
 }

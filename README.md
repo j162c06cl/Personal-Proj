@@ -12,15 +12,15 @@ Built with Next.js 14, TypeScript, Tailwind CSS and Recharts. No accounts, no da
 
 **Portfolio with "your holdings today".** Value, the latest session's change, total return and money invested (in US$ or S$); a growth chart of portfolio value against money put in since your first purchase; holdings that moved ±2% or on unusual volume; headlines that name a company you own; and the next 30 days of earnings, ex-dividend dates and major US releases.
 
-**Stock research page.** Every ticker in the app links to `/stock/[ticker]`: price chart with 50/200-day averages, technical indicators (RSI, MACD, ATR, volume vs. average), fundamentals, upcoming events, analyst targets and de-duplicated news. A **5 / 15 / 30-minute research mode** controls how deep each section goes.
+**Stock analyser.** Every ticker in the app links to `/stock/[ticker]`. It opens with **two separate conclusions**, one as a long-term investment and one as a swing trade. Each is a checklist of plain rules (growth, profits, free cash flow, debt, return on equity, valuation against the company's own history, and the long trend; or trend, RSI, volume, entry level, defined risk, volatility, MACD and earnings timing). There is no overall score. Below that: a company overview (business, sector, exchange, currency, market cap), a **research summary** of strengths, weaknesses, catalysts and risks where every point names its source and date, the price chart, technicals (moving averages, RSI, 52-week high/low, 1M–1Y returns, volatility, drawdown, volume), current fundamentals and **four years of reported financials** (revenue, earnings, margins, cash flow, debt, P/E at each year end). A **5 / 15 / 30-minute research mode** controls how deep each section goes.
 
 ![Research page](docs/screenshots/research.png)
 
-**Screener with "Why am I seeing this?"** Opens on a default list of large US-listed stocks; three setups (Momentum, Breakout, Pullback) are defined as plain, readable rules, and results update as you change the setup or filters. Every result lists the exact rules it passed, plus how it relates to your portfolio, such as concentration in an industry you already hold, or a sector you don't own yet.
+**Strategy-first screener with "Why am I seeing this?"** Choose swing trading or long-term investing first, and the market (US or Singapore). Each strategy shows only its own setups (Momentum, Breakout, Pullback; or Quality growth, Reasonable value, Dividend income, Long-term leaders) and filters (swing: RSI, volume, 1-month change, earnings dates; long-term: P/E, yield, price/book, ROE, revenue growth, margins, debt; both: market cap, sector, price vs the 50/200-day averages). Every result lists the exact rules it passed, plus how it relates to your portfolio. Screens can be saved, edited, renamed and deleted, and results added to any watchlist one at a time or all at once.
 
 ![Screener](docs/screenshots/screener.png)
 
-**Watchlist as one sortable table.** Sector tabs (All, ETFs, Technology, Energy…) filter a single table showing price, today's move, a 5-day sparkline, where the price sits in its 52-week range, and the change since you added it. Look up a ticker to preview it in a side drawer before adding.
+**Watchlists.** Create, rename, duplicate and delete named lists. Each stock carries a status (Researching, Watching, Setup ready, Archived), a strategy, notes, a thesis, a target price and an invalidation level. The table sorts by status, price, today's move, 5-day change, volume, market cap, 52-week position, distance to target and change since added, shows prices in each listing's own currency with their timestamps, and links every stock to its analyser page.
 
 ![Watchlist](docs/screenshots/watchlist.png)
 
@@ -46,7 +46,8 @@ Browser                                           Next.js API routes (proxy)    
 │ Pages (dashboard, research,   │                 │ /api/quote   /api/chart  │
 │ screener, watchlist, …)       │                 │ /api/market  /api/news   │──▶ Yahoo Finance
 │        │                      │   fetch         │ /api/fundamentals        │    (Stooq fallback
-│        ▼                      │ ──────────────▶ │ /api/finviz (screener)   │     for quotes)
+│        ▼                      │ ──────────────▶ │ /api/screener            │     for quotes)
+│                               │                 │ /api/financials          │
 │ lib/data.ts  data layer       │                 │          │ on failure    │
 │  • cache in IndexedDB         │                 │          ▼               │
 │  • de-duplicates requests     │                 │ lib/server/snapshot.ts   │
@@ -62,7 +63,10 @@ Browser                                           Next.js API routes (proxy)    
 |---|---|
 | `src/lib/data.ts` | Data layer: caching, request de-duplication, source/timestamp tagging, feed health |
 | `src/lib/store.ts` | IndexedDB persistence, migrations, backup export/import |
-| `src/lib/rules.ts` | Swing setups and portfolio-context reasons |
+| `src/lib/rules.ts` | Swing and long-term setups, and portfolio-context reasons |
+| `src/lib/screenerFilters.ts` | Screener filters per strategy, each with its explanation |
+| `src/lib/analysis.ts` | Long-term and swing verdicts, and the sourced research summary |
+| `src/lib/markets.ts` | Supported markets, exchanges and per-currency formatting |
 | `src/lib/indicators.ts` | SMA, EMA, RSI, MACD, ATR and trend classification |
 | `src/lib/server/news.ts` | Headline relevance scoring and duplicate-story merging |
 | `src/lib/server/snapshot.ts` | Saved-data fallback for the API routes |
@@ -86,5 +90,6 @@ No API keys or environment variables are required.
 - **Unofficial data source.** Yahoo Finance's endpoints are undocumented and can change or rate-limit without notice. Prices may be delayed, and the snapshot fallback only covers the showcase stocks in full.
 - **Hand-maintained economic calendar.** Release dates in `src/lib/economicEvents.ts` need updating from the official BLS, BEA and Federal Reserve calendars.
 - **Headline matching is approximate.** News relevance matches on the company name, so a listicle that mentions a company can count as news about it.
-- **US-listed stocks only.** Values are converted to S$ at today's exchange rate, so S$ cost basis is approximate.
+- **Markets.** US and Singapore are supported in the screener; search also finds listings on other major exchanges (London, Hong Kong, Tokyo, Toronto, Australia and others), which work everywhere a ticker is accepted. Every watchlist item and position stores its exchange and currency. Portfolio totals convert non-USD holdings at today's exchange rate, so their cost basis is approximate.
+- **Screener coverage.** When Yahoo's market-wide screener doesn't respond, the screener checks a built-in list of about 135 large US companies (or about 40 large SGX listings). Filters that need fundamentals or price history (ROE, RSI…) are looked up for the 60 largest candidates.
 - **Not investment advice.** Indicators and screener rules describe price history; they don't predict it.

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SEARCHABLE_EXCHANGES } from "@/lib/markets";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 const ALLOWED_TYPES = new Set(["EQUITY", "ETF", "MUTUALFUND", "TRUST"]);
-const ALLOWED_EXCHANGES = new Set([
-  "NMS", "NYQ", "NGM", "NCM", "ASE", "PCX", "BTS", "NAS", "NYS",
-]);
+// US first, then Singapore and other major international exchanges (see lib/markets.ts)
+const ALLOWED_EXCHANGES = SEARCHABLE_EXCHANGES;
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim();
@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         name: String(q.shortname ?? q.longname ?? q.symbol ?? ""),
         type: String(q.typeDisp ?? q.quoteType ?? ""),
         exchange: String(q.exchDisp ?? q.exchange ?? ""),
+        exchangeCode: String(q.exchange ?? ""),
       }));
 
     return NextResponse.json({ results });

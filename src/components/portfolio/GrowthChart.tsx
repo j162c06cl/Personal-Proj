@@ -16,7 +16,8 @@ const VALUE = "#1F65F0";
 const INVESTED = "#A3A3A3";
 
 /** Total portfolio value over time against the money put in */
-export default function GrowthChart({ positions, quotes }: { positions: PortfolioPosition[]; quotes: QuoteMap }) {
+/** `toUsd` converts each ticker's price history from its listing currency, so markets add up */
+export default function GrowthChart({ positions, quotes, toUsd = {} }: { positions: PortfolioPosition[]; quotes: QuoteMap; toUsd?: Record<string, number> }) {
   const money = useMoney();
   const [period, setPeriod] = useState<Period>("All");
   const [prices, setPrices] = useState<Record<string, { t: string; c: number }[]> | null>(null);
@@ -47,9 +48,10 @@ export default function GrowthChart({ positions, quotes }: { positions: Portfoli
   const points = useMemo(() => {
     if (!prices) return [];
     const latest = Object.fromEntries(tickers.map((t) => [t, quotes[t]?.value.price ?? null]));
-    return buildGrowthSeries(positions, prices, { latest, today: new Date().toISOString().slice(0, 10) })
+    const usd = Object.fromEntries(Object.entries(prices).map(([t, pts]) => [t, toUsd[t] && toUsd[t] !== 1 ? pts.map((p) => ({ t: p.t, c: p.c * toUsd[t] })) : pts]));
+    return buildGrowthSeries(positions, usd, { latest, today: new Date().toISOString().slice(0, 10) })
       .map((p) => ({ ...p, valueC: money.convert(p.value)!, investedC: money.convert(p.invested)! }));
-  }, [prices, positions, quotes, tickers, money.currency]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prices, positions, quotes, tickers, money.currency, toUsd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const end = points.at(-1);
   const startedInRange = points.length > 0 && firstBuy >= points[0].t;
