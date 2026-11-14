@@ -1,4 +1,4 @@
-# Investor Research
+# The Dip
 
 A personal stock research app that puts your own portfolio first, explains every number it shows, and runs entirely on free data.
 

@@ -5,6 +5,7 @@
 
 export type StoreName = "kv" | "cache";
 
+// Kept from the app's old name so existing saved data still loads
 const DB_NAME = "investor-research";
 const DB_VERSION = 1;
 

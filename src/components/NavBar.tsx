@@ -32,7 +32,7 @@ export default function NavBar() {
       <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
         {/* Logo */}
         <Link href="/" className="font-black text-[18px] tracking-tight text-[#0A0A0A] shrink-0 select-none">
-          <span className="hidden sm:inline">Investor Research</span>
+          <span className="hidden sm:inline">The Dip</span>
           <span className="sm:hidden">IR</span>
         </Link>
 

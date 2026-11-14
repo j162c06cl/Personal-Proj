@@ -100,7 +100,7 @@ export default function SettingsPage() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `investor-research-backup-${data.exportedAt.slice(0, 10)}.json`;
+    a.download = `the-dip-backup-${data.exportedAt.slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
     setBackupMsg({ ok: true, text: `Exported ${data.portfolio.length} positions, ${data.watchlists.length} watchlists and ${data.screens.length} saved screens.` });

@@ -227,8 +227,12 @@ export function subscribeSettings(fn: (s: Settings) => void): () => void {
 
 // ── Backup ──────────────────────────────────────────────────────────────────
 
+/** Backups made before the rename carry the old app id; both are accepted on import */
+type BackupAppId = "the-dip" | "investor-research";
+const BACKUP_APP_IDS: readonly string[] = ["the-dip", "investor-research"];
+
 export interface Backup {
-  app: "investor-research";
+  app: BackupAppId;
   version: 3;
   exportedAt: string;
   portfolio: PortfolioPosition[];
@@ -239,7 +243,7 @@ export interface Backup {
 
 /** Older backups: v1 stored named ticker lists, v2 one flat intent-tagged list */
 interface OlderBackup {
-  app: "investor-research";
+  app: BackupAppId;
   version: 1 | 2;
   portfolio: PortfolioPosition[];
   watchlists?: WatchlistDef[];
@@ -250,7 +254,7 @@ interface OlderBackup {
 export async function exportBackup(): Promise<Backup> {
   const [portfolio, watchlists, screens, settings] = await Promise.all([loadPortfolio(), loadWatchlists(), loadScreens(), loadSettings()]);
   return {
-    app: "investor-research",
+    app: "the-dip",
     version: 3,
     exportedAt: new Date().toISOString(),
     portfolio,
@@ -273,8 +277,8 @@ export function backupLists(b: Partial<Backup> | Partial<OlderBackup>): Watchlis
 
 export async function importBackup(raw: unknown): Promise<{ positions: number; watched: number }> {
   const b = raw as Partial<Backup> | Partial<OlderBackup>;
-  if (!b || b.app !== "investor-research" || !Array.isArray(b.portfolio)) {
-    throw new Error("This file isn't an Investor Research backup.");
+  if (!b || !BACKUP_APP_IDS.includes(b.app as string) || !Array.isArray(b.portfolio)) {
+    throw new Error("This file isn't a backup from The Dip.");
   }
   const lists = backupLists(b);
   if (!lists) throw new Error("This backup has no watchlist data.");
