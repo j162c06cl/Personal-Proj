@@ -16,6 +16,7 @@ import { useMoney, useSettings } from "@/hooks/useSettings";
 import SourceTag from "@/components/SourceTag";
 import PriceChart, { RANGE_LABELS } from "@/components/research/PriceChart";
 import NewsList from "@/components/research/NewsList";
+import { STAT_HELP } from "@/lib/statHelp";
 
 // ── Research modes ──────────────────────────────────────────────────────────
 
@@ -75,13 +76,22 @@ interface StatProps {
   src: string;
 }
 
+// Each section carries one source line; a stat's own source is on hover so it doesn't repeat down the grid
 function Stat({ label, value, hint, hintTone = "neutral", valueTone, src }: StatProps) {
+  const help = STAT_HELP[label];
+  const [open, setOpen] = useState(false);
+  const labelCls = "text-[11px] font-semibold text-[#525252] uppercase tracking-wider truncate max-w-full";
   return (
-    <div className="min-w-0">
-      <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider truncate">{label}</p>
+    <div className="min-w-0" title={src || undefined}>
+      {help ? (
+        <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
+          className={`${labelCls} block text-left underline decoration-dotted decoration-[#A3A3A3] underline-offset-[3px] hover:text-[#0A0A0A]`}>
+          {label}
+        </button>
+      ) : <p className={labelCls}>{label}</p>}
       <p className={`text-[18px] font-bold tabular-nums mt-0.5 ${valueTone ? TONE[valueTone] : "text-[#0A0A0A]"}`}>{value}</p>
       {hint && <p className={`text-[12px] font-medium ${TONE[hintTone]}`}>{hint}</p>}
-      <p className="text-[10px] text-[#A3A3A3] mt-0.5 truncate" title={src}>{src}</p>
+      {open && help && <p className="text-[11px] leading-snug text-[#525252] bg-[#F7F7F8] rounded-lg px-2 py-1.5 mt-1">{help}</p>}
     </div>
   );
 }
@@ -166,7 +176,6 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const [fin, setFin] = useState<Sourced<FinHistory> | null | undefined>(undefined);
   const [holdings, setHoldings] = useState<PortfolioPosition[]>([]);
   const [lists, setLists] = useState<Watchlist[] | null>(null);
-  const [judgeAs, setJudgeAs] = useState<"long-term" | "swing" | null>(null);
   const [showFullSummary, setShowFullSummary] = useState(false);
 
   // Default depth comes from the investor profile; the toggle overrides it for this visit
@@ -235,9 +244,9 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const fSrc = fund ? fund.source : "";
   const tSrc = daily ? `Calculated from ${daily.source} daily prices` : "";
 
-  // Verdict order follows the stock's own watchlist strategy, then the investor profile
-  const primary: "long-term" | "swing" = judgeAs
-    ?? (watchItem?.intent === "swing" || watchItem?.intent === "long-term" ? watchItem.intent : settings?.profile.strategy === "swing" ? "swing" : "long-term");
+  // The open verdict follows the stock's own watchlist strategy, then the investor profile
+  const primary: "long-term" | "swing" =
+    watchItem?.intent === "swing" || watchItem?.intent === "long-term" ? watchItem.intent : settings?.profile.strategy === "swing" ? "swing" : "long-term";
   const analysis = useMemo(() => {
     if (quote === undefined || fund === undefined || daily === undefined || fin === undefined) return null;
     // Historical P/E divides a trading-currency price by reporting-currency EPS, so only when they match
@@ -280,6 +289,57 @@ export default function StockResearchPage({ params }: { params: { ticker: string
     );
   }
 
+  // The quick numbers. RSI and beta live in their detail sections rather than repeating here.
+  const atAGlance = (
+    <Section title="At a glance">
+      {quote === undefined || daily === undefined ? <Skeleton h={220} /> : (
+        <div className="space-y-5">
+          {tech && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Trend</p>
+                <span className={`text-[13px] font-bold ${tech.trend === "Uptrend" ? "text-[#16A34A]" : tech.trend === "Downtrend" ? "text-[#DC2626]" : "text-[#D97706]"}`}>
+                  {tech.trend === "Uptrend" ? "▲ " : tech.trend === "Downtrend" ? "▼ " : "◆ "}{tech.trend}
+                </span>
+              </div>
+              <p className="text-[12px] text-[#525252]">
+                {tech.trend === "Uptrend" && "Price is above its 50-day average, which is above the 200-day."}
+                {tech.trend === "Downtrend" && "Price is below its 50-day average, which is below the 200-day."}
+                {tech.trend === "Mixed" && "Moving averages don't agree on a direction."}
+              </p>
+            </div>
+          )}
+          {(q?.weekLow52 ?? tech?.low52) !== null && (q?.weekHigh52 ?? tech?.high52) !== null && price !== null && (
+            <div>
+              <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-2">52-week range</p>
+              <RangeBar
+                low={(q?.weekLow52 ?? tech?.low52)!}
+                high={(q?.weekHigh52 ?? tech?.high52)!}
+                value={price}
+                labels={[px((q?.weekLow52 ?? tech?.low52)!), px((q?.weekHigh52 ?? tech?.high52)!)]}
+              />
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+            {(q?.marketCap ?? f?.valuation.marketCap ?? null) !== null && (
+              <Stat label="Market cap" value={formatLargeNumber(q?.marketCap ?? f?.valuation.marketCap ?? null)} src={q?.marketCap != null ? qSrc : fSrc} />
+            )}
+            <Stat label="P/E" value={num(q?.pe ?? f?.valuation.trailingPE ?? null, 1)} src={q?.pe != null ? qSrc : fSrc} />
+            <Stat
+              label="Volume"
+              value={formatVolume(q?.volume ?? null)}
+              hint={q?.volume && q?.avgVolume ? `${(q.volume / q.avgVolume).toFixed(1)}× average` : undefined}
+              hintTone={q?.volume && q?.avgVolume && q.volume / q.avgVolume >= 1.5 ? "warn" : "neutral"}
+              src={qSrc}
+            />
+            {f && f.dividend.yield !== null && <Stat label="Dividend yield" value={pct(f.dividend.yield, 2)} src={fSrc} />}
+          </div>
+          <p className="text-[10px] text-[#A3A3A3]">{Array.from(new Set([qSrc, fSrc, tSrc].filter(Boolean))).join(" · ")}</p>
+        </div>
+      )}
+    </Section>
+  );
+
   return (
     <div className="max-w-[1280px] mx-auto">
       {/* ── Header ── */}
@@ -291,6 +351,9 @@ export default function StockResearchPage({ params }: { params: { ticker: string
             <h1 className="text-[36px] font-black tracking-tight text-[#0A0A0A] leading-none">{ticker}</h1>
             {exchange && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg" title="Listing exchange and trading currency">{exchange} · {ccy}</span>}
             {f?.profile.sector && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg">{f.profile.sector}</span>}
+            {settings && settings.baseCurrency !== ccy && (
+              <span className="text-[11px] font-semibold text-[#92400E] bg-[#FFFBEB] border border-[#FDE68A] px-2 py-1 rounded-lg">Priced in {ccy}, your base is {settings.baseCurrency}</span>
+            )}
           </div>
           <p className="text-[15px] text-[#525252] mt-2 truncate">{name}</p>
           <div className="flex items-baseline gap-3 mt-3 flex-wrap">
@@ -326,55 +389,44 @@ export default function StockResearchPage({ params }: { params: { ticker: string
         </div>
       </div>
 
-      {/* ── Your position / watchlists ── */}
-      <div className="flex items-center gap-2 flex-wrap mb-5">
-        {shares > 0 && (
-          <span className="text-[13px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] px-3 py-1.5 rounded-xl font-medium">
-            You own {shares} share{shares !== 1 ? "s" : ""} · avg cost {px(cost / shares)}
-            {holdingPL !== null && (
-              <> · <span className={holdingPL >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}>{holdingPL >= 0 ? "+" : ""}{money.fmt(holdingPL)}</span></>
-            )}
-          </span>
-        )}
-        <WatchButton
-          ticker={ticker}
-          lists={lists}
-          defaultIntent={primary}
-          meta={{ exchange: exchange ?? undefined, currency: ccy, addedPrice: price ?? undefined }}
-          onSaved={setLists}
-        />
-        {watchItem && <span className={`text-[11px] font-semibold px-2 py-1 rounded-lg border ${tagInfo(watchItem.tag).cls}`}>{tagInfo(watchItem.tag).label}</span>}
-        {watchItem?.targetPrice != null && (
-          <span className="text-[12px] text-[#525252]">Target <span className="font-semibold text-[#0A0A0A]">{px(watchItem.targetPrice)}</span></span>
-        )}
-        {watchItem?.invalidation != null && (
-          <span className="text-[12px] text-[#525252]">Invalidation <span className="font-semibold text-[#0A0A0A]">{px(watchItem.invalidation)}</span></span>
-        )}
-        {(watchItem?.thesis || watchItem?.note) && (
-          <span className="text-[13px] text-[#525252] italic truncate max-w-md" title={watchItem.thesis || watchItem.note}>&ldquo;{watchItem.thesis || watchItem.note}&rdquo;</span>
-        )}
-        {onLists.length > 0 && (
-          <Link href="/watchlist" className="text-[12px] font-semibold text-[#1F65F0] hover:underline">Edit plan →</Link>
-        )}
-      </div>
-
-      {/* ── Conclusions: one per strategy, never blended into a single score ── */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-          <div>
-            <h2 className="text-[18px] font-black text-[#0A0A0A]">Conclusions</h2>
-            <p className="text-[12px] text-[#525252]">Each strategy has its own rules. There is no overall score: read the checks.</p>
-          </div>
-          <div className="inline-flex items-center bg-[#EBEBEB] rounded-xl p-1 gap-0.5" role="group" aria-label="Your strategy">
-            {(["long-term", "swing"] as const).map((st) => (
-              <button key={st} onClick={() => setJudgeAs(st)}
-                className={`px-3 py-1.5 rounded-lg text-[13px] font-medium ${primary === st ? "bg-white text-[#0A0A0A] font-semibold shadow-sm" : "text-[#525252] hover:text-[#0A0A0A]"}`}>
-                {st === "long-term" ? "Long-term first" : "Swing first"}
-              </button>
-            ))}
-          </div>
+      {/* ── Your position, then your plan ── */}
+      <div className="space-y-2 mb-5">
+        <div className="flex items-center gap-2 flex-wrap">
+          {shares > 0 && (
+            <span className="text-[13px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] px-3 py-1.5 rounded-xl font-medium">
+              You own {shares} share{shares !== 1 ? "s" : ""} · avg cost {px(cost / shares)}
+              {holdingPL !== null && (
+                <> · <span className={holdingPL >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}>{holdingPL >= 0 ? "+" : ""}{money.fmt(holdingPL)}</span></>
+              )}
+            </span>
+          )}
+          <WatchButton
+            ticker={ticker}
+            lists={lists}
+            defaultIntent={primary}
+            meta={{ exchange: exchange ?? undefined, currency: ccy, addedPrice: price ?? undefined }}
+            onSaved={setLists}
+          />
         </div>
-        {analysis ? <Verdicts long={analysis.long} swing={analysis.swing} primary={primary} /> : <Skeleton h={260} />}
+        {/* A bare "watching" tag says nothing the Watch button doesn't already */}
+        {watchItem && (watchItem.tag !== "watching" || watchItem.targetPrice != null || watchItem.invalidation != null || watchItem.thesis || watchItem.note) && (
+          <div className="flex items-center gap-x-4 gap-y-1 flex-wrap bg-white border border-[#E5E5E5] rounded-xl px-3 py-2">
+            <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Your plan</span>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg border ${tagInfo(watchItem.tag).cls}`}>{tagInfo(watchItem.tag).label}</span>
+            {watchItem.targetPrice != null && (
+              <span className="text-[12px] text-[#525252]">Target <span className="font-semibold text-[#0A0A0A]">{px(watchItem.targetPrice)}</span></span>
+            )}
+            {watchItem.invalidation != null && (
+              <span className="text-[12px] text-[#525252]" title="The price at which your idea is wrong and you'd exit">Exit if below <span className="font-semibold text-[#0A0A0A]">{px(watchItem.invalidation)}</span></span>
+            )}
+            {(watchItem.thesis || watchItem.note) && (
+              <span className="text-[13px] text-[#525252] italic truncate max-w-md" title={watchItem.thesis || watchItem.note}>&ldquo;{watchItem.thesis || watchItem.note}&rdquo;</span>
+            )}
+            {onLists.length > 0 && (
+              <Link href="/watchlist" className="text-[12px] font-semibold text-[#1F65F0] hover:underline ml-auto">Edit plan →</Link>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -419,16 +471,27 @@ export default function StockResearchPage({ params }: { params: { ticker: string
             )}
           </Section>
 
-          {/* Company overview */}
+          {/* On phones the right column lands below everything, so the quick numbers go here instead */}
+          <div className="lg:hidden">{atAGlance}</div>
+
+          {/* ── Conclusions: one per strategy, never blended into a single score ── */}
+          <div>
+            <div className="mb-3">
+              <h2 className="text-[18px] font-black text-[#0A0A0A]">Conclusions</h2>
+              <p className="text-[12px] text-[#525252]">Each strategy has its own rules. There is no overall score: read the checks.</p>
+            </div>
+            {analysis ? <Verdicts long={analysis.long} swing={analysis.swing} primary={primary} compact={m === 5} /> : <Skeleton h={180} />}
+          </div>
+
+          {/* Research summary */}
+          <Section title="Research summary" subtitle="Strengths, weaknesses, catalysts and risks.">
+            {analysis ? <ResearchSummaryView summary={analysis.summary} limit={show(30) ? undefined : m === 5 ? 2 : 4} /> : <Skeleton h={200} />}
+          </Section>
+
+          {/* Company overview: sector, exchange, currency and market cap are already in the header and at a glance */}
           <Section title="Company overview">
             {fund === undefined ? <Skeleton h={120} /> : (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 mb-3">
-                  <Stat label="Sector" value={f?.profile.sector ?? NA} hint={f?.profile.industry ?? undefined} src={fSrc} />
-                  <Stat label="Exchange" value={exchange ?? NA} hint={f?.profile.country ? `HQ: ${f.profile.country}` : undefined} src={f?.exchange ? fSrc : qSrc} />
-                  <Stat label="Currency" value={ccy} hint={settings && settings.baseCurrency !== ccy ? `Your base currency is ${settings.baseCurrency}` : undefined} hintTone="warn" src={f?.currency ? fSrc : qSrc} />
-                  <Stat label="Market cap" value={formatLargeNumber(q?.marketCap ?? f?.valuation.marketCap ?? null)} src={q?.marketCap != null ? qSrc : fSrc} />
-                </div>
                 {f?.profile.summary ? (
                   <>
                     <p className={`text-[14px] leading-relaxed text-[#262626] ${show(30) || showFullSummary ? "" : "line-clamp-3"}`}>{f.profile.summary}</p>
@@ -438,17 +501,14 @@ export default function StockResearchPage({ params }: { params: { ticker: string
                   </>
                 ) : <p className="text-[13px] text-[#A3A3A3]">No business description available.</p>}
                 <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-[#525252] mt-3">
+                  {f?.profile.industry && <span><span className="font-semibold text-[#0A0A0A]">Industry:</span> {f.profile.industry}</span>}
+                  {f?.profile.country && <span><span className="font-semibold text-[#0A0A0A]">HQ:</span> {f.profile.country}</span>}
                   {f?.profile.employees && <span><span className="font-semibold text-[#0A0A0A]">Employees:</span> {f.profile.employees.toLocaleString()}</span>}
                   {f?.profile.website && <a href={f.profile.website} target="_blank" rel="noreferrer" className="text-[#1F65F0] hover:underline">{f.profile.website.replace(/^https?:\/\//, "")}</a>}
                 </div>
                 {fund && <SourceTag className="mt-2" source={fund.source} asOf={fund.asOf} cached={fund.cached} />}
               </>
             )}
-          </Section>
-
-          {/* Research summary */}
-          <Section title="Research summary" subtitle="Strengths, weaknesses, catalysts and risks, each with its source and date.">
-            {analysis ? <ResearchSummaryView summary={analysis.summary} limit={show(30) ? undefined : m === 5 ? 2 : 4} /> : <Skeleton h={200} />}
           </Section>
 
           {/* Technicals */}
@@ -568,7 +628,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
 
           {/* Fundamentals over time */}
           {show(15) && (
-            <Section title="Financial history" subtitle="Reported annual figures. Each chart has its own scale.">
+            <Section title="Financial history" subtitle="Reported annual figures.">
               {fin === undefined ? <Skeleton h={240} /> : !fin ? (
                 <p className="text-[13px] text-[#A3A3A3]">No reported financials for this symbol (funds and some foreign listings don&apos;t have them).</p>
               ) : (
@@ -592,56 +652,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
 
         {/* ── Right column ── */}
         <div className="space-y-5">
-          <Section title="At a glance">
-            {quote === undefined || daily === undefined ? <Skeleton h={220} /> : (
-              <div className="space-y-5">
-                {tech && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Trend</p>
-                      <span className={`text-[13px] font-bold ${tech.trend === "Uptrend" ? "text-[#16A34A]" : tech.trend === "Downtrend" ? "text-[#DC2626]" : "text-[#D97706]"}`}>
-                        {tech.trend === "Uptrend" ? "▲ " : tech.trend === "Downtrend" ? "▼ " : "◆ "}{tech.trend}
-                      </span>
-                    </div>
-                    <p className="text-[12px] text-[#525252]">
-                      {tech.trend === "Uptrend" && "Price is above its 50-day average, which is above the 200-day."}
-                      {tech.trend === "Downtrend" && "Price is below its 50-day average, which is below the 200-day."}
-                      {tech.trend === "Mixed" && "Moving averages don't agree on a direction."}
-                    </p>
-                    <p className="text-[10px] text-[#A3A3A3] mt-0.5">{tSrc}</p>
-                  </div>
-                )}
-                {(q?.weekLow52 ?? tech?.low52) !== null && (q?.weekHigh52 ?? tech?.high52) !== null && price !== null && (
-                  <div>
-                    <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-2">52-week range</p>
-                    <RangeBar
-                      low={(q?.weekLow52 ?? tech?.low52)!}
-                      high={(q?.weekHigh52 ?? tech?.high52)!}
-                      value={price}
-                      labels={[px((q?.weekLow52 ?? tech?.low52)!), px((q?.weekHigh52 ?? tech?.high52)!)]}
-                    />
-                    <p className="text-[10px] text-[#A3A3A3] mt-0.5">{q?.weekLow52 != null ? qSrc : tSrc}</p>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-                  {(q?.marketCap ?? f?.valuation.marketCap ?? null) !== null && (
-                    <Stat label="Market cap" value={formatLargeNumber(q?.marketCap ?? f?.valuation.marketCap ?? null)} src={q?.marketCap != null ? qSrc : fSrc} />
-                  )}
-                  <Stat label="P/E" value={num(q?.pe ?? f?.valuation.trailingPE ?? null, 1)} src={q?.pe != null ? qSrc : fSrc} />
-                  {tech && <Stat label="RSI (14)" value={num(tech.rsi14, 1)} hint={rsiHint(tech.rsi14)[0]} hintTone={rsiHint(tech.rsi14)[1]} src={tSrc} />}
-                  <Stat
-                    label="Volume"
-                    value={formatVolume(q?.volume ?? null)}
-                    hint={q?.volume && q?.avgVolume ? `${(q.volume / q.avgVolume).toFixed(1)}× average` : undefined}
-                    hintTone={q?.volume && q?.avgVolume && q.volume / q.avgVolume >= 1.5 ? "warn" : "neutral"}
-                    src={qSrc}
-                  />
-                  {f && f.dividend.yield !== null && <Stat label="Dividend yield" value={pct(f.dividend.yield, 2)} src={fSrc} />}
-                  {f && f.risk.beta !== null && <Stat label="Beta" value={num(f.risk.beta)} src={fSrc} />}
-                </div>
-              </div>
-            )}
-          </Section>
+          <div className="hidden lg:block">{atAGlance}</div>
 
           <Section title="Upcoming events">
             {fund === undefined ? <Skeleton h={120} /> : !f ? (
@@ -704,7 +715,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
             )}
           </Section>
 
-          <Section title="Latest news" subtitle="Duplicate stories are merged; every outlet's link is kept.">
+          <Section title="Latest news">
             {news === undefined ? <Skeleton h={160} /> : !news ? (
               <p className="text-[13px] text-[#A3A3A3]">News is unavailable right now.</p>
             ) : (
