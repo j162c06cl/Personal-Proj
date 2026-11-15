@@ -67,6 +67,8 @@ export interface Technicals {
   sma20: number | null;
   sma50: number | null;
   sma200: number | null;
+  ema20: number | null;
+  ema50: number | null;
   rsi14: number | null;
   macd: number | null;
   macdSignal: number | null;
@@ -78,6 +80,9 @@ export interface Technicals {
   pctFromHigh52: number | null;
   atrPct: number | null; // 14-day average true range as % of price
   low52Pct: number | null; // % above the 52-week low
+  /** Lowest low and highest high of the last ~3 months (63 trading days) */
+  support3m: number | null;
+  resistance3m: number | null;
   /** Price returns in %, oldest bar on or before each lookback date to the latest close */
   returns: { m1: number | null; m3: number | null; m6: number | null; ytd: number | null; y1: number | null };
   /** Annualised standard deviation of daily returns, in % */
@@ -120,6 +125,7 @@ export function computeTechnicals(points: PricePoint[]): Technicals | null {
   const lastVol = vols[vols.length - 1];
 
   const yearBars = points.slice(-252);
+  const quarterBars = points.slice(-63);
   const high52 = Math.max(...yearBars.map((p) => p.h ?? p.c));
   const low52 = Math.min(...yearBars.map((p) => p.l ?? p.c));
 
@@ -160,6 +166,8 @@ export function computeTechnicals(points: PricePoint[]): Technicals | null {
     sma20: s20,
     sma50: s50,
     sma200: s200,
+    ema20: last(ema(closes, 20)),
+    ema50: last(ema(closes, 50)),
     rsi14: last(rsi(closes)),
     macd: last(m.line),
     macdSignal: last(m.signal),
@@ -170,6 +178,8 @@ export function computeTechnicals(points: PricePoint[]): Technicals | null {
     pctFromHigh52: ((price - high52) / high52) * 100,
     atrPct: (atr / price) * 100,
     low52Pct: ((price - low52) / low52) * 100,
+    support3m: Math.min(...quarterBars.map((p) => p.l ?? p.c)),
+    resistance3m: Math.max(...quarterBars.map((p) => p.h ?? p.c)),
     returns: periodReturns(points),
     volatility30: vol(30),
     volatility1y: vol(252),

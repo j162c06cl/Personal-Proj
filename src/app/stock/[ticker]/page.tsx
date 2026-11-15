@@ -5,11 +5,18 @@ import Link from "next/link";
 import { getChart, getFinancials, getFundamentals, getNews, getQuote } from "@/lib/data";
 import { loadPortfolio, loadWatchlists } from "@/lib/store";
 import { computeTechnicals, smaOverlay, Technicals } from "@/lib/indicators";
-import { ChartData, ChartRange, FinancialHistory as FinHistory, Fundamentals, NewsFeed, PortfolioPosition, QuoteData, ResearchMinutes, Sourced, Watchlist } from "@/lib/types";
+import { ChartData, ChartRange, FinancialHistory as FinHistory, Fundamentals, NewsFeed, PortfolioPosition, QuoteData, Sourced, Watchlist } from "@/lib/types";
 import WatchButton, { tagInfo, watchedIn } from "@/components/WatchButton";
 import { formatVolume } from "@/lib/formatters";
 import { currencySymbol, defaultCurrency, formatBig } from "@/lib/markets";
-import { longTermVerdict, researchSummary, swingVerdict } from "@/lib/analysis";
+import { historicalPE, longTermVerdict, researchSummary, swingVerdict } from "@/lib/analysis";
+import {
+  Call, Rated, Rating, ScoredTab, Signal, overallCall, pegRatio, rateAnalystUpside, rateBeta, rateCross, rateCurrentRatio,
+  rateDebtToEquity, rateDrawdown, rateEarningsSoon, rateEvToEbitda, rateForwardPE, rateFreeCashFlow, rateFromHigh,
+  rateGrossMargin, rateGrowth, rateMACD, rateNetCash, rateNetMargin, rateOperatingMargin, ratePayout, ratePE, ratePEG,
+  ratePEvsHistory, ratePriceToBook, ratePriceToSales, ratePriceVsAverage, rateROE, rateRSI, rateShortInterest, rateTrend,
+  rateVolatility, signalOf, signalTone,
+} from "@/lib/ratings";
 import FinancialHistory from "@/components/research/FinancialHistory";
 import { ResearchSummaryView, Verdicts } from "@/components/research/Verdicts";
 import { useMoney, useSettings } from "@/hooks/useSettings";
@@ -18,13 +25,24 @@ import PriceChart, { RANGE_LABELS } from "@/components/research/PriceChart";
 import NewsList from "@/components/research/NewsList";
 import { STAT_HELP } from "@/lib/statHelp";
 
-// ── Research modes ──────────────────────────────────────────────────────────
+// ── Tabs ────────────────────────────────────────────────────────────────────
 
-const MODES: { value: ResearchMinutes; label: string; title: string; blurb: string }[] = [
-  { value: 5,  label: "5 min",  title: "Quick look", blurb: "Price, trend and the handful of numbers that matter most." },
-  { value: 15, label: "15 min", title: "Standard",   blurb: "Adds valuation, profitability, growth, full technicals and analyst targets." },
-  { value: 30, label: "30 min", title: "Deep dive",  blurb: "Adds financial health, dividends, ownership and risk, volume, and the business profile." },
+type TabKey = "overview" | ScoredTab | "news";
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "overview", label: "Overview" },
+  { key: "financials", label: "Financials" },
+  { key: "valuation", label: "Valuation" },
+  { key: "technical", label: "Technical" },
+  { key: "risks", label: "Risks" },
+  { key: "news", label: "News" },
 ];
+// How each scored tab reads in the verdict sentence, and whether it takes "look" or "looks"
+const TAB_PHRASE: Record<ScoredTab, [string, boolean]> = {
+  financials: ["financials", true],
+  valuation: ["valuation", false],
+  technical: ["technicals", true],
+  risks: ["risk profile", false],
+};
 
 // ── Formatting helpers ──────────────────────────────────────────────────────
 
@@ -32,7 +50,6 @@ const NA = "—";
 const pct = (v: number | null, digits = 1) => (v === null ? NA : `${(v * 100).toFixed(digits)}%`);
 const signedPct = (v: number | null, digits = 1) => (v === null ? NA : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(digits)}%`);
 const num = (v: number | null, digits = 2) => (v === null ? NA : v.toFixed(digits));
-const tone = (v: number | null): Tone => (v === null ? "neutral" : v > 0 ? "good" : v < 0 ? "bad" : "neutral");
 
 // Event dates arrive as YYYY-MM-DD calendar dates; read them as local midnight, not UTC
 const localDate = (s: string) => new Date(s.length === 10 ? `${s}T00:00:00` : s);
@@ -57,49 +74,83 @@ function relDays(n: number | null) {
   return `${-n} days ago`;
 }
 
-// ── Building blocks ─────────────────────────────────────────────────────────
-
-type Tone = "good" | "bad" | "warn" | "neutral";
-const TONE: Record<Tone, string> = {
-  good: "text-[#16A34A]",
-  bad: "text-[#DC2626]",
-  warn: "text-[#D97706]",
-  neutral: "text-[#525252]",
-};
-
-interface StatProps {
-  label: string;
-  value: string;
-  hint?: string;
-  hintTone?: Tone;
-  valueTone?: Tone;
-  src: string;
+function joinWords(words: string[]) {
+  return words.length <= 1 ? words.join("") : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 }
 
-// Each section carries one source line; a stat's own source is on hover so it doesn't repeat down the grid
-function Stat({ label, value, hint, hintTone = "neutral", valueTone, src }: StatProps) {
+// ── Colours: green good, grey neutral, red bad ──────────────────────────────
+
+const TEXT: Record<Rating, string> = { good: "text-[#16A34A]", neutral: "text-[#737373]", bad: "text-[#DC2626]" };
+const DOT: Record<Rating, string> = { good: "bg-[#16A34A]", neutral: "bg-[#A3A3A3]", bad: "bg-[#DC2626]" };
+const CALL_STYLE: Record<Call, string> = {
+  Buy: "bg-[#16A34A] text-white",
+  Hold: "bg-[#737373] text-white",
+  Sell: "bg-[#DC2626] text-white",
+};
+
+// ── Building blocks ─────────────────────────────────────────────────────────
+
+interface MetricDef {
+  label: string;
+  value: string;
+  /** Coloured good / neutral / bad with a reason; leave out for plain facts */
+  rated?: Rated | null;
+  /** Grey context line for unrated facts */
+  hint?: string;
+}
+interface Group { title: string; metrics: MetricDef[] }
+
+function Metric({ label, value, rated, hint }: MetricDef) {
   const help = STAT_HELP[label];
   const [open, setOpen] = useState(false);
   const labelCls = "text-[11px] font-semibold text-[#525252] uppercase tracking-wider truncate max-w-full";
+  const valueCls = value === NA ? "text-[#A3A3A3]" : rated ? TEXT[rated.rating] : "text-[#0A0A0A]";
   return (
-    <div className="min-w-0" title={src || undefined}>
+    <div className="min-w-0">
       {help ? (
         <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
           className={`${labelCls} block text-left underline decoration-dotted decoration-[#A3A3A3] underline-offset-[3px] hover:text-[#0A0A0A]`}>
           {label}
         </button>
       ) : <p className={labelCls}>{label}</p>}
-      <p className={`text-[18px] font-bold tabular-nums mt-0.5 ${valueTone ? TONE[valueTone] : "text-[#0A0A0A]"}`}>{value}</p>
-      {hint && <p className={`text-[12px] font-medium ${TONE[hintTone]}`}>{hint}</p>}
+      <p className={`text-[18px] font-bold tabular-nums mt-0.5 ${valueCls}`}>{value}</p>
+      {rated && value !== NA && <p className={`text-[12px] font-medium leading-snug ${TEXT[rated.rating]}`}>{rated.note}</p>}
+      {!rated && hint && <p className="text-[12px] text-[#525252] leading-snug">{hint}</p>}
       {open && help && <p className="text-[11px] leading-snug text-[#525252] bg-[#F7F7F8] rounded-lg px-2 py-1.5 mt-1">{help}</p>}
     </div>
+  );
+}
+
+function SignalCounts({ s }: { s: Signal }) {
+  return (
+    <span className="text-[12px] tabular-nums whitespace-nowrap">
+      <span className="text-[#16A34A] font-semibold">{s.good} good</span>
+      <span className="text-[#A3A3A3]"> · </span>
+      <span className="text-[#737373] font-semibold">{s.neutral} neutral</span>
+      <span className="text-[#A3A3A3]"> · </span>
+      <span className="text-[#DC2626] font-semibold">{s.bad} bad</span>
+    </span>
+  );
+}
+
+function GroupCard({ group }: { group: Group }) {
+  // Hide groups with no data at all (e.g. ETFs have no margins)
+  if (group.metrics.every((m) => m.value === NA)) return null;
+  const s = signalOf(group.metrics.map((m) => m.rated));
+  const rated = s.good + s.neutral + s.bad;
+  return (
+    <Section title={group.title} right={rated > 0 ? <SignalCounts s={s} /> : undefined}>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-5">
+        {group.metrics.map((m) => <Metric key={m.label} {...m} />)}
+      </div>
+    </Section>
   );
 }
 
 function Section({ title, subtitle, children, right }: { title: string; subtitle?: string; children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <section className="bg-white rounded-2xl border border-[#E5E5E5] p-5">
-      <div className="flex items-start justify-between gap-3 mb-4">
+      <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
         <div>
           <h2 className="text-[15px] font-bold text-[#0A0A0A]">{title}</h2>
           {subtitle && <p className="text-[12px] text-[#525252] mt-0.5">{subtitle}</p>}
@@ -108,19 +159,6 @@ function Section({ title, subtitle, children, right }: { title: string; subtitle
       </div>
       {children}
     </section>
-  );
-}
-
-function StatGroup({ title, stats }: { title: string; stats: StatProps[] }) {
-  // Hide groups with no data at all (e.g. ETFs have no margins)
-  if (stats.every((s) => s.value === NA)) return null;
-  return (
-    <div>
-      <p className="text-[12px] font-bold text-[#0A0A0A] mb-3">{title}</p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4">
-        {stats.map((s) => <Stat key={s.label} {...s} />)}
-      </div>
-    </div>
   );
 }
 
@@ -144,21 +182,6 @@ function Skeleton({ h = 120 }: { h?: number }) {
   return <div className="bg-black/[0.04] rounded-xl animate-pulse" style={{ height: h }} />;
 }
 
-// ── Interpretations (factual, not advice) ───────────────────────────────────
-
-function rsiHint(v: number | null): [string, Tone] {
-  if (v === null) return ["", "neutral"];
-  if (v >= 70) return ["Overbought (≥70)", "warn"];
-  if (v <= 30) return ["Oversold (≤30)", "warn"];
-  return ["Neutral range", "neutral"];
-}
-
-function vsAverage(price: number, avg: number | null): [string, Tone] {
-  if (avg === null) return ["Not enough history", "neutral"];
-  const d = ((price - avg) / avg) * 100;
-  return [`Price ${d >= 0 ? "above" : "below"} by ${Math.abs(d).toFixed(1)}%`, d >= 0 ? "good" : "bad"];
-}
-
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function StockResearchPage({ params }: { params: { ticker: string } }) {
@@ -166,8 +189,10 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const { settings } = useSettings();
   const money = useMoney();
 
-  const [mode, setMode] = useState<ResearchMinutes | null>(null);
+  const [tab, setTabState] = useState<TabKey>("overview");
   const [range, setRange] = useState<ChartRange>("6mo");
+  const [strategyOverride, setStrategy] = useState<"long-term" | "swing" | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
   const [quote, setQuote] = useState<Sourced<QuoteData> | null | undefined>(undefined);
   const [fund, setFund] = useState<Sourced<Fundamentals> | null | undefined>(undefined);
   const [daily, setDaily] = useState<Sourced<ChartData> | null | undefined>(undefined);
@@ -178,15 +203,20 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const [lists, setLists] = useState<Watchlist[] | null>(null);
   const [showFullSummary, setShowFullSummary] = useState(false);
 
-  // Default depth comes from the investor profile; the toggle overrides it for this visit
+  // The open tab lives in the URL hash so refresh and back keep it
   useEffect(() => {
-    if (settings && mode === null) setMode(settings.profile.researchMinutes);
-  }, [settings, mode]);
+    const h = window.location.hash.slice(1);
+    if (TABS.some((t) => t.key === h)) setTabState(h as TabKey);
+  }, []);
+  const setTab = (t: TabKey) => {
+    setTabState(t);
+    window.history.replaceState(null, "", `#${t}`);
+  };
 
   useEffect(() => {
     getQuote(ticker).then(setQuote);
     getFundamentals(ticker).then(setFund);
-    getChart(ticker, "2y").then(setDaily); // one daily series feeds 1M–1Y views and the indicators
+    getChart(ticker, "2y").then(setDaily); // one daily series feeds 1M–2Y views and the indicators
     getChart(ticker, "5y").then(setWeekly); // the 5Y view, and year-end prices for historical P/E
     getFinancials(ticker).then(setFin);
     loadPortfolio().then((p) => setHoldings(p.filter((x) => x.ticker === ticker)));
@@ -202,32 +232,26 @@ export default function StockResearchPage({ params }: { params: { ticker: string
     if (namesReady) getNews(ticker, companyName).then(setNews);
   }, [ticker, namesReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-
-  const m = mode ?? 15;
-  const show = (min: ResearchMinutes) => m >= min;
-  // 5Y is a deep-dive view; drop back to 1Y if the user switches down
-  const effectiveRange: ChartRange = range === "5y" && !show(30) ? "1y" : range;
-
   const tech: Technicals | null = useMemo(
     () => (daily?.value ? computeTechnicals(daily.value.points.filter((p) => p.c !== null)) : null),
     [daily]
   );
 
   const chartRows = useMemo(() => {
-    if (effectiveRange === "5y") {
+    if (range === "5y") {
       return (weekly?.value.points ?? []).map((p) => ({ ...p, sma50: null, sma200: null }));
     }
     const pts = daily?.value.points ?? [];
     const s50 = smaOverlay(pts, 50);
     const s200 = smaOverlay(pts, 200);
-    const months = { "1mo": 1, "3mo": 3, "6mo": 6, "1y": 12, "2y": 24 }[effectiveRange];
+    const months = { "1mo": 1, "3mo": 3, "6mo": 6, "1y": 12, "2y": 24 }[range];
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - months);
     const cut = cutoff.toISOString().slice(0, 10);
     return pts
       .map((p, i) => ({ ...p, sma50: s50[i], sma200: s200[i] }))
       .filter((p) => p.t >= cut);
-  }, [daily, weekly, effectiveRange]);
+  }, [daily, weekly, range]);
 
   const q = quote?.value;
   const f = fund?.value;
@@ -236,21 +260,19 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const name = f?.name ?? q?.name ?? ticker;
   const ccy = f?.currency ?? q?.currency ?? defaultCurrency(ticker);
   const sym = currencySymbol(ccy);
-  const formatLargeNumber = (v: number | null) => formatBig(v, ccy);
+  const formatLargeNumber = (v: number | null) => formatBig(v, ccy).replace("N/A", NA);
   const exchange = f?.exchange || q?.exchange || null;
   const px = (v: number | null) => (v === null ? NA : `${sym}${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  // Historical P/E divides a trading-currency price by reporting-currency EPS, so only when they match
+  const sameCcy = !fin?.value.currency || fin.value.currency === ccy;
 
-  const qSrc = quote ? quote.source : "";
-  const fSrc = fund ? fund.source : "";
-  const tSrc = daily ? `Calculated from ${daily.source} daily prices` : "";
-
-  // The open verdict follows the stock's own watchlist strategy, then the investor profile
-  const primary: "long-term" | "swing" =
+  // The stock's own watchlist strategy, then the investor profile, unless switched here
+  const defaultStrategy: "long-term" | "swing" =
     watchItem?.intent === "swing" || watchItem?.intent === "long-term" ? watchItem.intent : settings?.profile.strategy === "swing" ? "swing" : "long-term";
+  const strategy = strategyOverride ?? defaultStrategy;
+
   const analysis = useMemo(() => {
     if (quote === undefined || fund === undefined || daily === undefined || fin === undefined) return null;
-    // Historical P/E divides a trading-currency price by reporting-currency EPS, so only when they match
-    const sameCcy = !fin?.value.currency || fin.value.currency === ccy;
     const input = {
       price,
       currency: ccy,
@@ -265,12 +287,136 @@ export default function StockResearchPage({ params }: { params: { ticker: string
     const long = longTermVerdict(input);
     const swing = swingVerdict(input);
     return { long, swing, summary: researchSummary(input, long, swing) };
-  }, [quote, fund, daily, fin, weekly, news, tech, price, ccy, settings?.baseCurrency]);
+  }, [quote, fund, daily, fin, weekly, news, tech, price, ccy, sameCcy, settings?.baseCurrency]);
+
+  // Average P/E at the last 4 fiscal year-ends, for "cheap or dear versus itself"
+  const peHistoryAvg = useMemo(() => {
+    if (!fin || !weekly || !sameCcy) return null;
+    const h = historicalPE(fin.value.years, weekly.value.points).slice(-4);
+    return h.length >= 2 ? h.reduce((a, b) => a + b.pe, 0) / h.length : null;
+  }, [fin, weekly, sameCcy]);
 
   const earningsDays = daysUntil(f?.events.earningsDate ?? null);
   const exDivDays = daysUntil(f?.events.exDividendDate ?? null);
   const divDays = daysUntil(f?.events.dividendDate ?? null);
   const upside = f?.analysts.targetMean && price ? (f.analysts.targetMean - price) / price : null;
+  const pe = q?.pe ?? f?.valuation.trailingPE ?? null;
+  const roe = f?.profitability.returnOnEquity ?? null;
+  const revGrowth = f?.growth.revenueGrowth ?? null;
+  const fromPrice = (v: number | null) => (v === null || price === null ? undefined : `${Math.abs(((v - price) / price) * 100).toFixed(1)}% ${v >= price ? "above" : "below"} price`);
+
+  // ── Each tab's numbers, defined once so the colours and the call always agree ──
+
+  const groups: Record<ScoredTab, Group[]> = {
+    financials: f ? [
+      { title: "Growth (year over year)", metrics: [
+        { label: "Revenue growth", value: signedPct(revGrowth), rated: rateGrowth(revGrowth) },
+        { label: "Earnings growth", value: signedPct(f.growth.earningsGrowth), rated: rateGrowth(f.growth.earningsGrowth) },
+        { label: "Quarterly EPS growth", value: signedPct(f.growth.earningsQuarterlyGrowth), rated: rateGrowth(f.growth.earningsQuarterlyGrowth) },
+        { label: "Revenue (TTM)", value: formatLargeNumber(f.growth.totalRevenue) },
+      ] },
+      { title: "Profitability", metrics: [
+        { label: "Gross margin", value: pct(f.profitability.grossMargin), rated: rateGrossMargin(f.profitability.grossMargin) },
+        { label: "Operating margin", value: pct(f.profitability.operatingMargin), rated: rateOperatingMargin(f.profitability.operatingMargin) },
+        { label: "Net margin", value: pct(f.profitability.profitMargin), rated: rateNetMargin(f.profitability.profitMargin) },
+        { label: "Return on equity", value: pct(roe), rated: rateROE(roe) },
+      ] },
+      { title: "Financial health", metrics: [
+        {
+          label: "Cash vs debt",
+          value: f.health.totalCash === null || f.health.totalDebt === null ? NA
+            : `${f.health.totalCash >= f.health.totalDebt ? "+" : "−"}${formatLargeNumber(Math.abs(f.health.totalCash - f.health.totalDebt))}`,
+          rated: rateNetCash(f.health.totalCash, f.health.totalDebt),
+        },
+        // Yahoo reports debt/equity as a percentage (150 = 1.5×)
+        { label: "Debt / equity", value: f.health.debtToEquity === null ? NA : `${(f.health.debtToEquity / 100).toFixed(2)}×`, rated: rateDebtToEquity(f.health.debtToEquity === null ? null : f.health.debtToEquity / 100) },
+        { label: "Current ratio", value: num(f.health.currentRatio), rated: rateCurrentRatio(f.health.currentRatio) },
+        { label: "Free cash flow", value: formatLargeNumber(f.health.freeCashflow), rated: rateFreeCashFlow(f.health.freeCashflow) },
+      ] },
+    ] : [],
+
+    valuation: f ? [
+      { title: "Price multiples", metrics: [
+        { label: "P/E (trailing)", value: num(pe, 1), rated: ratePE(pe) },
+        { label: "P/E (forward)", value: num(f.valuation.forwardPE, 1), rated: rateForwardPE(f.valuation.forwardPE) },
+        { label: "PEG ratio", value: num(pegRatio(pe, f.growth.earningsGrowth)), rated: ratePEG(pegRatio(pe, f.growth.earningsGrowth)) },
+        { label: "P/E vs 4-yr avg", value: peHistoryAvg === null || pe === null ? NA : `${pe.toFixed(1)} vs ${peHistoryAvg.toFixed(1)}`, rated: ratePEvsHistory(pe, peHistoryAvg) },
+        { label: "Price / sales", value: num(f.valuation.priceToSales, 1), rated: ratePriceToSales(f.valuation.priceToSales) },
+        { label: "Price / book", value: num(f.valuation.priceToBook, 1), rated: ratePriceToBook(f.valuation.priceToBook) },
+        { label: "EV / EBITDA", value: num(f.valuation.evToEbitda, 1), rated: rateEvToEbitda(f.valuation.evToEbitda) },
+        { label: "Enterprise value", value: formatLargeNumber(f.valuation.enterpriseValue) },
+      ] },
+      { title: "Analyst targets", metrics: [
+        { label: "Mean target", value: px(f.analysts.targetMean), rated: rateAnalystUpside(upside) },
+        { label: "Upside to target", value: signedPct(upside), rated: null, hint: f.analysts.count ? `${f.analysts.count} analysts` : undefined },
+        { label: "Consensus", value: f.analysts.recommendation ? f.analysts.recommendation.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()) : NA },
+        { label: "Target range", value: f.analysts.targetLow !== null && f.analysts.targetHigh !== null ? `${px(f.analysts.targetLow)}–${px(f.analysts.targetHigh)}` : NA },
+      ] },
+    ] : [],
+
+    technical: tech ? [
+      { title: "Trend & moving averages", metrics: [
+        { label: "Trend", value: tech.trend, rated: rateTrend(tech.trend) },
+        { label: "20-day EMA", value: px(tech.ema20), rated: ratePriceVsAverage(tech.last, tech.ema20) },
+        { label: "50-day EMA", value: px(tech.ema50), rated: ratePriceVsAverage(tech.last, tech.ema50) },
+        { label: "200-day avg", value: px(tech.sma200), rated: ratePriceVsAverage(tech.last, tech.sma200) },
+        { label: "50 vs 200-day", value: tech.sma50 === null || tech.sma200 === null ? NA : tech.sma50 > tech.sma200 ? "Golden cross" : "Death cross", rated: rateCross(tech.sma50, tech.sma200) },
+      ] },
+      { title: "Momentum", metrics: [
+        { label: "RSI (14)", value: num(tech.rsi14, 1), rated: rateRSI(tech.rsi14) },
+        { label: "MACD", value: num(tech.macd), rated: rateMACD(tech.macd, tech.macdSignal, tech.macdCross) },
+        {
+          label: "Volume vs 50d avg",
+          value: tech.volumeRatio === null ? NA : `${tech.volumeRatio.toFixed(2)}×`,
+          hint: tech.volumeRatio === null ? undefined : tech.volumeRatio >= 1.5 ? "Unusually high" : tech.volumeRatio <= 0.6 ? "Unusually low" : "Normal",
+        },
+        { label: "Daily range (ATR)", value: tech.atrPct === null ? NA : `${tech.atrPct.toFixed(1)}%`, hint: "Typical daily move" },
+      ] },
+      { title: "Support & resistance", metrics: [
+        { label: "Support (3-mo low)", value: px(tech.support3m), hint: fromPrice(tech.support3m) },
+        { label: "Resistance (3-mo high)", value: px(tech.resistance3m), hint: fromPrice(tech.resistance3m) },
+        { label: "From 52-wk high", value: tech.pctFromHigh52 === null ? NA : `${tech.pctFromHigh52.toFixed(1)}%`, rated: rateFromHigh(tech.pctFromHigh52) },
+        { label: "From 52-wk low", value: tech.low52Pct === null ? NA : `+${tech.low52Pct.toFixed(1)}%`, hint: `Low ${px(tech.low52)}` },
+      ] },
+    ] : [],
+
+    risks: [
+      { title: "Market risk", metrics: [
+        { label: "Beta", value: num(f?.risk.beta ?? null), rated: rateBeta(f?.risk.beta ?? null) },
+        { label: "Volatility (1y)", value: tech?.volatility1y == null ? NA : `${tech.volatility1y.toFixed(0)}%`, rated: rateVolatility(tech?.volatility1y ?? null) },
+        { label: "Max drawdown (1y)", value: tech?.maxDrawdown1y == null ? NA : `${tech.maxDrawdown1y.toFixed(1)}%`, rated: rateDrawdown(tech?.maxDrawdown1y ?? null) },
+        { label: "Short % of float", value: pct(f?.risk.shortPercentOfFloat ?? null), rated: rateShortInterest(f?.risk.shortPercentOfFloat ?? null) },
+      ] },
+      { title: "Dividend & events", metrics: [
+        { label: "Dividend yield", value: pct(f?.dividend.yield ?? null, 2) },
+        { label: "Payout ratio", value: pct(f?.dividend.payoutRatio ?? null), rated: ratePayout(f?.dividend.payoutRatio ?? null) },
+        {
+          label: "Next earnings",
+          value: f?.events.earningsDate ? localDate(f.events.earningsDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : NA,
+          rated: rateEarningsSoon(earningsDays),
+          hint: relDays(earningsDays) || undefined,
+        },
+        { label: "Insiders own", value: pct(f?.risk.heldByInsiders ?? null), hint: f?.risk.heldByInstitutions != null ? `Institutions ${pct(f.risk.heldByInstitutions)}` : undefined },
+      ] },
+    ],
+  };
+
+  const signals = Object.fromEntries(
+    (Object.keys(groups) as ScoredTab[]).map((k) => [k, signalOf(groups[k].flatMap((g) => g.metrics.map((m) => m.rated)))])
+  ) as Record<ScoredTab, Signal>;
+  const verdict = overallCall(signals, strategy);
+  const loadingCall = quote === undefined || fund === undefined || daily === undefined || fin === undefined || weekly === undefined;
+
+  const verdictSentence = (() => {
+    const tabs = Object.keys(TAB_PHRASE) as ScoredTab[];
+    const strong = tabs.filter((t) => signalTone(signals[t]) === "good");
+    const weak = tabs.filter((t) => signalTone(signals[t]) === "bad");
+    const clause = (ts: ScoredTab[], word: string) =>
+      `${joinWords(ts.map((t) => TAB_PHRASE[t][0]))} ${ts.length === 1 && !TAB_PHRASE[ts[0]][1] ? "looks" : "look"} ${word}`;
+    const parts = [strong.length ? clause(strong, "strong") : "", weak.length ? clause(weak, "weak") : ""].filter(Boolean);
+    const text = parts.length ? parts.join("; ") : "signals are mixed across the board";
+    return text.charAt(0).toUpperCase() + text.slice(1) + ".";
+  })();
 
   // Portfolio context
   const shares = holdings.reduce((s, h) => s + h.quantity, 0);
@@ -289,474 +435,418 @@ export default function StockResearchPage({ params }: { params: { ticker: string
     );
   }
 
-  // The quick numbers. RSI and beta live in their detail sections rather than repeating here.
-  const atAGlance = (
-    <Section title="At a glance">
-      {quote === undefined || daily === undefined ? <Skeleton h={220} /> : (
-        <div className="space-y-5">
-          {tech && (
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Trend</p>
-                <span className={`text-[13px] font-bold ${tech.trend === "Uptrend" ? "text-[#16A34A]" : tech.trend === "Downtrend" ? "text-[#DC2626]" : "text-[#D97706]"}`}>
-                  {tech.trend === "Uptrend" ? "▲ " : tech.trend === "Downtrend" ? "▼ " : "◆ "}{tech.trend}
-                </span>
-              </div>
-              <p className="text-[12px] text-[#525252]">
-                {tech.trend === "Uptrend" && "Price is above its 50-day average, which is above the 200-day."}
-                {tech.trend === "Downtrend" && "Price is below its 50-day average, which is below the 200-day."}
-                {tech.trend === "Mixed" && "Moving averages don't agree on a direction."}
-              </p>
-            </div>
-          )}
-          {(q?.weekLow52 ?? tech?.low52) !== null && (q?.weekHigh52 ?? tech?.high52) !== null && price !== null && (
-            <div>
-              <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-2">52-week range</p>
-              <RangeBar
-                low={(q?.weekLow52 ?? tech?.low52)!}
-                high={(q?.weekHigh52 ?? tech?.high52)!}
-                value={price}
-                labels={[px((q?.weekLow52 ?? tech?.low52)!), px((q?.weekHigh52 ?? tech?.high52)!)]}
-              />
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-            {(q?.marketCap ?? f?.valuation.marketCap ?? null) !== null && (
-              <Stat label="Market cap" value={formatLargeNumber(q?.marketCap ?? f?.valuation.marketCap ?? null)} src={q?.marketCap != null ? qSrc : fSrc} />
+  const chart = (showSma: boolean) => (
+    <Section
+      title="Price chart"
+      right={
+        <div className="flex items-center bg-[#F0F0F0] rounded-lg p-0.5">
+          {RANGE_LABELS.map((r) => (
+            <button
+              key={r.value}
+              onClick={() => setRange(r.value)}
+              className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${
+                range === r.value ? "bg-white text-[#0A0A0A] shadow-sm" : "text-[#525252] hover:text-[#0A0A0A]"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {daily === undefined || (range === "5y" && weekly === undefined) ? (
+        <Skeleton h={300} />
+      ) : (
+        <PriceChart rows={chartRows} range={range} showSma={showSma && range !== "5y"} showVolume={showSma} currencySymbol={sym} />
+      )}
+      {(range === "5y" ? weekly : daily) && (
+        <SourceTag
+          className="mt-3"
+          source={`${(range === "5y" ? weekly : daily)!.source} · ${range === "5y" ? "weekly" : "daily"} closes`}
+          asOf={(range === "5y" ? weekly : daily)!.asOf}
+          cached={(range === "5y" ? weekly : daily)!.cached}
+        />
+      )}
+    </Section>
+  );
+
+  const groupCards = (key: ScoredTab, loading: boolean, empty: string) =>
+    loading ? <Skeleton h={220} /> : groups[key].length === 0 ? (
+      <Section title={TABS.find((t) => t.key === key)!.label}><p className="text-[13px] text-[#A3A3A3]">{empty}</p></Section>
+    ) : groups[key].map((g) => <GroupCard key={g.title} group={g} />);
+
+  const sourceLine = (s: Sourced<unknown> | null | undefined) =>
+    s ? <SourceTag source={s.source} asOf={s.asOf} cached={s.cached} /> : null;
+
+  // ── Tab contents ──────────────────────────────────────────────────────────
+
+  const callCard = (
+    <section className="bg-white rounded-2xl border border-[#E5E5E5] p-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">The numbers say</p>
+        <div className="inline-flex items-center bg-[#EBEBEB] rounded-xl p-1 gap-0.5" role="group" aria-label="Judge as">
+          {(["long-term", "swing"] as const).map((st) => (
+            <button key={st} onClick={() => setStrategy(st)}
+              className={`px-3 py-1 rounded-lg text-[12px] font-medium ${strategy === st ? "bg-white text-[#0A0A0A] font-semibold shadow-sm" : "text-[#525252] hover:text-[#0A0A0A]"}`}>
+              {st === "long-term" ? "Long-term" : "Swing trade"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loadingCall ? <div className="mt-4"><Skeleton h={160} /></div> : (
+        <>
+          <div className="flex items-center gap-4 mt-3 flex-wrap">
+            {verdict ? (
+              <span className={`text-[28px] font-black tracking-tight px-5 py-1.5 rounded-2xl ${CALL_STYLE[verdict.call]}`}>{verdict.call.toUpperCase()}</span>
+            ) : (
+              <span className="text-[16px] font-bold px-4 py-2 rounded-2xl bg-[#F0F0F0] text-[#737373]">Not enough data</span>
             )}
-            <Stat label="P/E" value={num(q?.pe ?? f?.valuation.trailingPE ?? null, 1)} src={q?.pe != null ? qSrc : fSrc} />
-            <Stat
-              label="Volume"
-              value={formatVolume(q?.volume ?? null)}
-              hint={q?.volume && q?.avgVolume ? `${(q.volume / q.avgVolume).toFixed(1)}× average` : undefined}
-              hintTone={q?.volume && q?.avgVolume && q.volume / q.avgVolume >= 1.5 ? "warn" : "neutral"}
-              src={qSrc}
-            />
-            {f && f.dividend.yield !== null && <Stat label="Dividend yield" value={pct(f.dividend.yield, 2)} src={fSrc} />}
+            <p className="text-[14px] text-[#0A0A0A] font-medium flex-1 min-w-[200px]">
+              {verdict ? verdictSentence : "Too few numbers are available to make a call on this symbol."}
+            </p>
           </div>
-          <p className="text-[10px] text-[#A3A3A3]">{Array.from(new Set([qSrc, fSrc, tSrc].filter(Boolean))).join(" · ")}</p>
+
+          <div className="mt-5 divide-y divide-[#F0F0F0]">
+            {(Object.keys(TAB_PHRASE) as ScoredTab[]).map((k) => {
+              const s = signals[k];
+              const n = s.good + s.neutral + s.bad;
+              const t = signalTone(s);
+              return (
+                <button key={k} onClick={() => setTab(k)} className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-[#FAFAFA] -mx-2 px-2 rounded-lg">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${t ? DOT[t] : "bg-[#E5E5E5]"}`} aria-hidden />
+                  <span className="text-[13px] font-semibold text-[#0A0A0A] w-24 shrink-0">{TABS.find((x) => x.key === k)!.label}</span>
+                  <span className="flex-1 h-2 rounded-full overflow-hidden bg-[#F0F0F0] hidden sm:flex" aria-hidden>
+                    {n > 0 && <>
+                      <span className="bg-[#16A34A]" style={{ width: `${(s.good / n) * 100}%` }} />
+                      <span className="bg-[#D4D4D4]" style={{ width: `${(s.neutral / n) * 100}%` }} />
+                      <span className="bg-[#DC2626]" style={{ width: `${(s.bad / n) * 100}%` }} />
+                    </>}
+                  </span>
+                  {n > 0 ? <SignalCounts s={s} /> : <span className="text-[12px] text-[#A3A3A3]">No data</span>}
+                  <span className="text-[#A3A3A3] text-[12px]">›</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="text-[11px] text-[#737373] mt-4">
+            Each tab&apos;s numbers are rated green, grey or red by simple rules of thumb, then weighted for a {strategy === "long-term" ? "long-term investor (business and valuation count most)" : "swing trader (the chart counts most)"}.
+            A summary of the data, not financial advice.
+          </p>
+          {analysis && (
+            <div className="mt-3">
+              <button onClick={() => setShowChecklist((v) => !v)} className="text-[12px] font-semibold text-[#1F65F0] hover:underline">
+                {showChecklist ? "Hide the strategy checklist" : "See the strategy checklist"}
+              </button>
+              {showChecklist && <div className="mt-3"><Verdicts long={analysis.long} swing={analysis.swing} primary={strategy} /></div>}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+
+  const eventsCard = (
+    <Section title="Upcoming events">
+      {fund === undefined ? <Skeleton h={120} /> : !f ? (
+        <p className="text-[13px] text-[#A3A3A3]">No event data for this symbol.</p>
+      ) : (
+        <div className="space-y-4">
+          {[
+            f.events.earningsDate && {
+              key: "earn",
+              title: "Earnings report",
+              date: f.events.earningsDate,
+              days: earningsDays,
+              badge: f.events.earningsIsEstimate ? "Estimated" : "Confirmed",
+              detail: [
+                f.events.epsEstimate !== null && `EPS est. ${px(f.events.epsEstimate)}`,
+                f.events.revenueEstimate !== null && `Revenue est. ${formatLargeNumber(f.events.revenueEstimate)}`,
+              ].filter(Boolean).join(" · "),
+            },
+            f.events.exDividendDate && {
+              key: "exdiv",
+              title: "Ex-dividend date",
+              date: f.events.exDividendDate,
+              days: exDivDays,
+              badge: null,
+              detail: "Own shares before this date to receive the next dividend.",
+            },
+            f.events.dividendDate && {
+              key: "div",
+              title: "Dividend payment",
+              date: f.events.dividendDate,
+              days: divDays,
+              badge: null,
+              detail: f.dividend.rate !== null ? `${px(f.dividend.rate)} per share annually` : "",
+            },
+          ]
+            .filter((e): e is { key: string; title: string; date: string; days: number | null; badge: string | null; detail: string } => !!e)
+            .map((e) => (
+              <div key={e.key} className="flex items-start gap-3">
+                <div className={`shrink-0 rounded-xl px-2.5 py-1.5 text-center min-w-[56px] border ${e.days !== null && e.days >= 0 && e.days <= 14 ? "bg-[#FFF7ED] border-[#FED7AA]" : "bg-[#F7F7F8] border-[#E5E5E5]"}`}>
+                  <p className="text-[11px] font-bold text-[#0A0A0A]">{localDate(e.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+                  <p className="text-[10px] text-[#525252]">{e.days !== null && e.days >= 0 ? `${e.days}d` : "past"}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-[#0A0A0A]">
+                    {e.title}
+                    {e.badge && <span className="ml-2 text-[10px] font-semibold text-[#525252] bg-[#F0F0F0] px-1.5 py-0.5 rounded">{e.badge}</span>}
+                  </p>
+                  <p className="text-[12px] text-[#525252]">{fmtDate(e.date)} · {relDays(e.days)}</p>
+                  {e.detail && <p className="text-[12px] text-[#525252] mt-0.5">{e.detail}</p>}
+                </div>
+              </div>
+            ))}
+          {!f.events.earningsDate && !f.events.exDividendDate && (
+            <p className="text-[13px] text-[#A3A3A3]">No scheduled events found.</p>
+          )}
+          {sourceLine(fund)}
         </div>
       )}
     </Section>
   );
 
-  return (
-    <div className="max-w-[1280px] mx-auto">
-      {/* ── Header ── */}
-      <button onClick={() => history.back()} className="text-[13px] font-medium text-[#525252] hover:text-[#0A0A0A] mb-4">← Back</button>
+  const aboutCard = (
+    <Section title={`About ${name}`}>
+      {fund === undefined ? <Skeleton h={120} /> : (
+        <>
+          {f?.profile.summary ? (
+            <>
+              <p className={`text-[14px] leading-relaxed text-[#262626] ${showFullSummary ? "" : "line-clamp-4"}`}>{f.profile.summary}</p>
+              <button onClick={() => setShowFullSummary((v) => !v)} className="text-[12px] font-semibold text-[#1F65F0] mt-1">{showFullSummary ? "Show less" : "Read more"}</button>
+            </>
+          ) : <p className="text-[13px] text-[#A3A3A3]">No business description available.</p>}
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-[#525252] mt-3">
+            {f?.profile.industry && <span><span className="font-semibold text-[#0A0A0A]">Industry:</span> {f.profile.industry}</span>}
+            {f?.profile.country && <span><span className="font-semibold text-[#0A0A0A]">HQ:</span> {f.profile.country}</span>}
+            {f?.profile.employees && <span><span className="font-semibold text-[#0A0A0A]">Employees:</span> {f.profile.employees.toLocaleString()}</span>}
+            {f?.profile.website && <a href={f.profile.website} target="_blank" rel="noreferrer" className="text-[#1F65F0] hover:underline">{f.profile.website.replace(/^https?:\/\//, "")}</a>}
+          </div>
+          {fund && <div className="mt-2">{sourceLine(fund)}</div>}
+        </>
+      )}
+    </Section>
+  );
 
-      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 mb-6">
-        <div className="min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-[36px] font-black tracking-tight text-[#0A0A0A] leading-none">{ticker}</h1>
-            {exchange && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg" title="Listing exchange and trading currency">{exchange} · {ccy}</span>}
-            {f?.profile.sector && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg">{f.profile.sector}</span>}
-            {settings && settings.baseCurrency !== ccy && (
-              <span className="text-[11px] font-semibold text-[#92400E] bg-[#FFFBEB] border border-[#FDE68A] px-2 py-1 rounded-lg">Priced in {ccy}, your base is {settings.baseCurrency}</span>
-            )}
+  const tabContent: Record<TabKey, React.ReactNode> = {
+    overview: (
+      <div className="space-y-5">
+        {callCard}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 space-y-5">
+            {chart(false)}
+            <Section title="Strengths & weaknesses">
+              {analysis ? <ResearchSummaryView summary={analysis.summary} groups={["strengths", "weaknesses"]} limit={3} /> : <Skeleton h={160} />}
+            </Section>
           </div>
-          <p className="text-[15px] text-[#525252] mt-2 truncate">{name}</p>
-          <div className="flex items-baseline gap-3 mt-3 flex-wrap">
-            <span className="text-[32px] font-bold tabular-nums text-[#0A0A0A]">{quote === undefined ? "…" : px(price)}</span>
-            {q?.change !== null && q?.changePercent !== null && q && (
-              <span className={`text-[16px] font-semibold tabular-nums ${up ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
-                {up ? "+" : ""}{q.change!.toFixed(2)} ({up ? "+" : ""}{q.changePercent!.toFixed(2)}%) today
-              </span>
-            )}
+          <div className="space-y-5">
+            {eventsCard}
+            {aboutCard}
           </div>
-          {quote && <SourceTag className="mt-1" source={quote.source} asOf={quote.asOf} cached={quote.cached} />}
-        </div>
-
-        <div className="lg:text-right">
-          <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-2">Research time</p>
-          <div className="inline-flex items-center bg-[#EBEBEB] rounded-xl p-1 gap-0.5">
-            {MODES.map((o) => (
-              <button
-                key={o.value}
-                onClick={() => setMode(o.value)}
-                className={`px-4 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
-                  m === o.value ? "bg-white text-[#0A0A0A] font-semibold shadow-sm border border-[#E5E5E5]" : "text-[#525252] hover:text-[#0A0A0A]"
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-[12px] text-[#525252] mt-2 max-w-xs lg:ml-auto">
-            <span className="font-semibold text-[#0A0A0A]">{MODES.find((o) => o.value === m)?.title}:</span>{" "}
-            {MODES.find((o) => o.value === m)?.blurb}
-          </p>
         </div>
       </div>
+    ),
 
-      {/* ── Your position, then your plan ── */}
-      <div className="space-y-2 mb-5">
-        <div className="flex items-center gap-2 flex-wrap">
-          {shares > 0 && (
-            <span className="text-[13px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] px-3 py-1.5 rounded-xl font-medium">
-              You own {shares} share{shares !== 1 ? "s" : ""} · avg cost {px(cost / shares)}
-              {holdingPL !== null && (
-                <> · <span className={holdingPL >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}>{holdingPL >= 0 ? "+" : ""}{money.fmt(holdingPL)}</span></>
+    financials: (
+      <div className="space-y-5">
+        {groupCards("financials", fund === undefined, "Fundamentals aren't available for this symbol.")}
+        {f && <div>{sourceLine(fund)}</div>}
+        <Section title="Financial history" subtitle="Reported annual figures.">
+          {fin === undefined ? <Skeleton h={240} /> : !fin ? (
+            <p className="text-[13px] text-[#A3A3A3]">No reported financials for this symbol (funds and some foreign listings don&apos;t have them).</p>
+          ) : (
+            <>
+              <FinancialHistory
+                years={fin.value.years}
+                currency={fin.value.currency}
+                prices={sameCcy ? weekly?.value.points : undefined}
+                pe={f?.valuation.trailingPE ?? null}
+              />
+              {!sameCcy && (
+                <p className="text-[11px] text-[#92400E] mt-2">Reports in {fin.value.currency} but trades in {ccy}, so historical P/E isn&apos;t shown.</p>
               )}
-            </span>
+              <div className="mt-3">{sourceLine(fin)}</div>
+            </>
           )}
-          <WatchButton
-            ticker={ticker}
-            lists={lists}
-            defaultIntent={primary}
-            meta={{ exchange: exchange ?? undefined, currency: ccy, addedPrice: price ?? undefined }}
-            onSaved={setLists}
-          />
-        </div>
-        {/* A bare "watching" tag says nothing the Watch button doesn't already */}
-        {watchItem && (watchItem.tag !== "watching" || watchItem.targetPrice != null || watchItem.invalidation != null || watchItem.thesis || watchItem.note) && (
-          <div className="flex items-center gap-x-4 gap-y-1 flex-wrap bg-white border border-[#E5E5E5] rounded-xl px-3 py-2">
-            <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Your plan</span>
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg border ${tagInfo(watchItem.tag).cls}`}>{tagInfo(watchItem.tag).label}</span>
-            {watchItem.targetPrice != null && (
-              <span className="text-[12px] text-[#525252]">Target <span className="font-semibold text-[#0A0A0A]">{px(watchItem.targetPrice)}</span></span>
-            )}
-            {watchItem.invalidation != null && (
-              <span className="text-[12px] text-[#525252]" title="The price at which your idea is wrong and you'd exit">Exit if below <span className="font-semibold text-[#0A0A0A]">{px(watchItem.invalidation)}</span></span>
-            )}
-            {(watchItem.thesis || watchItem.note) && (
-              <span className="text-[13px] text-[#525252] italic truncate max-w-md" title={watchItem.thesis || watchItem.note}>&ldquo;{watchItem.thesis || watchItem.note}&rdquo;</span>
-            )}
-            {onLists.length > 0 && (
-              <Link href="/watchlist" className="text-[12px] font-semibold text-[#1F65F0] hover:underline ml-auto">Edit plan →</Link>
-            )}
-          </div>
+        </Section>
+      </div>
+    ),
+
+    valuation: (
+      <div className="space-y-5">
+        {groupCards("valuation", fund === undefined, "Valuation data isn't available for this symbol.")}
+        {f && f.analysts.targetLow !== null && f.analysts.targetHigh !== null && price !== null && (
+          <Section title="Today's price within the analysts' range">
+            <RangeBar
+              low={f.analysts.targetLow}
+              high={f.analysts.targetHigh}
+              value={price}
+              labels={[`Low ${px(f.analysts.targetLow)}`, `High ${px(f.analysts.targetHigh)}`]}
+            />
+          </Section>
         )}
+        {f && <div>{sourceLine(fund)}</div>}
       </div>
+    ),
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* ── Left: chart + deeper sections ── */}
-        <div className="lg:col-span-2 space-y-5">
-          <Section
-            title="Price chart"
-            right={
-              <div className="flex items-center bg-[#F0F0F0] rounded-lg p-0.5">
-                {RANGE_LABELS.filter((r) => r.value !== "5y" || show(30)).map((r) => (
-                  <button
-                    key={r.value}
-                    onClick={() => setRange(r.value)}
-                    className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${
-                      effectiveRange === r.value ? "bg-white text-[#0A0A0A] shadow-sm" : "text-[#525252] hover:text-[#0A0A0A]"
-                    }`}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            }
-          >
-            {daily === undefined || (effectiveRange === "5y" && weekly === undefined) ? (
-              <Skeleton h={300} />
-            ) : (
-              <PriceChart
-                rows={chartRows}
-                range={effectiveRange}
-                showSma={show(15) && effectiveRange !== "5y"}
-                showVolume={show(30)}
-                currencySymbol={sym}
-              />
-            )}
-            {(effectiveRange === "5y" ? weekly : daily) && (
-              <SourceTag
-                className="mt-3"
-                source={`${(effectiveRange === "5y" ? weekly : daily)!.source} · ${effectiveRange === "5y" ? "weekly" : "daily"} closes`}
-                asOf={(effectiveRange === "5y" ? weekly : daily)!.asOf}
-                cached={(effectiveRange === "5y" ? weekly : daily)!.cached}
-              />
-            )}
-          </Section>
-
-          {/* On phones the right column lands below everything, so the quick numbers go here instead */}
-          <div className="lg:hidden">{atAGlance}</div>
-
-          {/* ── Conclusions: one per strategy, never blended into a single score ── */}
-          <div>
-            <div className="mb-3">
-              <h2 className="text-[18px] font-black text-[#0A0A0A]">Conclusions</h2>
-              <p className="text-[12px] text-[#525252]">Each strategy has its own rules. There is no overall score: read the checks.</p>
+    technical: (
+      <div className="space-y-5">
+        {chart(true)}
+        {groupCards("technical", daily === undefined, "Not enough price history to compute indicators.")}
+        {tech && (
+          <Section title="Returns" subtitle="Price change only, dividends excluded.">
+            <div className="grid grid-cols-5 gap-2">
+              {([["1M", tech.returns.m1], ["3M", tech.returns.m3], ["6M", tech.returns.m6], ["YTD", tech.returns.ytd], ["1Y", tech.returns.y1]] as const).map(([label, v]) => (
+                <div key={label} className="rounded-xl bg-[#F7F7F8] px-2 py-2 text-center">
+                  <p className="text-[11px] font-semibold text-[#525252]">{label}</p>
+                  <p className={`text-[15px] font-bold tabular-nums ${v === null ? "text-[#A3A3A3]" : v > 0 ? "text-[#16A34A]" : v < 0 ? "text-[#DC2626]" : "text-[#737373]"}`}>
+                    {v === null ? NA : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+                  </p>
+                </div>
+              ))}
             </div>
-            {analysis ? <Verdicts long={analysis.long} swing={analysis.swing} primary={primary} compact={m === 5} /> : <Skeleton h={180} />}
-          </div>
-
-          {/* Research summary */}
-          <Section title="Research summary" subtitle="Strengths, weaknesses, catalysts and risks.">
-            {analysis ? <ResearchSummaryView summary={analysis.summary} limit={show(30) ? undefined : m === 5 ? 2 : 4} /> : <Skeleton h={200} />}
           </Section>
+        )}
+        {daily && <p className="text-[10px] text-[#A3A3A3]">Calculated from {daily.source} daily prices</p>}
+      </div>
+    ),
 
-          {/* Company overview: sector, exchange, currency and market cap are already in the header and at a glance */}
-          <Section title="Company overview">
-            {fund === undefined ? <Skeleton h={120} /> : (
-              <>
-                {f?.profile.summary ? (
-                  <>
-                    <p className={`text-[14px] leading-relaxed text-[#262626] ${show(30) || showFullSummary ? "" : "line-clamp-3"}`}>{f.profile.summary}</p>
-                    {!show(30) && (
-                      <button onClick={() => setShowFullSummary((v) => !v)} className="text-[12px] font-semibold text-[#1F65F0] mt-1">{showFullSummary ? "Show less" : "Read more"}</button>
-                    )}
-                  </>
-                ) : <p className="text-[13px] text-[#A3A3A3]">No business description available.</p>}
-                <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-[#525252] mt-3">
-                  {f?.profile.industry && <span><span className="font-semibold text-[#0A0A0A]">Industry:</span> {f.profile.industry}</span>}
-                  {f?.profile.country && <span><span className="font-semibold text-[#0A0A0A]">HQ:</span> {f.profile.country}</span>}
-                  {f?.profile.employees && <span><span className="font-semibold text-[#0A0A0A]">Employees:</span> {f.profile.employees.toLocaleString()}</span>}
-                  {f?.profile.website && <a href={f.profile.website} target="_blank" rel="noreferrer" className="text-[#1F65F0] hover:underline">{f.profile.website.replace(/^https?:\/\//, "")}</a>}
-                </div>
-                {fund && <SourceTag className="mt-2" source={fund.source} asOf={fund.asOf} cached={fund.cached} />}
-              </>
-            )}
-          </Section>
+    risks: (
+      <div className="space-y-5">
+        {groupCards("risks", fund === undefined || daily === undefined, "")}
+        <Section title="Risks & weaknesses flagged">
+          {analysis ? <ResearchSummaryView summary={analysis.summary} groups={["risks", "weaknesses"]} /> : <Skeleton h={160} />}
+        </Section>
+      </div>
+    ),
 
-          {/* Technicals */}
-          {show(15) && (
-            <Section title="Technical indicators" subtitle="Computed from daily closing prices. Describes the chart, not where it goes next.">
-              {!tech ? (
-                daily === undefined ? <Skeleton /> : <p className="text-[13px] text-[#A3A3A3]">Not enough price history.</p>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-5">
-                  <Stat label="20-day avg" value={px(tech.sma20)} hint={vsAverage(tech.last, tech.sma20)[0]} hintTone={vsAverage(tech.last, tech.sma20)[1]} src={tSrc} />
-                  <Stat label="50-day avg" value={px(tech.sma50)} hint={vsAverage(tech.last, tech.sma50)[0]} hintTone={vsAverage(tech.last, tech.sma50)[1]} src={tSrc} />
-                  <Stat label="200-day avg" value={px(tech.sma200)} hint={vsAverage(tech.last, tech.sma200)[0]} hintTone={vsAverage(tech.last, tech.sma200)[1]} src={tSrc} />
-                  <Stat label="RSI (14)" value={num(tech.rsi14, 1)} hint={rsiHint(tech.rsi14)[0]} hintTone={rsiHint(tech.rsi14)[1]} src={tSrc} />
-                  <Stat
-                    label="MACD"
-                    value={num(tech.macd)}
-                    hint={tech.macdCross ? `${tech.macdCross.dir === "bullish" ? "Bullish" : "Bearish"} cross ${tech.macdCross.barsAgo === 0 ? "today" : `${tech.macdCross.barsAgo}d ago`}` : tech.macd !== null && tech.macdSignal !== null ? (tech.macd > tech.macdSignal ? "Above signal line" : "Below signal line") : ""}
-                    hintTone={tech.macdCross ? (tech.macdCross.dir === "bullish" ? "good" : "bad") : "neutral"}
-                    src={tSrc}
-                  />
-                  <Stat
-                    label="Volume vs 50d avg"
-                    value={tech.volumeRatio === null ? NA : `${tech.volumeRatio.toFixed(2)}×`}
-                    hint={tech.volumeRatio === null ? "" : tech.volumeRatio >= 1.5 ? "Unusually high" : tech.volumeRatio <= 0.6 ? "Unusually low" : "Normal"}
-                    hintTone={tech.volumeRatio !== null && (tech.volumeRatio >= 1.5 || tech.volumeRatio <= 0.6) ? "warn" : "neutral"}
-                    src={tSrc}
-                  />
-                  <Stat label="From 52-wk high" value={tech.pctFromHigh52 === null ? NA : `${tech.pctFromHigh52.toFixed(1)}%`} hint={`High ${px(tech.high52)}`} src={tSrc} />
-                  <Stat label="Daily range (ATR)" value={tech.atrPct === null ? NA : `${tech.atrPct.toFixed(1)}%`} hint="Typical daily move" src={tSrc} />
-                  <Stat label="From 52-wk low" value={tech.low52Pct === null ? NA : `+${tech.low52Pct.toFixed(1)}%`} hint={`Low ${px(tech.low52)}`} src={tSrc} />
-                  <Stat
-                    label="Volatility (1y)"
-                    value={tech.volatility1y === null ? NA : `${tech.volatility1y.toFixed(0)}%`}
-                    hint={tech.volatility30 !== null ? `${tech.volatility30.toFixed(0)}% over the last 30 days` : "Annualised"}
-                    hintTone={tech.volatility1y !== null && tech.volatility1y >= 45 ? "warn" : "neutral"}
-                    src={tSrc}
-                  />
-                  <Stat label="Max drawdown (1y)" value={tech.maxDrawdown1y === null ? NA : `${tech.maxDrawdown1y.toFixed(1)}%`} hint="Largest peak-to-trough fall" src={tSrc} />
-                </div>
-              )}
-              {tech && (
-                <div className="mt-5 pt-4 border-t border-[#F0F0F0]">
-                  <p className="text-[12px] font-bold text-[#0A0A0A] mb-2">Returns</p>
-                  <div className="grid grid-cols-5 gap-2">
-                    {([["1M", tech.returns.m1], ["3M", tech.returns.m3], ["6M", tech.returns.m6], ["YTD", tech.returns.ytd], ["1Y", tech.returns.y1]] as const).map(([label, v]) => (
-                      <div key={label} className="rounded-xl bg-[#F7F7F8] px-2 py-2 text-center">
-                        <p className="text-[11px] font-semibold text-[#525252]">{label}</p>
-                        <p className={`text-[15px] font-bold tabular-nums ${v === null ? "text-[#A3A3A3]" : v >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
-                          {v === null ? NA : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-[#A3A3A3] mt-1">{tSrc} · price change only, dividends excluded</p>
-                </div>
-              )}
-            </Section>
-          )}
-
-          {/* Fundamentals */}
-          {show(15) && (
-            <Section title="Fundamentals" subtitle={show(30) ? "Valuation, profitability, growth, balance sheet, dividends and ownership." : "Valuation, profitability and growth."}>
-              {fund === undefined ? <Skeleton h={200} /> : !f ? (
-                <p className="text-[13px] text-[#A3A3A3]">Fundamentals aren&apos;t available for this symbol.</p>
-              ) : (
-                <div className="space-y-6">
-                  <StatGroup title="Valuation" stats={[
-                    { label: "P/E (trailing)", value: num(f.valuation.trailingPE, 1), src: fSrc },
-                    { label: "P/E (forward)", value: num(f.valuation.forwardPE, 1), src: fSrc },
-                    { label: "Price / sales", value: num(f.valuation.priceToSales, 1), src: fSrc },
-                    { label: "Price / book", value: num(f.valuation.priceToBook, 1), src: fSrc },
-                    ...(show(30) ? [
-                      { label: "Enterprise value", value: formatLargeNumber(f.valuation.enterpriseValue).replace("N/A", NA), src: fSrc },
-                      { label: "EV / EBITDA", value: num(f.valuation.evToEbitda, 1), src: fSrc },
-                    ] : []),
-                  ]} />
-                  <StatGroup title="Profitability" stats={[
-                    { label: "Gross margin", value: pct(f.profitability.grossMargin), src: fSrc },
-                    { label: "Operating margin", value: pct(f.profitability.operatingMargin), src: fSrc },
-                    { label: "Net margin", value: pct(f.profitability.profitMargin), src: fSrc },
-                    { label: "Return on equity", value: pct(f.profitability.returnOnEquity), src: fSrc },
-                  ]} />
-                  <StatGroup title="Growth (year over year)" stats={[
-                    { label: "Revenue growth", value: signedPct(f.growth.revenueGrowth), valueTone: tone(f.growth.revenueGrowth), src: fSrc },
-                    { label: "Earnings growth", value: signedPct(f.growth.earningsGrowth), valueTone: tone(f.growth.earningsGrowth), src: fSrc },
-                    { label: "Quarterly EPS growth", value: signedPct(f.growth.earningsQuarterlyGrowth), valueTone: tone(f.growth.earningsQuarterlyGrowth), src: fSrc },
-                    { label: "Revenue (TTM)", value: formatLargeNumber(f.growth.totalRevenue).replace("N/A", NA), src: fSrc },
-                  ]} />
-                  {show(30) && (
-                    <>
-                      <StatGroup title="Financial health" stats={[
-                        { label: "Cash", value: formatLargeNumber(f.health.totalCash).replace("N/A", NA), src: fSrc },
-                        { label: "Debt", value: formatLargeNumber(f.health.totalDebt).replace("N/A", NA), src: fSrc },
-                        // Yahoo reports debt/equity as a percentage (150 = 1.5×)
-                        { label: "Debt / equity", value: f.health.debtToEquity === null ? NA : `${(f.health.debtToEquity / 100).toFixed(2)}×`, src: fSrc },
-                        { label: "Current ratio", value: num(f.health.currentRatio), hint: f.health.currentRatio !== null && f.health.currentRatio < 1 ? "Short-term liabilities exceed assets" : undefined, hintTone: "warn", src: fSrc },
-                        { label: "Free cash flow", value: formatLargeNumber(f.health.freeCashflow).replace("N/A", NA), valueTone: tone(f.health.freeCashflow), src: fSrc },
-                      ]} />
-                      <StatGroup title="Dividend" stats={[
-                        { label: "Yield", value: pct(f.dividend.yield, 2), src: fSrc },
-                        { label: "Annual dividend", value: f.dividend.rate === null ? NA : px(f.dividend.rate), src: fSrc },
-                        { label: "Payout ratio", value: pct(f.dividend.payoutRatio), hint: f.dividend.payoutRatio !== null && f.dividend.payoutRatio > 0.8 ? "Pays out most earnings" : undefined, hintTone: "warn", src: fSrc },
-                      ]} />
-                      <StatGroup title="Ownership & risk" stats={[
-                        { label: "Beta", value: num(f.risk.beta), hint: f.risk.beta === null ? undefined : f.risk.beta > 1.3 ? "More volatile than market" : f.risk.beta < 0.7 ? "Less volatile than market" : "Moves roughly with market", src: fSrc },
-                        { label: "Short % of float", value: pct(f.risk.shortPercentOfFloat), hint: f.risk.shortPercentOfFloat !== null && f.risk.shortPercentOfFloat > 0.1 ? "Heavily shorted" : undefined, hintTone: "warn", src: fSrc },
-                        { label: "Institutions", value: pct(f.risk.heldByInstitutions), src: fSrc },
-                        { label: "Insiders", value: pct(f.risk.heldByInsiders), src: fSrc },
-                      ]} />
-                    </>
-                  )}
-                  <SourceTag source={fund!.source} asOf={fund!.asOf} cached={fund!.cached} />
-                </div>
-              )}
-            </Section>
-          )}
-
-          {/* Fundamentals over time */}
-          {show(15) && (
-            <Section title="Financial history" subtitle="Reported annual figures.">
-              {fin === undefined ? <Skeleton h={240} /> : !fin ? (
-                <p className="text-[13px] text-[#A3A3A3]">No reported financials for this symbol (funds and some foreign listings don&apos;t have them).</p>
-              ) : (
-                <>
-                  <FinancialHistory
-                    years={fin.value.years}
-                    currency={fin.value.currency}
-                    prices={!fin.value.currency || fin.value.currency === ccy ? weekly?.value.points : undefined}
-                    pe={f?.valuation.trailingPE ?? null}
-                  />
-                  {fin.value.currency && fin.value.currency !== ccy && (
-                    <p className="text-[11px] text-[#92400E] mt-2">Reports in {fin.value.currency} but trades in {ccy}, so historical P/E isn&apos;t shown.</p>
-                  )}
-                  <SourceTag className="mt-3" source={fin.source} asOf={fin.asOf} cached={fin.cached} />
-                </>
-              )}
-            </Section>
-          )}
-
-        </div>
-
-        {/* ── Right column ── */}
-        <div className="space-y-5">
-          <div className="hidden lg:block">{atAGlance}</div>
-
-          <Section title="Upcoming events">
-            {fund === undefined ? <Skeleton h={120} /> : !f ? (
-              <p className="text-[13px] text-[#A3A3A3]">No event data for this symbol.</p>
-            ) : (
-              <div className="space-y-4">
-                {[
-                  f.events.earningsDate && {
-                    key: "earn",
-                    title: "Earnings report",
-                    date: f.events.earningsDate,
-                    days: earningsDays,
-                    badge: f.events.earningsIsEstimate ? "Estimated" : "Confirmed",
-                    detail: show(15)
-                      ? [
-                          f.events.epsEstimate !== null && `EPS est. ${px(f.events.epsEstimate)}`,
-                          f.events.revenueEstimate !== null && `Revenue est. ${formatLargeNumber(f.events.revenueEstimate)}`,
-                        ].filter(Boolean).join(" · ")
-                      : "",
-                  },
-                  show(15) && f.events.exDividendDate && {
-                    key: "exdiv",
-                    title: "Ex-dividend date",
-                    date: f.events.exDividendDate,
-                    days: exDivDays,
-                    badge: null,
-                    detail: "Own shares before this date to receive the next dividend.",
-                  },
-                  show(15) && f.events.dividendDate && {
-                    key: "div",
-                    title: "Dividend payment",
-                    date: f.events.dividendDate,
-                    days: divDays,
-                    badge: null,
-                    detail: f.dividend.rate !== null ? `${px(f.dividend.rate)} per share annually` : "",
-                  },
-                ]
-                  .filter((e): e is { key: string; title: string; date: string; days: number | null; badge: string | null; detail: string } => !!e)
-                  .map((e) => (
-                    <div key={e.key} className="flex items-start gap-3">
-                      <div className={`shrink-0 rounded-xl px-2.5 py-1.5 text-center min-w-[56px] border ${e.days !== null && e.days >= 0 && e.days <= 14 ? "bg-[#FFF7ED] border-[#FED7AA]" : "bg-[#F7F7F8] border-[#E5E5E5]"}`}>
-                        <p className="text-[11px] font-bold text-[#0A0A0A]">{localDate(e.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
-                        <p className="text-[10px] text-[#525252]">{e.days !== null && e.days >= 0 ? `${e.days}d` : "past"}</p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-[#0A0A0A]">
-                          {e.title}
-                          {e.badge && <span className="ml-2 text-[10px] font-semibold text-[#525252] bg-[#F0F0F0] px-1.5 py-0.5 rounded">{e.badge}</span>}
-                        </p>
-                        <p className="text-[12px] text-[#525252]">{fmtDate(e.date)} · {relDays(e.days)}</p>
-                        {e.detail && <p className="text-[12px] text-[#525252] mt-0.5">{e.detail}</p>}
-                      </div>
-                    </div>
-                  ))}
-                {!f.events.earningsDate && !f.events.exDividendDate && (
-                  <p className="text-[13px] text-[#A3A3A3]">No scheduled events found.</p>
-                )}
-                <SourceTag source={fund!.source} asOf={fund!.asOf} cached={fund!.cached} />
-              </div>
-            )}
-          </Section>
-
+    news: (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2">
           <Section title="Latest news">
             {news === undefined ? <Skeleton h={160} /> : !news ? (
               <p className="text-[13px] text-[#A3A3A3]">News is unavailable right now.</p>
             ) : (
-              <NewsList feed={news} limit={m === 5 ? 3 : m === 15 ? 6 : 12} />
+              <NewsList feed={news} limit={12} />
             )}
           </Section>
-
-          {show(15) && f && f.analysts.targetMean !== null && price !== null && (
-            <Section title="Analyst targets" subtitle={f.analysts.count ? `${f.analysts.count} analysts` : undefined}>
-              <div className="flex items-baseline justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Mean target</p>
-                  <p className="text-[22px] font-bold tabular-nums text-[#0A0A0A]">{px(f.analysts.targetMean)}</p>
-                </div>
-                {upside !== null && (
-                  <p className={`text-[15px] font-bold ${upside >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
-                    {upside >= 0 ? "+" : ""}{(upside * 100).toFixed(1)}% vs price
-                  </p>
-                )}
-              </div>
-              {f.analysts.recommendation && (
-                <p className="text-[13px] text-[#525252] mt-1">
-                  Consensus: <span className="font-semibold text-[#0A0A0A] capitalize">{f.analysts.recommendation.replace(/_/g, " ")}</span>
-                </p>
-              )}
-              {show(30) && f.analysts.targetLow !== null && f.analysts.targetHigh !== null && (
-                <div className="mt-4">
-                  <RangeBar
-                    low={f.analysts.targetLow}
-                    high={f.analysts.targetHigh}
-                    value={price}
-                    labels={[`Low ${px(f.analysts.targetLow)}`, `High ${px(f.analysts.targetHigh)}`]}
-                  />
-                  <p className="text-[11px] text-[#525252] mt-1">Dot shows today&apos;s price within the analysts&apos; range.</p>
-                </div>
-              )}
-              <SourceTag className="mt-3" source={fund!.source} asOf={fund!.asOf} cached={fund!.cached} />
-            </Section>
-          )}
+        </div>
+        <div>
+          <Section title="Catalysts" subtitle="Upcoming events and positive headlines that could move the price.">
+            {analysis ? <ResearchSummaryView summary={analysis.summary} groups={["catalysts"]} /> : <Skeleton h={120} />}
+          </Section>
         </div>
       </div>
+    ),
+  };
+
+  const headline: MetricDef[] = [
+    { label: "P/E", value: num(pe, 1), rated: ratePE(pe) },
+    { label: "Revenue growth", value: signedPct(revGrowth), rated: rateGrowth(revGrowth) },
+    { label: "Return on equity", value: pct(roe), rated: rateROE(roe) },
+    { label: "Trend", value: tech?.trend ?? NA, rated: rateTrend(tech?.trend ?? null) },
+  ];
+
+  return (
+    <div className="max-w-[1280px] mx-auto">
+      {/* ── Header ── */}
+      <button onClick={() => window.history.back()} className="text-[13px] font-medium text-[#525252] hover:text-[#0A0A0A] mb-4">← Back</button>
+
+      <section className="bg-white rounded-2xl border border-[#E5E5E5] p-5 mb-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A] leading-none">{ticker}</h1>
+              {exchange && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg" title="Listing exchange and trading currency">{exchange} · {ccy}</span>}
+              {f?.profile.sector && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg">{f.profile.sector}</span>}
+              {settings && settings.baseCurrency !== ccy && (
+                <span className="text-[11px] font-semibold text-[#92400E] bg-[#FFFBEB] border border-[#FDE68A] px-2 py-1 rounded-lg">Priced in {ccy}, your base is {settings.baseCurrency}</span>
+              )}
+            </div>
+            <p className="text-[15px] text-[#525252] mt-2 truncate">{name}</p>
+          </div>
+          {verdict && !loadingCall && (
+            <button onClick={() => setTab("overview")} title={`${verdict.call} for a ${strategy === "long-term" ? "long-term investor" : "swing trader"}`}
+              className={`shrink-0 text-[13px] font-black tracking-wide px-3 py-1.5 rounded-xl ${CALL_STYLE[verdict.call]}`}>
+              {verdict.call.toUpperCase()}
+            </button>
+          )}
+        </div>
+        <div className="flex items-baseline gap-3 mt-3 flex-wrap">
+          <span className="text-[32px] font-bold tabular-nums text-[#0A0A0A]">{quote === undefined ? "…" : px(price)}</span>
+          {q?.change !== null && q?.changePercent !== null && q && (
+            <span className={`text-[16px] font-semibold tabular-nums ${up ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
+              {up ? "+" : ""}{q.change!.toFixed(2)} ({up ? "+" : ""}{q.changePercent!.toFixed(2)}%) today
+            </span>
+          )}
+        </div>
+        {quote && <SourceTag className="mt-1" source={quote.source} asOf={quote.asOf} cached={quote.cached} />}
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4 border-t border-[#F0F0F0] mt-4 pt-4">
+          {headline.map((m) => <Metric key={m.label} {...m} />)}
+        </div>
+
+        {/* Your position, then your plan */}
+        <div className="space-y-2 border-t border-[#F0F0F0] mt-4 pt-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            {shares > 0 && (
+              <span className="text-[13px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] px-3 py-1.5 rounded-xl font-medium">
+                You own {shares} share{shares !== 1 ? "s" : ""} · avg cost {px(cost / shares)}
+                {holdingPL !== null && (
+                  <> · <span className={holdingPL >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}>{holdingPL >= 0 ? "+" : ""}{money.fmt(holdingPL)}</span></>
+                )}
+              </span>
+            )}
+            <WatchButton
+              ticker={ticker}
+              lists={lists}
+              defaultIntent={strategy}
+              meta={{ exchange: exchange ?? undefined, currency: ccy, addedPrice: price ?? undefined }}
+              onSaved={setLists}
+            />
+          </div>
+          {/* A bare "watching" tag says nothing the Watch button doesn't already */}
+          {watchItem && (watchItem.tag !== "watching" || watchItem.targetPrice != null || watchItem.invalidation != null || watchItem.thesis || watchItem.note) && (
+            <div className="flex items-center gap-x-4 gap-y-1 flex-wrap bg-[#FAFAFA] border border-[#E5E5E5] rounded-xl px-3 py-2">
+              <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Your plan</span>
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg border ${tagInfo(watchItem.tag).cls}`}>{tagInfo(watchItem.tag).label}</span>
+              {watchItem.targetPrice != null && (
+                <span className="text-[12px] text-[#525252]">Target <span className="font-semibold text-[#0A0A0A]">{px(watchItem.targetPrice)}</span></span>
+              )}
+              {watchItem.invalidation != null && (
+                <span className="text-[12px] text-[#525252]" title="The price at which your idea is wrong and you'd exit">Exit if below <span className="font-semibold text-[#0A0A0A]">{px(watchItem.invalidation)}</span></span>
+              )}
+              {(watchItem.thesis || watchItem.note) && (
+                <span className="text-[13px] text-[#525252] italic truncate max-w-md" title={watchItem.thesis || watchItem.note}>&ldquo;{watchItem.thesis || watchItem.note}&rdquo;</span>
+              )}
+              {onLists.length > 0 && (
+                <Link href="/watchlist" className="text-[12px] font-semibold text-[#1F65F0] hover:underline ml-auto">Edit plan →</Link>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Tabs ── */}
+      <div className="flex flex-wrap gap-2 mb-5" role="tablist">
+        {TABS.map((t) => {
+          const tone = t.key !== "overview" && t.key !== "news" && !loadingCall ? signalTone(signals[t.key as ScoredTab]) : null;
+          const active = tab === t.key;
+          return (
+            <button key={t.key} role="tab" aria-selected={active} onClick={() => setTab(t.key)}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-semibold border transition-colors ${
+                active ? "bg-[#0A0A0A] text-white border-[#0A0A0A]" : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3] hover:text-[#0A0A0A]"
+              }`}>
+              {tone && <span className={`w-2 h-2 rounded-full ${DOT[tone]}`} aria-hidden />}
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div role="tabpanel">{tabContent[tab]}</div>
     </div>
   );
 }

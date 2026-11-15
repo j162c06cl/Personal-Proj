@@ -110,14 +110,15 @@ const GROUPS: { key: keyof ResearchSummary; title: string; empty: string; dot: s
   { key: "risks", title: "Risks", empty: "No specific risks flagged in the available data.", dot: "bg-[#D97706]" },
 ];
 
-export function ResearchSummaryView({ summary, limit: initialLimit }: { summary: ResearchSummary; limit?: number }) {
+export function ResearchSummaryView({ summary, limit: initialLimit, groups }: { summary: ResearchSummary; limit?: number; groups?: (keyof ResearchSummary)[] }) {
   const [showAll, setShowAll] = useState(false);
   const limit = showAll ? undefined : initialLimit;
-  const hidden = initialLimit ? GROUPS.reduce((n, g) => n + Math.max(0, summary[g.key].length - initialLimit), 0) : 0;
+  const shownGroups = groups ? GROUPS.filter((g) => groups.includes(g.key)) : GROUPS;
+  const hidden = initialLimit ? shownGroups.reduce((n, g) => n + Math.max(0, summary[g.key].length - initialLimit), 0) : 0;
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-        {GROUPS.map((g) => {
+      <div className={`grid grid-cols-1 gap-x-6 gap-y-5 ${shownGroups.length > 1 ? "md:grid-cols-2" : ""}`}>
+        {shownGroups.map((g) => {
           const items: ResearchPoint[] = summary[g.key];
           const shown = limit ? items.slice(0, limit) : items;
           return (

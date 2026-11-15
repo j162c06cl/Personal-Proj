@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMoney, useSettings } from "@/hooks/useSettings";
 import { exportBackup, importBackup } from "@/lib/store";
 import { clearCache, FeedStatus, getDataStatus } from "@/lib/data";
-import { BaseCurrency, ResearchMinutes, Settings, Strategy } from "@/lib/types";
+import { BaseCurrency, Settings, Strategy } from "@/lib/types";
 
 const SECTORS = [
   "Technology", "Communication", "Consumer Disc.", "Consumer Staples", "Financials",
@@ -15,12 +15,6 @@ const STRATEGIES: { value: Strategy; label: string; hint: string }[] = [
   { value: "long-term", label: "Long-term", hint: "Hold for years; focus on fundamentals" },
   { value: "swing",     label: "Swing",     hint: "Days to weeks; focus on momentum and setups" },
   { value: "mixed",     label: "Mixed",     hint: "A core of long-term holdings plus some swing trades" },
-];
-
-const RESEARCH_TIMES: { value: ResearchMinutes; label: string }[] = [
-  { value: 5, label: "5 min" },
-  { value: 15, label: "15 min" },
-  { value: 30, label: "30 min" },
 ];
 
 function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
@@ -136,11 +130,6 @@ export default function SettingsPage() {
             <p className="text-[12px] text-[#A3A3A3] mt-2">
               {STRATEGIES.find((s) => s.value === settings.profile.strategy)?.hint}
             </p>
-          </div>
-          <div>
-            <Label>Research time per stock</Label>
-            <Segmented options={RESEARCH_TIMES} value={settings.profile.researchMinutes} onChange={(v) => setProfile("researchMinutes", v)} />
-            <p className="text-[12px] text-[#A3A3A3] mt-2">Default depth for the stock research page. You can change it per stock.</p>
           </div>
           <div>
             <Label>Sectors to watch</Label>

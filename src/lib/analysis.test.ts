@@ -28,8 +28,8 @@ function fundamentals(over: Partial<Fundamentals> = {}): Fundamentals {
 
 function technicals(over: Partial<Technicals> = {}): Technicals {
   return {
-    last: 100, sma20: 99, sma50: 97, sma200: 85, rsi14: 58, macd: 1.2, macdSignal: 0.8, macdCross: null,
-    volumeRatio: 1.4, high52: 103, low52: 70, pctFromHigh52: -2.9, atrPct: 2.1, low52Pct: 42.9,
+    last: 100, sma20: 99, sma50: 97, sma200: 85, ema20: 99, ema50: 96, rsi14: 58, macd: 1.2, macdSignal: 0.8, macdCross: null,
+    volumeRatio: 1.4, high52: 103, low52: 70, pctFromHigh52: -2.9, atrPct: 2.1, low52Pct: 42.9, support3m: 90, resistance3m: 103,
     returns: { m1: 4, m3: 9, m6: 15, ytd: 18, y1: 30 }, volatility30: 22, volatility1y: 28, maxDrawdown1y: -12,
     trend: "Uptrend", bars: 500, ...over,
   };

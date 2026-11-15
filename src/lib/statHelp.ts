@@ -12,6 +12,12 @@ export const STAT_HELP: Record<string, string> = {
   "Price / book": "Price ÷ the accounting value of the company's net assets per share.",
   "Enterprise value": "Market cap plus debt minus cash: roughly the price to buy the whole business outright.",
   "EV / EBITDA": "Enterprise value ÷ operating profit before depreciation. Compares valuations regardless of how a company is financed.",
+  "PEG ratio": "P/E ÷ earnings growth rate. Under 1 suggests the price hasn't caught up with growth; over 2 suggests it has run ahead.",
+  "P/E vs 4-yr avg": "Today's P/E compared with its average at the last four fiscal year-ends. Shows whether the stock is cheap or dear versus its own history.",
+  "Mean target": "The average 12-month price target from analysts covering the stock.",
+  "Upside to target": "How far the price would move to reach the analysts' average target.",
+  "Consensus": "The average analyst rating, from strong buy to sell.",
+  "Target range": "The lowest and highest analyst price targets.",
 
   // Profitability & growth
   "Gross margin": "Share of revenue left after the direct cost of making the product.",
@@ -29,6 +35,7 @@ export const STAT_HELP: Record<string, string> = {
   "Debt / equity": "Debt ÷ shareholders' equity. Above about 2× means the company leans heavily on borrowing.",
   "Current ratio": "Short-term assets ÷ short-term liabilities. Below 1 means bills due within a year exceed what can quickly be turned into cash.",
   "Free cash flow": "Cash from operations minus capital spending: money left over to pay dividends, buy back shares or cut debt.",
+  "Cash vs debt": "Cash minus total debt. A plus means the company could pay off all its debt from cash today.",
 
   // Dividend
   "Yield": "Yearly dividend ÷ share price.",
@@ -42,7 +49,16 @@ export const STAT_HELP: Record<string, string> = {
   "Institutions": "Share of stock held by funds, banks and other institutions.",
   "Insiders": "Share of stock held by executives, directors and major owners.",
 
+  "Insiders own": "Share of stock held by executives, directors and major owners. High insider ownership means management's money rides with yours.",
+  "Next earnings": "When the company next reports results. Prices often jump or drop sharply on the day.",
+
   // Technicals
+  "Trend": "Uptrend when price is above its 50-day average and that is above the 200-day; downtrend when both are reversed.",
+  "20-day EMA": "Exponential moving average of the last 20 days: like a simple average but weights recent days more, so it reacts faster.",
+  "50-day EMA": "Exponential moving average of the last 50 days. Price holding above it is a sign of a healthy medium-term trend.",
+  "50 vs 200-day": "When the 50-day average is above the 200-day (golden cross) the long-term trend is up; below it (death cross), down.",
+  "Support (3-mo low)": "The lowest price of the last three months: a level where buyers have stepped in before.",
+  "Resistance (3-mo high)": "The highest price of the last three months: a level where sellers have taken over before.",
   "20-day avg": "Average closing price over the last 20 trading days, about a month. Shows the short-term trend.",
   "50-day avg": "Average closing price over the last 50 trading days. Shows the medium-term trend.",
   "200-day avg": "Average closing price over the last 200 trading days. Shows the long-term trend.",
