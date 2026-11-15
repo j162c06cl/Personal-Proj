@@ -25,7 +25,7 @@ const TAG_ORDER: Record<WatchTag, number> = { "setup-ready": 0, watching: 1, res
 const categoryOf = (i: WatchlistItem) => i.category ?? knownCategory(i.ticker) ?? "Other";
 // Moves that round to 0.00% read as flat, not as a red "-0.00%"
 const flat = (v: number) => Math.abs(v) < 0.005;
-const toneCls = (v: number | null) => (v === null || flat(v) ? "text-[#A3A3A3]" : v > 0 ? "text-[#16A34A]" : "text-[#DC2626]");
+const toneCls = (v: number | null) => (v === null || flat(v) ? "text-[#A3A3A3]" : v > 0 ? "text-[#00B341]" : "text-[#F04E23]");
 const pctOrDash = (v: number | null) => (v === null ? "—" : flat(v) ? "0.00%" : formatPercent(v));
 const fmtTime = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
@@ -37,7 +37,7 @@ function Sparkline({ closes }: { closes: number[] }) {
   const up = closes[closes.length - 1] >= closes[0];
   return (
     <svg width={w} height={h} className="inline-block align-middle" aria-hidden>
-      <polyline points={pts} fill="none" stroke={up ? "#16A34A" : "#DC2626"} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={pts} fill="none" stroke={up ? "#00B341" : "#F04E23"} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
@@ -46,7 +46,7 @@ function RangeBar({ pos }: { pos: number | null }) {
   if (pos === null) return <span className="text-[#A3A3A3]">—</span>;
   return (
     <span className="relative inline-block w-20 h-1.5 bg-[#EBEBEB] rounded-full align-middle" title={`${pos.toFixed(0)}% of the way from the 52-week low to the high`}>
-      <span className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#1F65F0] ring-2 ring-white" style={{ left: `${Math.min(100, Math.max(0, pos))}%` }} />
+      <span className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#2D8CFF] ring-2 ring-white" style={{ left: `${Math.min(100, Math.max(0, pos))}%` }} />
     </span>
   );
 }
@@ -76,7 +76,7 @@ function ItemEditor({ item, price, currency, onSave, onCancel }: {
   const [target, setTarget] = useState(item.targetPrice != null ? String(item.targetPrice) : "");
   const [stop, setStop] = useState(item.invalidation != null ? String(item.invalidation) : "");
   const t = numOrNull(target), s = numOrNull(stop);
-  const input = "w-full px-3 py-2 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#1F65F0]";
+  const input = "w-full px-3 py-2 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#2D8CFF]";
   const label = "block text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-1";
 
   return (
@@ -87,7 +87,7 @@ function ItemEditor({ item, price, currency, onSave, onCancel }: {
           <div className="flex gap-1">
             {INTENTS.map((o) => (
               <button key={o.value} type="button" title={o.hint} onClick={() => setIntent(o.value)}
-                className={`flex-1 px-2 py-1.5 rounded-lg text-[12px] font-semibold border ${intent === o.value ? "bg-[#1F65F0] text-white border-[#1F65F0]" : "bg-white text-[#525252] border-[#E5E5E5]"}`}>
+                className={`flex-1 px-2 py-1.5 rounded-full text-[12px] font-semibold border ${intent === o.value ? "bg-[#2D8CFF] text-white border-[#2D8CFF]" : "bg-white text-[#525252] border-[#E5E5E5]"}`}>
                 {o.label}
               </button>
             ))}
@@ -98,7 +98,7 @@ function ItemEditor({ item, price, currency, onSave, onCancel }: {
           <div className="grid grid-cols-2 gap-1">
             {TAGS.map((o) => (
               <button key={o.value} type="button" onClick={() => setTag(o.value)}
-                className={`px-2 py-1 rounded-lg text-[12px] font-semibold border ${tag === o.value ? o.cls + " ring-2 ring-[#1F65F0]/30" : "bg-white text-[#737373] border-[#E5E5E5]"}`}>
+                className={`px-2 py-1 rounded-lg text-[12px] font-semibold border ${tag === o.value ? o.cls + " ring-2 ring-[#2D8CFF]/30" : "bg-white text-[#737373] border-[#E5E5E5]"}`}>
                 {o.label}
               </button>
             ))}
@@ -109,7 +109,7 @@ function ItemEditor({ item, price, currency, onSave, onCancel }: {
             <span className={label}>Target price</span>
             <input value={target} onChange={(e) => setTarget(e.target.value)} inputMode="decimal" placeholder={currency} className={input} />
             {t !== null && price !== null && (
-              <span className={`text-[11px] ${t >= price ? "text-[#16A34A]" : "text-[#DC2626]"}`}>{formatPercent(((t - price) / price) * 100)} from price</span>
+              <span className={`text-[11px] ${t >= price ? "text-[#00B341]" : "text-[#F04E23]"}`}>{formatPercent(((t - price) / price) * 100)} from price</span>
             )}
           </label>
           <label>
@@ -138,10 +138,10 @@ function ItemEditor({ item, price, currency, onSave, onCancel }: {
             {item.updatedAt ? ` · edited ${fmtTime(item.updatedAt)}` : ""}
           </span>
           <span className="flex gap-2">
-            <button onClick={onCancel} className="px-3 py-1.5 text-[13px] text-[#525252] border border-[#E5E5E5] rounded-xl hover:border-[#0A0A0A]">Cancel</button>
+            <button onClick={onCancel} className="px-3 py-1.5 text-[13px] text-[#525252] border border-[#E5E5E5] rounded-xl hover:border-[#2D8CFF]">Cancel</button>
             <button
               onClick={() => onSave({ intent, tag, note: note.trim(), thesis: thesis.trim(), targetPrice: t, invalidation: s, updatedAt: new Date().toISOString() })}
-              className="px-3 py-1.5 text-[13px] bg-[#1F65F0] text-white rounded-xl font-semibold hover:bg-[#1550D8]"
+              className="px-3 py-1.5 text-[13px] bg-[#2D8CFF] text-white rounded-full font-semibold hover:bg-[#1A73E0]"
             >
               Save
             </button>
@@ -430,7 +430,7 @@ export default function WatchlistPage() {
       {/* Header + search */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-5">
         <div>
-          <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Watchlists</h1>
+          <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Watchlists</h1>
           <p className="text-[14px] text-[#525252] mt-1">{lists.length} list{lists.length !== 1 ? "s" : ""} · click a column to sort · Plan holds each stock&apos;s thesis, target and invalidation level</p>
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
@@ -444,7 +444,7 @@ export default function WatchlistPage() {
               onSelect={(t) => openPreview(t)}
               onKeyDown={(e) => { if (e.key === "Enter") openPreview(query); }}
               placeholder={`Add a stock to ${list.name}…`}
-              inputClassName="w-full pl-9 pr-8 py-2 text-[14px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#1F65F0] focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)]"
+              inputClassName="w-full pl-9 pr-8 py-2 text-[14px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#2D8CFF] focus:shadow-[0_0_0_3px_rgba(45,140,255,0.12)]"
             />
           </div>
           <button
@@ -452,7 +452,7 @@ export default function WatchlistPage() {
             disabled={loading}
             title="Refresh prices"
             aria-label="Refresh prices"
-            className="p-2.5 text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#0A0A0A] hover:text-[#0A0A0A] rounded-xl disabled:opacity-50 transition-colors"
+            className="p-2.5 text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#2D8CFF] hover:text-[#0A0A0A] rounded-xl disabled:opacity-50 transition-colors"
           >
             <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -472,7 +472,7 @@ export default function WatchlistPage() {
               onChange={(e) => setNameDraft(e.target.value)}
               onBlur={() => renameList(l.id, nameDraft)}
               onKeyDown={(e) => { if (e.key === "Enter") renameList(l.id, nameDraft); if (e.key === "Escape") setRenaming(null); }}
-              className="shrink-0 my-1 px-2 py-1.5 text-[13px] font-semibold border border-[#1F65F0] rounded-lg focus:outline-none w-44"
+              className="shrink-0 my-1 px-2 py-1.5 text-[13px] font-semibold border border-[#2D8CFF] rounded-lg focus:outline-none w-44"
               aria-label="List name"
             />
           ) : (
@@ -484,7 +484,7 @@ export default function WatchlistPage() {
               onDoubleClick={() => { setRenaming(l.id); setNameDraft(l.name); }}
               title="Double-click to rename"
               className={`shrink-0 px-3.5 py-2.5 text-[13px] font-semibold border-b-2 -mb-px transition-colors ${
-                l.id === list.id ? "text-[#0A0A0A] border-[#0A0A0A]" : "text-[#737373] border-transparent hover:text-[#0A0A0A]"
+                l.id === list.id ? "text-[#0A0A0A] border-[#2D8CFF]" : "text-[#737373] border-transparent hover:text-[#0A0A0A]"
               }`}
             >
               {l.name} <span className="text-[11px] font-medium text-[#A3A3A3] ml-0.5">{l.items.length}</span>
@@ -499,11 +499,11 @@ export default function WatchlistPage() {
             onKeyDown={(e) => { if (e.key === "Enter") createList(nameDraft); if (e.key === "Escape") { setCreating(false); setNameDraft(""); } }}
             onBlur={() => (nameDraft.trim() ? createList(nameDraft) : setCreating(false))}
             placeholder="New list name"
-            className="shrink-0 my-1 px-2 py-1.5 text-[13px] border border-[#1F65F0] rounded-lg focus:outline-none w-44"
+            className="shrink-0 my-1 px-2 py-1.5 text-[13px] border border-[#2D8CFF] rounded-lg focus:outline-none w-44"
             aria-label="New list name"
           />
         ) : (
-          <button onClick={() => { setCreating(true); setNameDraft(""); }} className="shrink-0 px-3 py-2.5 text-[13px] font-semibold text-[#1F65F0] hover:text-[#1550D8]">
+          <button onClick={() => { setCreating(true); setNameDraft(""); }} className="shrink-0 px-3 py-2.5 text-[13px] font-semibold text-[#2D8CFF] hover:text-[#1A73E0]">
             + New list
           </button>
         )}
@@ -517,20 +517,20 @@ export default function WatchlistPage() {
               key={t.id}
               onClick={() => setTagFilter(t.id)}
               className={`px-2.5 py-1 rounded-full text-[12px] font-semibold border transition-colors ${
-                tagFilter === t.id ? "bg-[#0A0A0A] text-white border-[#0A0A0A]" : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3]"
+                tagFilter === t.id ? "bg-[#2D8CFF] text-white border-[#2D8CFF]" : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3]"
               }`}
             >
               {t.label} <span className="opacity-60">{tagCounts[t.id] ?? 0}</span>
             </button>
           ))}
           <select value={intentFilter} onChange={(e) => setIntentFilter(e.target.value as WatchIntent | "all")} aria-label="Strategy"
-            className="ml-1 px-2 py-1 text-[12px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] rounded-full focus:outline-none focus:border-[#1F65F0]">
+            className="ml-1 px-2 py-1 text-[12px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] rounded-full focus:outline-none focus:border-[#2D8CFF]">
             <option value="all">Any strategy</option>
             {INTENTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           {sectors.length > 1 && (
             <select value={sector} onChange={(e) => setSector(e.target.value)} aria-label="Sector"
-              className="px-2 py-1 text-[12px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] rounded-full focus:outline-none focus:border-[#1F65F0]">
+              className="px-2 py-1 text-[12px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] rounded-full focus:outline-none focus:border-[#2D8CFF]">
               <option value="All">All sectors</option>
               {sectors.map((s) => <option key={s.name} value={s.name}>{s.name} ({s.count})</option>)}
             </select>
@@ -540,14 +540,14 @@ export default function WatchlistPage() {
           {confirmDelete ? (
             <>
               <span className="text-[#525252] font-medium">Delete &ldquo;{list.name}&rdquo; and its {list.items.length} stocks?</span>
-              <button onClick={deleteList} className="px-2.5 py-1 bg-[#EF4444] text-white rounded-lg">Delete</button>
+              <button onClick={deleteList} className="px-2.5 py-1 bg-[#F04E23] text-white rounded-lg">Delete</button>
               <button onClick={() => setConfirmDelete(false)} className="px-2.5 py-1 text-[#525252] border border-[#E5E5E5] rounded-lg">Cancel</button>
             </>
           ) : (
             <>
-              <button onClick={() => { setRenaming(list.id); setNameDraft(list.name); }} className="px-2.5 py-1 text-[#525252] border border-[#E5E5E5] rounded-lg hover:border-[#0A0A0A] hover:text-[#0A0A0A]">Rename</button>
-              <button onClick={duplicateList} className="px-2.5 py-1 text-[#525252] border border-[#E5E5E5] rounded-lg hover:border-[#0A0A0A] hover:text-[#0A0A0A]">Duplicate</button>
-              <button onClick={() => setConfirmDelete(true)} className="px-2.5 py-1 text-[#DC2626] border border-[#E5E5E5] rounded-lg hover:border-[#DC2626]">Delete list</button>
+              <button onClick={() => { setRenaming(list.id); setNameDraft(list.name); }} className="px-2.5 py-1 text-[#525252] border border-[#E5E5E5] rounded-lg hover:border-[#2D8CFF] hover:text-[#0A0A0A]">Rename</button>
+              <button onClick={duplicateList} className="px-2.5 py-1 text-[#525252] border border-[#E5E5E5] rounded-lg hover:border-[#2D8CFF] hover:text-[#0A0A0A]">Duplicate</button>
+              <button onClick={() => setConfirmDelete(true)} className="px-2.5 py-1 text-[#F04E23] border border-[#E5E5E5] rounded-lg hover:border-[#F04E23]">Delete list</button>
             </>
           )}
         </div>
@@ -573,7 +573,7 @@ export default function WatchlistPage() {
                       aria-sort={c.key && sortKey === c.key ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
                       className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap select-none ${ALIGN[c.align]} ${
                         c.key ? "cursor-pointer hover:text-[#0A0A0A]" : ""
-                      } ${c.key && sortKey === c.key ? "text-[#1F65F0]" : "text-[#525252]"}`}
+                      } ${c.key && sortKey === c.key ? "text-[#2D8CFF]" : "text-[#525252]"}`}
                     >
                       {c.label}
                       {c.key && sortKey === c.key && <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>}
@@ -587,7 +587,7 @@ export default function WatchlistPage() {
                   const plan = r.item.thesis || r.item.note;
                   return (
                     <Fragment key={r.item.ticker}>
-                      <tr className={`group ${isEditing ? "bg-[#F5F8FF]" : "hover:bg-[#FAFAFA]"} ${r.item.tag === "archived" ? "opacity-60" : ""}`}>
+                      <tr className={`group ${isEditing ? "bg-[#F4F9FF]" : "hover:bg-[#FAFAFA]"} ${r.item.tag === "archived" ? "opacity-60" : ""}`}>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1.5">
                             <TickerLink ticker={r.item.ticker} />
@@ -631,7 +631,7 @@ export default function WatchlistPage() {
                             <span className={toneCls(r.target)} title={`Target ${formatMoney(r.item.targetPrice!, r.currency)}`}>{pctOrDash(r.target)}</span>
                           ) : <span className="text-[#A3A3A3]">—</span>}
                           {r.stopGap !== null && (
-                            <span className={`block text-[10px] ${r.stopGap <= 3 ? "text-[#DC2626] font-semibold" : "text-[#737373]"}`} title={`Invalidation ${formatMoney(r.item.invalidation!, r.currency)}`}>
+                            <span className={`block text-[10px] ${r.stopGap <= 3 ? "text-[#F04E23] font-semibold" : "text-[#737373]"}`} title={`Invalidation ${formatMoney(r.item.invalidation!, r.currency)}`}>
                               {r.stopGap > 0 ? `stop −${r.stopGap.toFixed(1)}%` : "below stop"}
                             </span>
                           )}
@@ -647,7 +647,7 @@ export default function WatchlistPage() {
                             <span className="inline-flex items-center gap-1">
                               <button
                                 onClick={() => { commit(lists.map((l) => (l.id === list.id ? { ...l, items: l.items.filter((i) => i.ticker !== r.item.ticker) } : l))); setPendingRemove(null); }}
-                                className="text-[11px] px-2 py-0.5 bg-[#EF4444] text-white rounded-lg font-semibold"
+                                className="text-[11px] px-2 py-0.5 bg-[#F04E23] text-white rounded-lg font-semibold"
                               >
                                 Remove
                               </button>
@@ -657,7 +657,7 @@ export default function WatchlistPage() {
                             <span className="inline-flex items-center gap-1">
                               <button
                                 onClick={() => setEditing(isEditing ? null : r.item.ticker)}
-                                className={`text-[11px] px-2 py-0.5 rounded-lg border font-semibold ${plan || r.item.targetPrice ? "text-[#1F65F0] border-[#C7DAFE] bg-[#F5F8FF]" : "text-[#525252] border-[#E5E5E5]"}`}
+                                className={`text-[11px] px-2 py-0.5 rounded-lg border font-semibold ${plan || r.item.targetPrice ? "text-[#2D8CFF] border-[#BBD9FF] bg-[#F4F9FF]" : "text-[#525252] border-[#E5E5E5]"}`}
                                 title={plan ? plan : "Add notes, thesis, target and invalidation"}
                                 aria-expanded={isEditing}
                               >
@@ -665,7 +665,7 @@ export default function WatchlistPage() {
                               </button>
                               <button
                                 onClick={() => setPendingRemove(r.item.ticker)}
-                                className="text-[18px] leading-none text-[#C8C8C8] hover:text-[#EF4444] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                                className="text-[18px] leading-none text-[#C8C8C8] hover:text-[#F04E23] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                                 title={`Remove ${r.item.ticker} from ${list.name}`}
                                 aria-label={`Remove ${r.item.ticker}`}
                               >
@@ -685,11 +685,11 @@ export default function WatchlistPage() {
                         </tr>
                       )}
                       {isEditing && (
-                        <tr className="bg-[#F5F8FF]">
+                        <tr className="bg-[#F4F9FF]">
                           <td colSpan={columns.length} className="px-4 pb-4 pt-1">
                             <div className="flex items-center justify-between mb-3">
                               <p className="text-[13px] font-bold text-[#0A0A0A]">Your plan for {r.item.ticker}</p>
-                              <Link href={`/stock/${encodeURIComponent(r.item.ticker)}`} className="text-[12px] font-semibold text-[#1F65F0] hover:underline">Open analyser →</Link>
+                              <Link href={`/stock/${encodeURIComponent(r.item.ticker)}`} className="text-[12px] font-semibold text-[#2D8CFF] hover:underline">Open analyser →</Link>
                             </div>
                             <ItemEditor
                               item={r.item}

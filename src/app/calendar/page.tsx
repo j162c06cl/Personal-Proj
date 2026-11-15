@@ -15,7 +15,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; pill: string }> = {
 };
 
 function importancePill(imp: string) {
-  if (imp === "high")   return "bg-[#FEF2F2] text-[#EF4444] border-[#FECACA]";
+  if (imp === "high")   return "bg-[#FFF0EB] text-[#F04E23] border-[#FFC9B8]";
   if (imp === "medium") return "bg-amber-50 text-amber-700 border-amber-200";
   return "bg-[#F7F7F8] text-[#525252] border-[#E5E5E5]";
 }
@@ -147,7 +147,7 @@ export default function CalendarPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
-          <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Economic Calendar</h1>
+          <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Economic Calendar</h1>
           <p className="text-[14px] text-[#525252] mt-1">Upcoming US economic data releases and Federal Reserve decisions</p>
         </div>
         <div className="flex gap-2">
@@ -155,8 +155,8 @@ export default function CalendarPage() {
             <button key={f} onClick={() => setFilter(f)}
               className={`px-4 py-2 rounded-xl text-[13px] font-semibold transition-colors ${
                 filter === f
-                  ? "bg-[#1F65F0] text-white"
-                  : "bg-white text-[#525252] border border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A]"
+                  ? "bg-[#2D8CFF] text-white"
+                  : "bg-white text-[#525252] border border-[#E5E5E5] hover:border-[#2D8CFF] hover:text-[#0A0A0A]"
               }`}>
               {f === "all" ? "All Events" : "High Impact Only"}
             </button>
@@ -167,21 +167,21 @@ export default function CalendarPage() {
       {/* Next release banner */}
       {nextEvent && !selectedDate && (
         <div className="mb-5 flex items-center gap-3 px-4 py-3 bg-white border border-[#E5E5E5] rounded-2xl">
-          <div className="w-9 h-9 shrink-0 bg-[#EBF2FF] rounded-full flex items-center justify-center">
-            <svg className="w-4 h-4 text-[#1F65F0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-9 h-9 shrink-0 bg-[#EAF4FF] rounded-full flex items-center justify-center">
+            <svg className="w-4 h-4 text-[#2D8CFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" strokeWidth="2" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l4 2" />
             </svg>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-[#1F65F0] uppercase tracking-wider mb-0.5">Next Release</p>
+            <p className="text-[10px] font-semibold text-[#2D8CFF] uppercase tracking-wider mb-0.5">Next Release</p>
             <p className="text-[13px] font-semibold text-[#0A0A0A] truncate">{nextEvent.name}</p>
           </div>
           <div className="shrink-0 text-right">
             <p className="text-[12px] text-[#525252]">{fmtDate(nextEvent.date)}</p>
             {(() => {
               const lbl = countdownLabel(daysUntil(nextEvent.date, today));
-              return lbl ? <p className="text-[12px] font-semibold text-[#1F65F0]">{lbl}</p> : null;
+              return lbl ? <p className="text-[12px] font-semibold text-[#2D8CFF]">{lbl}</p> : null;
             })()}
           </div>
         </div>
@@ -201,7 +201,7 @@ export default function CalendarPage() {
             {!isCurrentMonth && (
               <button
                 onClick={goToToday}
-                className="text-[11px] text-[#1F65F0] font-semibold px-2 py-0.5 rounded-md bg-[#EBF2FF] hover:bg-[#DBE9FF] transition-colors"
+                className="text-[11px] text-[#2D8CFF] font-semibold px-2 py-0.5 rounded-md bg-[#EAF4FF] hover:bg-[#DBE9FF] transition-colors"
               >
                 Today
               </button>
@@ -239,17 +239,17 @@ export default function CalendarPage() {
                 onClick={() => info && handleDayClick(day)}
                 className={`border-r border-b border-[#EBEBEB] relative flex flex-col items-center py-2 transition-colors
                   ${info ? "cursor-pointer" : "cursor-default"}
-                  ${isSelected ? "bg-[#1F65F0]" : isToday ? "bg-[#EBF2FF]" : info ? "hover:bg-[#F7F7F8]" : ""}
+                  ${isSelected ? "bg-[#2D8CFF]" : isToday ? "bg-[#EAF4FF]" : info ? "hover:bg-[#F7F7F8]" : ""}
                 `}
               >
                 <span className={`text-[13px] font-medium leading-none
-                  ${isSelected ? "text-white" : isToday ? "text-[#1F65F0] font-bold" : isPast ? "text-[#D4D4D4]" : "text-[#0A0A0A]"}
+                  ${isSelected ? "text-white" : isToday ? "text-[#2D8CFF] font-bold" : isPast ? "text-[#D4D4D4]" : "text-[#0A0A0A]"}
                 `}>
                   {day}
                 </span>
                 {info && (
                   <span className={`mt-1 w-1.5 h-1.5 rounded-full
-                    ${isSelected ? "bg-white" : isPast ? "bg-[#D4D4D4]" : info.importance === "high" ? "bg-[#EF4444]" : "bg-amber-400"}
+                    ${isSelected ? "bg-white" : isPast ? "bg-[#D4D4D4]" : info.importance === "high" ? "bg-[#F04E23]" : "bg-amber-400"}
                   `} />
                 )}
                 {/* Multi-event count badge */}
@@ -268,7 +268,7 @@ export default function CalendarPage() {
         {/* Legend */}
         <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#F0F0F0]">
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#EF4444]" />
+            <span className="w-2 h-2 rounded-full bg-[#F04E23]" />
             <span className="text-[11px] text-[#525252]">High impact</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -280,7 +280,7 @@ export default function CalendarPage() {
             <span className="text-[11px] text-[#525252]">Multiple events</span>
           </div>
           {selectedDate && (
-            <button onClick={() => setSelectedDate(null)} className="ml-auto text-[11px] text-[#1F65F0] font-semibold hover:underline">
+            <button onClick={() => setSelectedDate(null)} className="ml-auto text-[11px] text-[#2D8CFF] font-semibold hover:underline">
               Clear selection
             </button>
           )}
@@ -289,17 +289,17 @@ export default function CalendarPage() {
 
       {/* Selected date banner */}
       {selectedDate && (
-        <div className="mb-4 px-4 py-3 bg-[#EBF2FF] border border-[#1F65F0]/20 rounded-xl flex items-center justify-between">
-          <span className="text-[13px] font-semibold text-[#1F65F0]">
+        <div className="mb-4 px-4 py-3 bg-[#EAF4FF] border border-[#2D8CFF]/20 rounded-xl flex items-center justify-between">
+          <span className="text-[13px] font-semibold text-[#2D8CFF]">
             {fmtDate(selectedDate)}
             {selectedDays !== null && selectedDays < 0 && (
-              <span className="ml-2 text-[11px] font-normal text-[#6B96E8]">· Past</span>
+              <span className="ml-2 text-[11px] font-normal text-[#8EC1FF]">· Past</span>
             )}
             {selectedDays === 0 && (
-              <span className="ml-2 text-[11px] font-normal text-[#6B96E8]">· Today</span>
+              <span className="ml-2 text-[11px] font-normal text-[#8EC1FF]">· Today</span>
             )}
           </span>
-          <button onClick={() => setSelectedDate(null)} className="text-[12px] text-[#1F65F0] font-semibold hover:underline">
+          <button onClick={() => setSelectedDate(null)} className="text-[12px] text-[#2D8CFF] font-semibold hover:underline">
             Show all
           </button>
         </div>
@@ -350,7 +350,7 @@ function EventCard({ event: e, today }: { event: CalEvent; today: Date }) {
   return (
     <div className={`flex items-start gap-4 rounded-2xl p-4 border ${
       days === 0
-        ? "bg-[#EBF2FF] border-[#1F65F0]/20"
+        ? "bg-[#EAF4FF] border-[#2D8CFF]/20"
         : isPast
         ? "bg-[#F7F7F8] border-[#E5E5E5] opacity-60"
         : "bg-white border-[#E5E5E5]"
@@ -361,8 +361,8 @@ function EventCard({ event: e, today }: { event: CalEvent; today: Date }) {
         {label && (
           <span className={`inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full font-semibold leading-snug ${
             label === "Today"
-              ? "bg-[#1F65F0] text-white"
-              : "bg-[#EBF2FF] text-[#1F65F0]"
+              ? "bg-[#2D8CFF] text-white"
+              : "bg-[#EAF4FF] text-[#2D8CFF]"
           }`}>
             {label}
           </span>

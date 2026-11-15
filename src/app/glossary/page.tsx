@@ -119,7 +119,7 @@ export default function GlossaryPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Glossary</h1>
+        <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Glossary</h1>
         <p className="text-[14px] text-[#525252] mt-1">Plain-English definitions for {terms.length} investing terms</p>
       </div>
 
@@ -132,7 +132,7 @@ export default function GlossaryPage() {
           placeholder="Search terms…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-white border border-[#E5E5E5] rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#1F65F0] focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all"
+          className="w-full bg-white border border-[#E5E5E5] rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#2D8CFF] focus:shadow-[0_0_0_3px_rgba(45,140,255,0.12)] transition-all"
         />
         {search && (
           <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#525252] hover:text-[#0A0A0A] text-[11px] font-medium">

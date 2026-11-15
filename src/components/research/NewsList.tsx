@@ -32,7 +32,7 @@ export default function NewsList({ feed, limit }: { feed: Sourced<NewsFeed>; lim
             <li key={n.id} className="flex gap-2.5">
               <span className="shrink-0 mt-0.5 text-[10px] font-bold text-[#525252] bg-[#F0F0F0] rounded px-1.5 py-0.5 h-fit tabular-nums">N{idx}</span>
               <div className="min-w-0">
-                <a href={n.link} target="_blank" rel="noreferrer" className="text-[13px] font-semibold text-[#0A0A0A] hover:text-[#1F65F0] leading-snug block">
+                <a href={n.link} target="_blank" rel="noreferrer" className="text-[13px] font-semibold text-[#0A0A0A] hover:text-[#2D8CFF] leading-snug block">
                   {n.title}
                 </a>
                 <p className="text-[11px] text-[#525252] mt-0.5">
@@ -42,7 +42,7 @@ export default function NewsList({ feed, limit }: { feed: Sourced<NewsFeed>; lim
                   {n.alsoReportedBy.length > 0 && (
                     <>
                       {" · "}
-                      <button onClick={() => setExpanded(expanded === n.id ? null : n.id)} className="text-[#1F65F0] hover:underline">
+                      <button onClick={() => setExpanded(expanded === n.id ? null : n.id)} className="text-[#2D8CFF] hover:underline">
                         +{n.alsoReportedBy.length} more source{n.alsoReportedBy.length > 1 ? "s" : ""}
                       </button>
                     </>
@@ -52,7 +52,7 @@ export default function NewsList({ feed, limit }: { feed: Sourced<NewsFeed>; lim
                   <ul className="mt-1 space-y-0.5">
                     {n.alsoReportedBy.map((a) => (
                       <li key={a.link}>
-                        <a href={a.link} target="_blank" rel="noreferrer" className="text-[11px] text-[#1F65F0] hover:underline">{a.publisher} ↗</a>
+                        <a href={a.link} target="_blank" rel="noreferrer" className="text-[11px] text-[#2D8CFF] hover:underline">{a.publisher} ↗</a>
                       </li>
                     ))}
                   </ul>
@@ -63,7 +63,7 @@ export default function NewsList({ feed, limit }: { feed: Sourced<NewsFeed>; lim
         })}
       </ol>
       {feed.value.items.length > limit && (
-        <button onClick={() => setShowAll((v) => !v)} className="mt-3 text-[12px] font-semibold text-[#1F65F0] hover:underline">
+        <button onClick={() => setShowAll((v) => !v)} className="mt-3 text-[12px] font-semibold text-[#2D8CFF] hover:underline">
           {showAll ? "Show fewer" : `Show all ${feed.value.items.length} stories`}
         </button>
       )}

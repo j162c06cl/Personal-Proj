@@ -12,8 +12,8 @@ export const INTENTS: { value: WatchIntent; label: string; hint: string }[] = [
 
 export const TAGS: { value: WatchTag; label: string; cls: string }[] = [
   { value: "researching", label: "Researching", cls: "bg-[#F5F3FF] text-[#5B21B6] border-[#DDD6FE]" },
-  { value: "watching",    label: "Watching",    cls: "bg-[#EFF6FF] text-[#1E40AF] border-[#BFDBFE]" },
-  { value: "setup-ready", label: "Setup ready", cls: "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]" },
+  { value: "watching",    label: "Watching",    cls: "bg-[#EAF4FF] text-[#0B5CB5] border-[#BBD9FF]" },
+  { value: "setup-ready", label: "Setup ready", cls: "bg-[#E7F8EC] text-[#007A2B] border-[#B5E8C4]" },
   { value: "archived",    label: "Archived",    cls: "bg-[#F5F5F5] text-[#525252] border-[#E5E5E5]" },
 ];
 
@@ -109,8 +109,8 @@ export default function WatchButton({
         title={watching ? `On ${onLists.map((l) => l.name).join(", ")}` : "Add to a watchlist"}
         className={`${btn} rounded-xl font-semibold border transition-colors whitespace-nowrap ${
           watching
-            ? "bg-[#EBF2FF] text-[#1F65F0] border-[#C7DAFE] hover:bg-[#DCE8FF]"
-            : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A]"
+            ? "bg-[#EAF4FF] text-[#2D8CFF] border-[#BBD9FF] hover:bg-[#DCE8FF]"
+            : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#2D8CFF] hover:text-[#0A0A0A]"
         }`}
       >
         {watching ? `✓ Watching${onLists.length > 1 ? ` · ${onLists.length} lists` : size === "md" ? ` · ${onLists[0].name}` : ""}` : "+ Watch"}
@@ -124,7 +124,7 @@ export default function WatchButton({
           <select
             value={listId}
             onChange={(e) => setListId(e.target.value)}
-            className="w-full mb-2 px-2.5 py-2 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#1F65F0]"
+            className="w-full mb-2 px-2.5 py-2 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#2D8CFF]"
           >
             {(all ?? []).map((l) => (
               <option key={l.id} value={l.id}>{l.name}{l.items.some((i) => i.ticker === ticker) ? " (already on it)" : ""}</option>
@@ -136,7 +136,7 @@ export default function WatchButton({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="New list name"
-              className="w-full mb-2 px-3 py-2 text-[13px] border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#1F65F0]"
+              className="w-full mb-2 px-3 py-2 text-[13px] border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#2D8CFF]"
             />
           )}
 
@@ -148,7 +148,7 @@ export default function WatchButton({
                 type="button"
                 title={o.hint}
                 onClick={() => setIntent(o.value)}
-                className={`flex-1 px-2 py-1.5 rounded-lg text-[12px] font-semibold border ${intent === o.value ? "bg-[#1F65F0] text-white border-[#1F65F0]" : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3]"}`}
+                className={`flex-1 px-2 py-1.5 rounded-full text-[12px] font-semibold border ${intent === o.value ? "bg-[#2D8CFF] text-white border-[#2D8CFF]" : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3]"}`}
               >
                 {o.label}
               </button>
@@ -162,7 +162,7 @@ export default function WatchButton({
                 key={t.value}
                 type="button"
                 onClick={() => setTag(t.value)}
-                className={`px-2 py-1 rounded-lg text-[12px] font-semibold border ${tag === t.value ? t.cls + " ring-2 ring-[#1F65F0]/30" : "bg-white text-[#737373] border-[#E5E5E5] hover:border-[#A3A3A3]"}`}
+                className={`px-2 py-1 rounded-lg text-[12px] font-semibold border ${tag === t.value ? t.cls + " ring-2 ring-[#2D8CFF]/30" : "bg-white text-[#737373] border-[#E5E5E5] hover:border-[#A3A3A3]"}`}
               >
                 {t.label}
               </button>
@@ -175,12 +175,12 @@ export default function WatchButton({
             onChange={(e) => setNote(e.target.value)}
             rows={3}
             placeholder="What caught your eye? e.g. pulled back to its 50-day average"
-            className="w-full px-3 py-2 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#1F65F0] resize-none"
+            className="w-full px-3 py-2 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#2D8CFF] resize-none"
           />
           <p className="text-[11px] text-[#A3A3A3] mt-1">Add a thesis, target and invalidation level on the Watchlist page.</p>
           <div className="flex justify-end gap-2 mt-3">
-            <button onClick={() => setOpen(false)} className="px-3 py-1.5 text-[13px] text-[#525252] border border-[#E5E5E5] rounded-xl hover:border-[#0A0A0A]">Cancel</button>
-            <button onClick={save} disabled={saving || !all} className="px-3 py-1.5 text-[13px] bg-[#1F65F0] text-white rounded-xl font-semibold hover:bg-[#1550D8] disabled:opacity-50">
+            <button onClick={() => setOpen(false)} className="px-3 py-1.5 text-[13px] text-[#525252] border border-[#E5E5E5] rounded-xl hover:border-[#2D8CFF]">Cancel</button>
+            <button onClick={save} disabled={saving || !all} className="px-3 py-1.5 text-[13px] bg-[#2D8CFF] text-white rounded-full font-semibold hover:bg-[#1A73E0] disabled:opacity-50">
               {saving ? "Saving…" : "Save"}
             </button>
           </div>

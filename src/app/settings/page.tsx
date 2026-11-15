@@ -5,6 +5,7 @@ import { useMoney, useSettings } from "@/hooks/useSettings";
 import { exportBackup, importBackup } from "@/lib/store";
 import { clearCache, FeedStatus, getDataStatus } from "@/lib/data";
 import { BaseCurrency, Settings, Strategy } from "@/lib/types";
+import SettingsTabs from "@/components/SettingsTabs";
 
 const SECTORS = [
   "Technology", "Communication", "Consumer Disc.", "Consumer Staples", "Financials",
@@ -35,15 +36,15 @@ function Segmented<T extends string | number>({
   options, value, onChange,
 }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div className="inline-flex items-center bg-[#EBEBEB] rounded-xl p-1 gap-0.5">
+    <div className="inline-flex items-center rounded-full p-0.5 gap-0.5">
       {options.map((o) => (
         <button
           key={String(o.value)}
           onClick={() => onChange(o.value)}
-          className={`px-4 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+          className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all duration-150 ${
             value === o.value
-              ? "bg-white text-[#0A0A0A] font-semibold shadow-sm border border-[#E5E5E5]"
-              : "text-[#525252] hover:text-[#0A0A0A]"
+              ? "bg-[#2D8CFF] text-white font-semibold"
+              : "text-[#2D8CFF] hover:bg-[#EAF4FF]"
           }`}
         >
           {o.label}
@@ -114,13 +115,15 @@ export default function SettingsPage() {
     <div className="max-w-3xl">
       <div className="flex items-end justify-between mb-6">
         <div>
-          <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Settings</h1>
+          <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Settings</h1>
           <p className="text-[14px] text-[#525252] mt-1">Everything here is stored on this device only.</p>
         </div>
-        <span className={`text-[13px] font-semibold text-[#22C55E] transition-opacity ${savedFlash ? "opacity-100" : "opacity-0"}`}>
+        <span className={`text-[13px] font-semibold text-[#00B341] transition-opacity ${savedFlash ? "opacity-100" : "opacity-0"}`}>
           ✓ Saved
         </span>
       </div>
+
+      <SettingsTabs />
 
       <div className="space-y-5">
         <Card title="Investor profile" subtitle="Used to personalise your dashboard, screener presets and research pages.">
@@ -142,8 +145,8 @@ export default function SettingsPage() {
                     onClick={() => toggleSector(s)}
                     className={`px-3 py-1.5 rounded-xl text-[13px] font-medium border transition-colors ${
                       on
-                        ? "bg-[#0A0A0A] text-white border-[#0A0A0A]"
-                        : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A]"
+                        ? "bg-[#2D8CFF] text-white border-[#2D8CFF]"
+                        : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#2D8CFF] hover:text-[#0A0A0A]"
                     }`}
                   >
                     {on && "✓ "}{s}
@@ -174,13 +177,13 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleExport}
-              className="px-4 py-2 text-[13px] bg-[#0A0A0A] text-white rounded-xl hover:bg-[#333] font-semibold transition-colors"
+              className="px-4 py-2 text-[13px] bg-[#2D8CFF] text-white rounded-full hover:bg-[#1A73E0] font-semibold transition-colors"
             >
               Export backup
             </button>
             <button
               onClick={() => fileRef.current?.click()}
-              className="px-4 py-2 text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#0A0A0A] hover:text-[#0A0A0A] rounded-xl transition-colors"
+              className="px-4 py-2 text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#2D8CFF] hover:text-[#0A0A0A] rounded-xl transition-colors"
             >
               Import backup…
             </button>
@@ -194,7 +197,7 @@ export default function SettingsPage() {
           </div>
           <p className="text-[12px] text-[#A3A3A3]">Backups include portfolio, watchlists, saved screens, currency and profile. Importing replaces your current data.</p>
           {backupMsg && (
-            <p className={`text-[13px] font-medium ${backupMsg.ok ? "text-[#22C55E]" : "text-[#EF4444]"}`}>{backupMsg.text}</p>
+            <p className={`text-[13px] font-medium ${backupMsg.ok ? "text-[#00B341]" : "text-[#F04E23]"}`}>{backupMsg.text}</p>
           )}
         </Card>
 
@@ -215,13 +218,13 @@ export default function SettingsPage() {
                     return (
                       <tr key={f.feed}>
                         <td className="px-4 py-2.5 font-semibold text-[#0A0A0A]">
-                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${failing ? "bg-[#EF4444]" : "bg-[#22C55E]"}`} />
+                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${failing ? "bg-[#F04E23]" : "bg-[#00B341]"}`} />
                           {f.feed}
                         </td>
                         <td className="px-4 py-2.5 text-[#525252]">{f.source ?? "—"}</td>
                         <td className="px-4 py-2.5 text-[#525252]">{timeAgo(f.lastSuccess)}</td>
                         <td className="px-4 py-2.5 text-[#525252]" title={f.errorMessage ?? ""}>
-                          {f.lastError ? <span className={failing ? "text-[#EF4444]" : ""}>{timeAgo(f.lastError)}</span> : "—"}
+                          {f.lastError ? <span className={failing ? "text-[#F04E23]" : ""}>{timeAgo(f.lastError)}</span> : "—"}
                         </td>
                       </tr>
                     );
@@ -236,7 +239,7 @@ export default function SettingsPage() {
             <span className="text-[13px] text-[#525252]">{status?.cacheEntries ?? 0} cached items</span>
             <button
               onClick={async () => { await clearCache(); setStatus(await getDataStatus()); }}
-              className="text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#EF4444] hover:text-[#EF4444] px-3 py-1.5 rounded-xl transition-colors"
+              className="text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#F04E23] hover:text-[#F04E23] px-3 py-1.5 rounded-xl transition-colors"
             >
               Clear cache
             </button>

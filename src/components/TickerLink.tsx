@@ -3,7 +3,7 @@ import Link from "next/link";
 /** A ticker symbol that opens the stock research page. Use this anywhere a ticker is shown. */
 export default function TickerLink({
   ticker,
-  className = "font-bold text-[#1F65F0]",
+  className = "font-bold text-[#2D8CFF]",
 }: {
   ticker: string;
   className?: string;

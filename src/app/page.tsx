@@ -25,7 +25,7 @@ function fmtIndex(price: number | null, format: string): string {
 }
 
 const signed = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
-const tone = (v: number | null | undefined) => (v == null ? "text-[#A3A3A3]" : v >= 0 ? "text-[#16A34A]" : "text-[#DC2626]");
+const tone = (v: number | null | undefined) => (v == null ? "text-[#A3A3A3]" : v >= 0 ? "text-[#00B341]" : "text-[#F04E23]");
 
 function IndexCard({ d }: { d: IndexData }) {
   const up = (d.changePercent ?? 0) >= 0;
@@ -107,11 +107,11 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Market Overview</h1>
+          <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Market Overview</h1>
           <p className="text-[14px] text-[#525252] mt-1 flex items-center gap-2 flex-wrap">
             <span>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>
-            <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2 py-0.5 rounded-full ${open ? "bg-[#F0FDF4] text-[#166534]" : "bg-[#F7F7F8] text-[#525252]"}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${open ? "bg-[#22C55E]" : "bg-[#A3A3A3]"}`} />
+            <span className={`inline-flex items-center gap-1.5 text-[12px] font-semibold px-2 py-0.5 rounded-full ${open ? "bg-[#E7F8EC] text-[#007A2B]" : "bg-[#F7F7F8] text-[#525252]"}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${open ? "bg-[#00B341]" : "bg-[#A3A3A3]"}`} />
               US market {open ? "open" : "closed"}
             </span>
           </p>
@@ -125,7 +125,7 @@ export default function DashboardPage() {
           <button
             onClick={() => { load(true); setRefreshKey((k) => k + 1); }}
             disabled={loading}
-            className="flex items-center gap-1.5 text-[14px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#0A0A0A] hover:text-[#0A0A0A] px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 text-[14px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#2D8CFF] hover:text-[#0A0A0A] px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
           >
             <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -139,7 +139,7 @@ export default function DashboardPage() {
         {/* Indices */}
         <section>
           {err ? (
-            <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-2xl p-4 text-[13px] text-[#EF4444]">
+            <div className="bg-[#FFF0EB] border border-[#FFC9B8] rounded-2xl p-4 text-[13px] text-[#F04E23]">
               Could not load market data.{" "}
               <button onClick={() => load(true)} className="underline font-semibold">Retry</button>
             </div>
@@ -169,7 +169,7 @@ export default function DashboardPage() {
                         <span className={`font-semibold tabular-nums ${tone(s.changePercent)}`}>{s.changePercent === null ? "—" : signed(s.changePercent)}</span>
                       </span>
                     ))}
-                    <Link href="/settings" className="text-[12px] text-[#1F65F0] hover:underline">Edit</Link>
+                    <Link href="/settings" className="text-[12px] text-[#2D8CFF] hover:underline">Edit</Link>
                   </>
                 )}
               </div>
@@ -190,7 +190,7 @@ export default function DashboardPage() {
                 <ul className="divide-y divide-[#F0F0F0]">
                   {trending.value.news.slice(0, 8).map((n) => (
                     <li key={n.id} className="py-3 first:pt-0 last:pb-0">
-                      <a href={n.link} target="_blank" rel="noreferrer" className="text-[14px] font-semibold text-[#0A0A0A] hover:text-[#1F65F0] leading-snug line-clamp-2">
+                      <a href={n.link} target="_blank" rel="noreferrer" className="text-[14px] font-semibold text-[#0A0A0A] hover:text-[#2D8CFF] leading-snug line-clamp-2">
                         {n.title}
                       </a>
                       <div className="flex items-center gap-2 flex-wrap mt-1">
@@ -199,7 +199,7 @@ export default function DashboardPage() {
                           {n.alsoReportedBy.length > 0 && <span className="text-[#A3A3A3]"> · +{n.alsoReportedBy.length} sources</span>}
                         </span>
                         {n.tickers.map((t) => (
-                          <TickerLink key={t} ticker={t} className="text-[10px] font-bold text-[#1F65F0] bg-[#EBF2FF] rounded px-1.5 py-0.5" />
+                          <TickerLink key={t} ticker={t} className="text-[10px] font-bold text-[#2D8CFF] bg-[#EAF4FF] rounded px-1.5 py-0.5" />
                         ))}
                       </div>
                     </li>
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                       <Link
                         key={t}
                         href={`/stock/${encodeURIComponent(t)}`}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-[#E5E5E5] hover:border-[#1F65F0] text-[12px] transition-colors"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-[#E5E5E5] hover:border-[#2D8CFF] text-[12px] transition-colors"
                       >
                         <span className="font-bold text-[#0A0A0A]">{t}</span>
                         <span className={`font-semibold tabular-nums ${tone(pct)}`}>{pct == null ? "" : signed(pct)}</span>
@@ -234,7 +234,7 @@ export default function DashboardPage() {
 
             <Card
               title="Upcoming events"
-              right={<Link href="/calendar" className="text-[12px] font-semibold text-[#1F65F0] hover:text-[#1550D8]">View all →</Link>}
+              right={<Link href="/calendar" className="text-[12px] font-semibold text-[#2D8CFF] hover:text-[#1A73E0]">View all →</Link>}
             >
               {!upcoming.length ? (
                 <p className="text-[13px] text-[#A3A3A3]">No scheduled releases. See the calendar for more.</p>
@@ -252,7 +252,7 @@ export default function DashboardPage() {
                           <p className="text-[13px] font-semibold text-[#0A0A0A] leading-tight flex items-center gap-1.5">
                             {e.name}
                             {e.importance === "high" && (
-                              <span className="text-[10px] font-semibold bg-[#FEF2F2] text-[#EF4444] px-1.5 py-0.5 rounded-lg border border-[rgba(239,68,68,0.2)]">High</span>
+                              <span className="text-[10px] font-semibold bg-[#FFF0EB] text-[#F04E23] px-1.5 py-0.5 rounded-lg border border-[rgba(239,68,68,0.2)]">High</span>
                             )}
                           </p>
                           <p className="text-[11px] text-[#525252] mt-0.5">{e.time} · {e.description}</p>

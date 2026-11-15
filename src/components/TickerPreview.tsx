@@ -63,12 +63,12 @@ export default function TickerPreview({
   ];
 
   return (
-    <div className="bg-white rounded-2xl border border-[#1F65F0]/30 shadow-[0_4px_24px_rgba(31,101,240,0.08)] p-5">
+    <div className="bg-white rounded-2xl border border-[#2D8CFF]/30 shadow-[0_4px_24px_rgba(45,140,255,0.08)] p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[20px] font-black tracking-tight text-[#0A0A0A]">{ticker}</span>
-            {category && <span className="text-[11px] font-semibold text-[#1F65F0] bg-[#EBF2FF] rounded-lg px-2 py-0.5">{category}</span>}
+            <span className="text-[20px] font-semibold tracking-tight text-[#0A0A0A]">{ticker}</span>
+            {category && <span className="text-[11px] font-semibold text-[#2D8CFF] bg-[#EAF4FF] rounded-lg px-2 py-0.5">{category}</span>}
             {f?.profile.industry && <span className="text-[12px] text-[#525252]">{f.profile.industry}</span>}
             {exchange && <span className="text-[11px] font-semibold text-[#525252] border border-[#E5E5E5] rounded-lg px-1.5 py-0.5">{exchange} · {ccy}</span>}
           </div>
@@ -88,7 +88,7 @@ export default function TickerPreview({
               <>
                 <span className="text-[28px] font-bold tabular-nums tracking-tight text-[#0A0A0A]">{q?.price != null ? formatCurrency(q.price) : "—"}</span>
                 {q?.changePercent != null && (
-                  <span className={`text-[14px] font-semibold tabular-nums ${up ? "text-[#16A34A]" : "text-[#DC2626]"}`}>{formatPercent(q.changePercent)} today</span>
+                  <span className={`text-[14px] font-semibold tabular-nums ${up ? "text-[#00B341]" : "text-[#F04E23]"}`}>{formatPercent(q.changePercent)} today</span>
                 )}
               </>
             )}
@@ -101,7 +101,7 @@ export default function TickerPreview({
                 <span>high {formatCurrency(hi)}</span>
               </div>
               <div className="relative h-1.5 bg-[#F0F0F0] rounded-full">
-                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-[#1F65F0] ring-2 ring-white" style={{ left: `${Math.min(100, Math.max(0, rangePos))}%` }} />
+                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-[#2D8CFF] ring-2 ring-white" style={{ left: `${Math.min(100, Math.max(0, rangePos))}%` }} />
               </div>
             </div>
           )}
@@ -122,13 +122,13 @@ export default function TickerPreview({
       <div className="flex items-center justify-between gap-3 flex-wrap mt-4">
         {quote ? <SourceTag source={quote.source} asOf={quote.asOf} cached={quote.cached} /> : <span />}
         <div className="flex items-center gap-2">
-          <Link href={`/stock/${encodeURIComponent(ticker)}`} className="px-3.5 py-2 text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] rounded-xl hover:border-[#0A0A0A] hover:text-[#0A0A0A]">
+          <Link href={`/stock/${encodeURIComponent(ticker)}`} className="px-3.5 py-2 text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] rounded-xl hover:border-[#2D8CFF] hover:text-[#0A0A0A]">
             Full research →
           </Link>
           {watching ? (
-            <span className="px-3.5 py-2 text-[13px] font-semibold text-[#1F65F0] bg-[#EBF2FF] rounded-xl">✓ On {listName ?? "your watchlist"}</span>
+            <span className="px-3.5 py-2 text-[13px] font-semibold text-[#2D8CFF] bg-[#EAF4FF] rounded-xl">✓ On {listName ?? "your watchlist"}</span>
           ) : (
-            <button onClick={() => onAdd({ category, price: q?.price ?? null, exchange, currency: ccy })} disabled={notFound} className="px-3.5 py-2 text-[13px] font-semibold text-white bg-[#1F65F0] rounded-xl hover:bg-[#1550D8] disabled:opacity-40">
+            <button onClick={() => onAdd({ category, price: q?.price ?? null, exchange, currency: ccy })} disabled={notFound} className="px-3.5 py-2 text-[13px] font-semibold text-white bg-[#2D8CFF] rounded-full hover:bg-[#1A73E0] disabled:opacity-40">
               + Add to {listName ?? "watchlist"}
             </button>
           )}

@@ -24,7 +24,7 @@ function daysUntil(s: string) {
 }
 
 const signed = (v: number, digits = 2) => `${v >= 0 ? "+" : ""}${v.toFixed(digits)}%`;
-const tone = (v: number) => (v >= 0 ? "text-[#16A34A]" : "text-[#DC2626]");
+const tone = (v: number) => (v >= 0 ? "text-[#00B341]" : "text-[#F04E23]");
 
 function Card({ title, subtitle, children, right }: { title: string; subtitle?: string; children: React.ReactNode; right?: React.ReactNode }) {
   return (
@@ -257,9 +257,9 @@ export function PortfolioDay({ positions, quotes }: { positions: PortfolioPositi
             <ul className="space-y-3">
               {news.slice(0, 6).map(({ ticker, item }) => (
                 <li key={item.id} className="flex gap-2.5">
-                  <span className="shrink-0 mt-0.5"><TickerLink ticker={ticker} className="text-[10px] font-bold text-[#1F65F0] bg-[#EBF2FF] rounded px-1.5 py-0.5" /></span>
+                  <span className="shrink-0 mt-0.5"><TickerLink ticker={ticker} className="text-[10px] font-bold text-[#2D8CFF] bg-[#EAF4FF] rounded px-1.5 py-0.5" /></span>
                   <div className="min-w-0">
-                    <a href={item.link} target="_blank" rel="noreferrer" className="text-[13px] font-semibold text-[#0A0A0A] hover:text-[#1F65F0] leading-snug line-clamp-2">
+                    <a href={item.link} target="_blank" rel="noreferrer" className="text-[13px] font-semibold text-[#0A0A0A] hover:text-[#2D8CFF] leading-snug line-clamp-2">
                       {item.title}
                     </a>
                     <p className="text-[11px] text-[#525252] mt-0.5">

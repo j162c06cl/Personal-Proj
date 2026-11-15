@@ -29,7 +29,7 @@ const METRICS: Metric[] = [
   { key: "roe", label: "Return on equity", kind: "pct", value: (y) => ratio(y.netIncome, y.equity) },
 ];
 
-const ACCENT = "#1F65F0";
+const ACCENT = "#2D8CFF";
 
 function fmt(kind: Metric["kind"], v: number | null, ccy: string | null) {
   if (v === null) return "—";
@@ -49,7 +49,7 @@ function SmallChart({ metric, rows, ccy }: { metric: Metric; rows: { fy: string;
         <span className="text-[12px] font-bold text-[#0A0A0A]">{metric.label}</span>
         <span className="text-[12px] tabular-nums text-[#525252]">
           {last ? fmt(metric.kind, last.v, ccy) : "—"}
-          {change !== null && <span className={`ml-1 ${change >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>{change >= 0 ? "+" : ""}{(change * 100).toFixed(0)}% since {first.fy}</span>}
+          {change !== null && <span className={`ml-1 ${change >= 0 ? "text-[#00B341]" : "text-[#F04E23]"}`}>{change >= 0 ? "+" : ""}{(change * 100).toFixed(0)}% since {first.fy}</span>}
         </span>
       </figcaption>
       <div className="h-[110px] mt-1">
@@ -61,7 +61,7 @@ function SmallChart({ metric, rows, ccy }: { metric: Metric; rows: { fy: string;
               <YAxis hide domain={[(min: number) => Math.min(0, min), (max: number) => Math.max(0, max)]} />
               <ReferenceLine y={0} stroke="#D4D4D4" />
               <Tooltip
-                cursor={{ fill: "rgba(31,101,240,0.06)" }}
+                cursor={{ fill: "rgba(45,140,255,0.06)" }}
                 formatter={(v) => [fmt(metric.kind, typeof v === "number" ? v : null, ccy), metric.label]}
                 contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #E5E5E5" }}
               />
@@ -103,9 +103,9 @@ export default function FinancialHistory({
           Fiscal years {years[0]?.date.slice(0, 4)}–{years[years.length - 1]?.date.slice(0, 4)} · {currency ?? "reporting currency"}
           {pe != null && peHist.length > 0 && <> · P/E today <span className="font-semibold text-[#0A0A0A]">{pe.toFixed(1)}</span></>}
         </p>
-        <div className="flex items-center bg-[#F0F0F0] rounded-lg p-0.5" role="group" aria-label="View">
+        <div className="flex items-center rounded-full p-0.5" role="group" aria-label="View">
           {(["charts", "table"] as const).map((v) => (
-            <button key={v} onClick={() => setView(v)} className={`px-2.5 py-1 rounded-md text-[12px] font-semibold capitalize ${view === v ? "bg-white text-[#0A0A0A] shadow-sm" : "text-[#525252]"}`}>{v}</button>
+            <button key={v} onClick={() => setView(v)} className={`px-2.5 py-1 rounded-full text-[12px] font-semibold capitalize ${view === v ? "bg-[#2D8CFF] text-white font-semibold" : "text-[#2D8CFF] hover:bg-[#EAF4FF]"}`}>{v}</button>
           ))}
         </div>
       </div>

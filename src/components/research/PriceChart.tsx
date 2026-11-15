@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import {
-  Area, Bar, ComposedChart, CartesianGrid, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, Bar, ComposedChart, CartesianGrid, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { ChartRange, PricePoint } from "@/lib/types";
 
@@ -49,15 +49,18 @@ export default function PriceChart({
   showSma,
   showVolume,
   currencySymbol = "$",
+  minimal = false,
 }: {
   rows: Row[];
   range: ChartRange;
   showSma: boolean;
   showVolume: boolean;
   currencySymbol?: string;
+  /** Just the price line over a dotted start-of-period baseline: no axes, grid or fill */
+  minimal?: boolean;
 }) {
   const up = rows.length > 1 && rows[rows.length - 1].c >= rows[0].c;
-  const color = up ? "#22C55E" : "#EF4444";
+  const color = up ? "#00B341" : "#F04E23";
   const changePct = rows.length > 1 ? ((rows[rows.length - 1].c - rows[0].c) / rows[0].c) * 100 : null;
 
   const maxVol = useMemo(() => Math.max(...rows.map((r) => r.v ?? 0)), [rows]);
@@ -68,21 +71,23 @@ export default function PriceChart({
 
   return (
     <div>
-      {changePct !== null && (
-        <p className={`text-[13px] font-semibold mb-2 ${up ? "text-[#22C55E]" : "text-[#EF4444]"}`}>
-          {up ? "+" : ""}{changePct.toFixed(2)}% over this period
+      {changePct !== null && !minimal && (
+        <p className={`text-[13px] font-semibold mb-2 ${up ? "text-[#00B341]" : "text-[#F04E23]"}`}>
+          {up ? "▲" : "▼"} {Math.abs(changePct).toFixed(2)}% <span className="font-normal text-[#525252]">over this period</span>
         </p>
       )}
-      <ResponsiveContainer width="100%" height={showVolume ? 320 : 280}>
-        <ComposedChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={minimal ? 240 : showVolume ? 320 : 280}>
+        <ComposedChart data={rows} margin={minimal ? { top: 8, right: 0, left: 0, bottom: 8 } : { top: 4, right: 8, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="priceFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+              <stop offset="0%" stopColor={color} stopOpacity={0.12} />
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+          {!minimal && <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />}
+          {minimal && <ReferenceLine yAxisId="p" y={rows[0].c} stroke="#C8C8C8" strokeDasharray="2 4" />}
           <XAxis
+            hide={minimal}
             dataKey="t"
             ticks={monthTicks(rows, range)}
             tickFormatter={(t: string) => fmtTick(t, range)}
@@ -93,6 +98,7 @@ export default function PriceChart({
           />
           <YAxis
             yAxisId="p"
+            hide={minimal}
             orientation="right"
             domain={["auto", "auto"]}
             tickFormatter={(v: number) => `${currencySymbol}${v >= 1000 ? v.toFixed(0) : v.toFixed(2)}`}
@@ -120,13 +126,13 @@ export default function PriceChart({
             dataKey="c"
             name="Close"
             stroke={color}
-            strokeWidth={2}
-            fill="url(#priceFill)"
+            strokeWidth={minimal ? 1.75 : 2}
+            fill={minimal ? "none" : "url(#priceFill)"}
             dot={false}
             isAnimationActive={false}
           />
           {showSma && (
-            <Line yAxisId="p" type="monotone" dataKey="sma50" name="50-day avg" stroke="#1F65F0" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />
+            <Line yAxisId="p" type="monotone" dataKey="sma50" name="50-day avg" stroke="#7C5CFC" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />
           )}
           {showSma && (
             <Line yAxisId="p" type="monotone" dataKey="sma200" name="200-day avg" stroke="#F59E0B" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} />
@@ -135,7 +141,7 @@ export default function PriceChart({
       </ResponsiveContainer>
       {showSma && (
         <div className="flex items-center gap-4 mt-1 text-[11px] text-[#525252]">
-          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#1F65F0] inline-block" />50-day average</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#7C5CFC] inline-block" />50-day average</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-[#F59E0B] inline-block" />200-day average</span>
         </div>
       )}

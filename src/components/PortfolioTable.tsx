@@ -60,7 +60,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
           <tbody className="divide-y divide-[#F0F0F0]">
             {positions.map((p) => {
               const pl = p.profitLoss ?? 0;
-              const plColor = pl >= 0 ? "text-[#22C55E]" : "text-[#EF4444]";
+              const plColor = pl >= 0 ? "text-[#00B341]" : "text-[#F04E23]";
               return (
                 <tr key={p.id} className="hover:bg-[#F7F7F8] transition-colors group">
                   <td className="px-4 py-3"><TickerLink ticker={p.ticker} /></td>
@@ -88,7 +88,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
                           <span className="text-[11px] text-[#525252] whitespace-nowrap">Delete?</span>
                           <button
                             onClick={() => { setPendingDelete(null); onDelete?.(p.id); }}
-                            className="text-[11px] px-2 py-0.5 bg-[#EF4444] text-white rounded-lg hover:bg-[#DC2626] font-semibold transition-colors"
+                            className="text-[11px] px-2 py-0.5 bg-[#F04E23] text-white rounded-lg hover:bg-[#F04E23] font-semibold transition-colors"
                           >
                             Yes
                           </button>
@@ -104,7 +104,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
                           {onEdit && (
                             <button
                               onClick={() => onEdit(p)}
-                              className="text-[#A3A3A3] hover:text-[#1F65F0] transition-colors"
+                              className="text-[#A3A3A3] hover:text-[#2D8CFF] transition-colors"
                               title="Edit position"
                             >
                               <PencilIcon />
@@ -113,7 +113,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
                           {onDelete && (
                             <button
                               onClick={() => setPendingDelete(p.id)}
-                              className="text-[#A3A3A3] hover:text-[#EF4444] transition-colors"
+                              className="text-[#A3A3A3] hover:text-[#F04E23] transition-colors"
                               title="Delete position"
                             >
                               <TrashIcon />
@@ -134,13 +134,13 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
       <div className="sm:hidden flex flex-col gap-3">
         {positions.map((p) => {
           const pl = p.profitLoss ?? 0;
-          const plColor = pl >= 0 ? "text-[#22C55E]" : "text-[#EF4444]";
+          const plColor = pl >= 0 ? "text-[#00B341]" : "text-[#F04E23]";
           return (
             <div key={p.id} className="bg-white rounded-2xl p-4 border border-[#E5E5E5]">
               <div className="flex items-start justify-between mb-2">
                 <div>
                   <div className="flex items-center gap-2">
-                    <TickerLink ticker={p.ticker} className="font-bold text-[#1F65F0] text-[15px]" />
+                    <TickerLink ticker={p.ticker} className="font-bold text-[#2D8CFF] text-[15px]" />
                     <span className="text-[#A3A3A3] text-[11px]">{p.quantity} shares</span>
                   </div>
                   <p className="text-[#525252] text-[11px] mt-0.5">{p.name}</p>
@@ -148,7 +148,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
                 </div>
                 <div className="text-right shrink-0">
                   {p.error ? (
-                    <span className="text-[#EF4444] text-[11px]">Unavailable</span>
+                    <span className="text-[#F04E23] text-[11px]">Unavailable</span>
                   ) : (
                     <>
                       <p className="font-bold text-[#0A0A0A] tabular-nums">{fmt(p.currentPrice)}</p>
@@ -185,7 +185,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
                     <span className="text-[11px] text-[#525252]">Delete {p.ticker}?</span>
                     <button
                       onClick={() => { setPendingDelete(null); onDelete?.(p.id); }}
-                      className="text-[11px] px-2.5 py-1 bg-[#EF4444] text-white rounded-xl hover:bg-[#DC2626] font-semibold transition-colors"
+                      className="text-[11px] px-2.5 py-1 bg-[#F04E23] text-white rounded-xl hover:bg-[#F04E23] font-semibold transition-colors"
                     >
                       Delete
                     </button>
@@ -201,7 +201,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
                     {onEdit && (
                       <button
                         onClick={() => onEdit(p)}
-                        className="text-[11px] text-[#A3A3A3] hover:text-[#1F65F0] flex items-center gap-1.5 transition-colors"
+                        className="text-[11px] text-[#A3A3A3] hover:text-[#2D8CFF] flex items-center gap-1.5 transition-colors"
                       >
                         <PencilIcon />
                         Edit
@@ -210,7 +210,7 @@ export default function PortfolioTable({ positions, onEdit, onDelete, fmt = form
                     {onDelete && (
                       <button
                         onClick={() => setPendingDelete(p.id)}
-                        className="text-[11px] text-[#A3A3A3] hover:text-[#EF4444] flex items-center gap-1.5 transition-colors"
+                        className="text-[11px] text-[#A3A3A3] hover:text-[#F04E23] flex items-center gap-1.5 transition-colors"
                       >
                         <TrashIcon />
                         Delete

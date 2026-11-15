@@ -123,7 +123,7 @@ export default function PortfolioPage() {
       .map((p) => ({
         ticker: p.ticker,
         pl: parseFloat((p.profitLoss ?? 0).toFixed(2)),
-        fill: (p.profitLoss ?? 0) >= 0 ? "#22C55E" : "#EF4444",
+        fill: (p.profitLoss ?? 0) >= 0 ? "#00B341" : "#F04E23",
       })),
     [enriched]
   );
@@ -177,7 +177,7 @@ export default function PortfolioPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Portfolio</h1>
+          <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Portfolio</h1>
           <p className="text-[14px] text-[#525252] mt-1">
             {positions.length} position{positions.length !== 1 ? "s" : ""}
           </p>
@@ -187,7 +187,7 @@ export default function PortfolioPage() {
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="flex items-center gap-1.5 text-[14px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#0A0A0A] hover:text-[#0A0A0A] px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
+              className="flex items-center gap-1.5 text-[14px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#2D8CFF] hover:text-[#0A0A0A] px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
             >
               <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -197,7 +197,7 @@ export default function PortfolioPage() {
           )}
           <button
             onClick={handleOpenAdd}
-            className="px-4 py-2 text-[14px] bg-[#1F65F0] text-white rounded-xl hover:bg-[#1550D8] font-semibold flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2 text-[14px] bg-[#2D8CFF] text-white rounded-full hover:bg-[#1A73E0] font-semibold flex items-center gap-1.5 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -210,15 +210,15 @@ export default function PortfolioPage() {
       {/* Empty state */}
       {positions.length === 0 ? (
         <div className="text-center py-20">
-          <div className="w-16 h-16 bg-[#EBF2FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-[#1F65F0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-16 h-16 bg-[#EAF4FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-[#2D8CFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
           <p className="text-[14px] text-[#525252] mb-5">No positions yet. Add your first holding to get started.</p>
           <button
             onClick={handleOpenAdd}
-            className="px-5 py-2.5 bg-[#1F65F0] text-white text-[14px] rounded-xl hover:bg-[#1550D8] font-semibold transition-colors"
+            className="px-5 py-2.5 bg-[#2D8CFF] text-white text-[14px] rounded-full hover:bg-[#1A73E0] font-semibold transition-colors"
           >
             Add First Position
           </button>
@@ -231,10 +231,10 @@ export default function PortfolioPage() {
             <GrowthChart positions={positions} quotes={usdQuotes} toUsd={toUsd} />
           </div>
 
-          <h2 className="text-[20px] font-black tracking-tight text-[#0A0A0A] mt-10 mb-4">Your holdings today</h2>
+          <h2 className="text-[20px] font-semibold tracking-tight text-[#0A0A0A] mt-10 mb-4">Your holdings today</h2>
           <PortfolioDay positions={positions} quotes={quotesLoaded ? usdQuotes : null} />
 
-          <h2 className="text-[20px] font-black tracking-tight text-[#0A0A0A] mt-10 mb-4">Positions</h2>
+          <h2 className="text-[20px] font-semibold tracking-tight text-[#0A0A0A] mt-10 mb-4">Positions</h2>
           {/* Table */}
           {loading && enriched.every((e) => e.currentPrice === null) ? (
             <LoadingSpinner text="Fetching market data…" />
@@ -289,7 +289,7 @@ export default function PortfolioPage() {
                       />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
                       <Bar dataKey="Cost Basis" fill="#D4D4D4" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                      <Bar dataKey="Current Value" fill="#22C55E" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                      <Bar dataKey="Current Value" fill="#00B341" radius={[4, 4, 0, 0]} maxBarSize={32} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

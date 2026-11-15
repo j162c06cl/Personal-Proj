@@ -68,7 +68,7 @@ export default function CalculatorForm({ onResult, onClear }: Props) {
             onChange={(e) => { setDate(e.target.value); onClear(); }} className={inputCls} />
         </div>
         <button type="submit" disabled={loading}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold px-4 py-2.5 rounded-lg transition-colors text-sm">
+          className="bg-[#2D8CFF] hover:bg-[#1A73E0] disabled:opacity-50 text-white font-semibold px-4 py-2.5 rounded-full transition-colors text-sm">
           {loading ? "Calculating..." : "Calculate Return"}
         </button>
       </div>

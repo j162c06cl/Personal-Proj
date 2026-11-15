@@ -1,3 +1,5 @@
+import type { Benchmarks } from "./ratings";
+
 export interface PortfolioPosition {
   id: string;
   ticker: string;
@@ -188,6 +190,8 @@ export interface InvestorProfile {
 export interface Settings {
   baseCurrency: BaseCurrency;
   profile: InvestorProfile;
+  /** Lines that colour a stock's numbers green / grey / red and drive the Buy / Hold / Sell call */
+  benchmarks: Benchmarks;
 }
 
 // Every value that comes out of the data layer carries where it came from and when.

@@ -32,7 +32,7 @@ export default function GlossaryCard({ term, definition, example }: GlossaryCard
         <div className="px-5 pb-5">
           <p className="text-[13px] text-[#525252] leading-relaxed">{definition}</p>
           {example && (
-            <p className="mt-3 text-[12px] text-[#525252] bg-[#EBF2FF] rounded-xl p-3 border-l-2 border-[#1F65F0]">
+            <p className="mt-3 text-[12px] text-[#525252] bg-[#EAF4FF] rounded-xl p-3 border-l-2 border-[#2D8CFF]">
               <span className="font-semibold text-[#0A0A0A]">Example: </span>{example}
             </p>
           )}

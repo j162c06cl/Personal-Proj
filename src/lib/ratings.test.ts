@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  overallCall, pegRatio, rateDebtToEquity, rateMACD, ratePE, ratePEvsHistory, ratePriceVsAverage, rateRSI, signalOf, Signal,
+  Benchmarks, DEFAULT_BENCHMARKS, normalizeBenchmarks, overallCall, pegRatio, rateDebtToEquity, rateGrowth, rateMACD, ratePE,
+  ratePEvsHistory, ratePriceVsAverage, rateRSI, signalOf, Signal,
 } from "./ratings";
 
 const s = (good: number, neutral: number, bad: number): Signal => signalOf([
@@ -72,5 +73,43 @@ describe("roll-up", () => {
   it("holds when the numbers are mixed", () => {
     const signals = { financials: s(3, 1, 2), valuation: s(1, 2, 2), technical: s(2, 2, 2), risks: s(2, 1, 1) };
     expect(overallCall(signals, "long-term")?.call).toBe("Hold");
+  });
+});
+
+describe("benchmarks", () => {
+  const custom = (over: Partial<Benchmarks["bands"]>): Benchmarks =>
+    ({ ...DEFAULT_BENCHMARKS, bands: { ...DEFAULT_BENCHMARKS.bands, ...over } });
+
+  it("rates against the user's lines, and says so in the note", () => {
+    const loose = custom({ pe: { good: 25, bad: 50 } });
+    expect(ratePE(40)?.rating).toBe("bad");
+    expect(ratePE(40, loose)).toEqual({ rating: "neutral", note: "Around market levels (25–50)" });
+    expect(ratePE(20, loose)?.rating).toBe("good");
+  });
+
+  it("compares fractions against percent benchmarks without float noise", () => {
+    expect(rateGrowth(0.1)?.rating).toBe("good");
+    expect(rateGrowth(0.29, custom({ growth: { good: 29, bad: 0 } }))?.rating).toBe("good");
+  });
+
+  it("uses the user's weights and Buy / Sell line", () => {
+    const signals = { financials: s(6, 0, 0), valuation: s(4, 0, 0), technical: s(0, 0, 6), risks: s(1, 2, 1) };
+    const chartOnly: Benchmarks = { ...DEFAULT_BENCHMARKS, weights: { ...DEFAULT_BENCHMARKS.weights, "long-term": { financials: 0, valuation: 0, technical: 1, risks: 0 } } };
+    expect(overallCall(signals, "long-term", chartOnly)?.call).toBe("Sell");
+    const mixed = { financials: s(3, 1, 2), valuation: s(1, 2, 2), technical: s(2, 2, 2), risks: s(2, 1, 1) };
+    expect(overallCall(mixed, "long-term", { ...DEFAULT_BENCHMARKS, callThreshold: 0.01 })?.call).toBe("Buy");
+  });
+
+  it("fills missing values and drops invalid ones when loading", () => {
+    const b = normalizeBenchmarks({
+      bands: { pe: { good: 20, bad: 40 }, roe: { good: 2, bad: 10 } }, // roe's lines are the wrong way round
+      weights: { swing: { financials: 0, valuation: 0, technical: 0, risks: 0 } },
+      callThreshold: 5,
+    });
+    expect(b.bands.pe).toEqual({ good: 20, bad: 40 });
+    expect(b.bands.roe).toEqual(DEFAULT_BENCHMARKS.bands.roe);
+    expect(b.weights.swing).toEqual(DEFAULT_BENCHMARKS.weights.swing);
+    expect(b.callThreshold).toBe(DEFAULT_BENCHMARKS.callThreshold);
+    expect(normalizeBenchmarks(undefined)).toEqual(DEFAULT_BENCHMARKS);
   });
 });

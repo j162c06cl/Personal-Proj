@@ -3,11 +3,13 @@
 
 import { dbGet, dbSet } from "./db";
 import { DEFAULT_WATCHLISTS, PORTFOLIO_PRESETS } from "./presets";
+import { DEFAULT_BENCHMARKS, normalizeBenchmarks } from "./ratings";
 import { PortfolioPosition, SavedScreen, Settings, WatchIntent, WatchTag, Watchlist, WatchlistDef, WatchlistItem } from "./types";
 
 export const DEFAULT_SETTINGS: Settings = {
   baseCurrency: "USD",
   profile: { strategy: "long-term", researchMinutes: 15, sectors: [] },
+  benchmarks: DEFAULT_BENCHMARKS,
 };
 
 // ── One-time migration from the old localStorage keys ──────────────────────
@@ -204,6 +206,7 @@ function mergeSettings(partial: Partial<Settings> | undefined): Settings {
   return {
     baseCurrency: partial?.baseCurrency ?? DEFAULT_SETTINGS.baseCurrency,
     profile: { ...DEFAULT_SETTINGS.profile, ...partial?.profile },
+    benchmarks: normalizeBenchmarks(partial?.benchmarks),
   };
 }
 
@@ -260,7 +263,7 @@ export async function exportBackup(): Promise<Backup> {
     portfolio,
     watchlists,
     screens,
-    settings: { baseCurrency: settings.baseCurrency, profile: settings.profile },
+    settings: { baseCurrency: settings.baseCurrency, profile: settings.profile, benchmarks: settings.benchmarks },
   };
 }
 

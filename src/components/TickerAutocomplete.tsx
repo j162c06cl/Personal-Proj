@@ -160,7 +160,7 @@ export default function TickerAutocomplete({
               onMouseDown={(e) => { e.preventDefault(); handleSelect(s); }}
               onMouseEnter={() => setHighlighted(i)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
-                i === highlighted ? "bg-blue-50" : "hover:bg-gray-50"
+                i === highlighted ? "bg-[#EAF4FF]" : "hover:bg-gray-50"
               } ${i > 0 ? "border-t border-gray-100" : ""}`}
             >
               <span className="font-bold text-sm text-gray-900 min-w-[4rem] shrink-0 font-mono">{s.ticker}</span>

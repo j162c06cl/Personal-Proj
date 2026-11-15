@@ -50,7 +50,7 @@ const STRATEGIES: { id: ScreenStrategy; title: string; blurb: string; icon: stri
 const setupsFor = (s: ScreenStrategy): Setup[] => (s === "swing" ? SWING_PRESETS : LONG_TERM_PRESETS);
 
 const TONE_CLS: Record<Reason["tone"], string> = {
-  good: "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]",
+  good: "bg-[#E7F8EC] text-[#007A2B] border-[#B5E8C4]",
   warn: "bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]",
   neutral: "bg-[#F7F7F8] text-[#404040] border-[#E5E5E5]",
 };
@@ -62,7 +62,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 
 function Chg({ v }: { v: number | null | undefined }) {
   if (v === null || v === undefined) return <span className="text-[#A3A3A3]">—</span>;
-  return <span className={`font-semibold tabular-nums ${v >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>{formatPercent(v)}</span>;
+  return <span className={`font-semibold tabular-nums ${v >= 0 ? "text-[#00B341]" : "text-[#F04E23]"}`}>{formatPercent(v)}</span>;
 }
 
 function signalsOf(r: ScreenerRow, x: Extra): Signals {
@@ -392,7 +392,7 @@ export default function ScreenerPage() {
         { key: "price", label: "Price", render: (r) => money(r, r.row.price) },
         { key: "changePercent", label: "Today", render: (r) => <Chg v={r.row.changePercent} /> },
         { key: "change1m", label: "1 month", title: "Looked up for the largest candidates when a filter needs it", render: (r) => r.extra.change1m != null ? <Chg v={r.extra.change1m} /> : <span className="text-[#A3A3A3]">—</span> },
-        { key: "relVolume", label: "Rel vol", title: "Latest volume ÷ 3-month average", render: (r) => r.row.relVolume != null ? <span className={r.row.relVolume >= 1.5 ? "text-[#16A34A] font-semibold" : "text-[#525252]"}>{r.row.relVolume.toFixed(2)}×</span> : "—" },
+        { key: "relVolume", label: "Rel vol", title: "Latest volume ÷ 3-month average", render: (r) => r.row.relVolume != null ? <span className={r.row.relVolume >= 1.5 ? "text-[#00B341] font-semibold" : "text-[#525252]"}>{r.row.relVolume.toFixed(2)}×</span> : "—" },
         { key: "volume", label: "Volume", render: (r) => formatVolume(r.row.volume) },
         { key: "rsi14", label: "RSI", title: "RSI(14), calculated from daily closes", render: (r) => r.extra.rsi14 != null ? <span className={r.extra.rsi14 >= 70 || r.extra.rsi14 <= 30 ? "text-[#D97706] font-semibold" : ""}>{r.extra.rsi14.toFixed(0)}</span> : <span className="text-[#A3A3A3]">—</span> },
         {
@@ -415,7 +415,7 @@ export default function ScreenerPage() {
 
   const thCls = (key: SortKey) =>
     `px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap cursor-pointer select-none transition-colors ${
-      sk === key ? "text-[#1F65F0] bg-[#EBF2FF]" : "text-[#525252] hover:text-[#0A0A0A] hover:bg-[#F7F7F8]"
+      sk === key ? "text-[#2D8CFF] bg-[#EAF4FF]" : "text-[#525252] hover:text-[#0A0A0A] hover:bg-[#F7F7F8]"
     }`;
 
   const marketDef = MARKETS.find((m) => m.id === market)!;
@@ -426,21 +426,21 @@ export default function ScreenerPage() {
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Stock Screener</h1>
+          <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Stock Screener</h1>
           <p className="text-[14px] text-[#525252] mt-0.5">Choose how you invest first. Each strategy has its own setups, filters and rules.</p>
         </div>
         {strategy && (
           <div className="flex items-center gap-2 self-start sm:self-auto">
-            <div className="inline-flex items-center bg-[#EBEBEB] rounded-xl p-1 gap-0.5" role="group" aria-label="Market">
+            <div className="inline-flex items-center rounded-full p-0.5 gap-0.5" role="group" aria-label="Market">
               {MARKETS.map((m) => (
                 <button key={m.id} onClick={() => { setMarket(m.id); setExtra({}); inflight.current.clear(); }}
-                  className={`px-3 py-1.5 rounded-lg text-[13px] font-medium ${market === m.id ? "bg-white text-[#0A0A0A] font-semibold shadow-sm" : "text-[#525252] hover:text-[#0A0A0A]"}`}>
+                  className={`px-3 py-1.5 rounded-full text-[13px] font-medium ${market === m.id ? "bg-[#2D8CFF] text-white font-semibold" : "text-[#2D8CFF] hover:bg-[#EAF4FF]"}`}>
                   {m.label}
                 </button>
               ))}
             </div>
             <button onClick={() => load(true)} disabled={loading}
-              className="flex items-center gap-1.5 text-[13px] font-semibold text-white bg-[#1F65F0] hover:bg-[#1550D8] px-4 py-2 rounded-xl disabled:opacity-60 transition-colors">
+              className="flex items-center gap-1.5 text-[13px] font-semibold text-white bg-[#2D8CFF] hover:bg-[#1A73E0] px-4 py-2 rounded-full disabled:opacity-60 transition-colors">
               <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
@@ -458,12 +458,12 @@ export default function ScreenerPage() {
             const on = strategy === s.id;
             return (
               <button key={s.id} onClick={() => chooseStrategy(s.id)} aria-pressed={on}
-                className={`text-left rounded-2xl border px-4 py-3.5 transition-all ${on ? "border-[#1F65F0] bg-[#F5F8FF] shadow-[0_0_0_3px_rgba(31,101,240,0.10)]" : "border-[#E5E5E5] bg-white hover:border-[#A3A3A3]"}`}>
+                className={`text-left rounded-2xl border px-4 py-3.5 transition-all ${on ? "border-[#2D8CFF] bg-[#F4F9FF] shadow-[0_0_0_3px_rgba(45,140,255,0.10)]" : "border-[#E5E5E5] bg-white hover:border-[#A3A3A3]"}`}>
                 <span className="flex items-center gap-2.5">
-                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${on ? "bg-[#1F65F0] text-white" : "bg-[#F0F0F0] text-[#525252]"}`}>
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${on ? "bg-[#2D8CFF] text-white" : "bg-[#F0F0F0] text-[#525252]"}`}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={s.icon} /></svg>
                   </span>
-                  <span className={`text-[16px] font-bold ${on ? "text-[#1F65F0]" : "text-[#0A0A0A]"}`}>{s.title}</span>
+                  <span className={`text-[16px] font-bold ${on ? "text-[#2D8CFF]" : "text-[#0A0A0A]"}`}>{s.title}</span>
                 </span>
                 <span className="block text-[13px] text-[#525252] mt-1.5">{s.blurb}</span>
               </button>
@@ -490,8 +490,8 @@ export default function ScreenerPage() {
                 const on = setupId === p.id;
                 return (
                   <button key={p.id ?? "none"} onClick={() => setSetupId(p.id)} aria-pressed={on}
-                    className={`text-left rounded-xl border px-3.5 py-3 transition-all ${on ? "border-[#1F65F0] bg-[#F5F8FF] shadow-[0_0_0_3px_rgba(31,101,240,0.10)]" : "border-[#E5E5E5] hover:border-[#A3A3A3] bg-white"}`}>
-                    <span className={`text-[14px] font-bold ${on ? "text-[#1F65F0]" : "text-[#0A0A0A]"}`}>{p.name}</span>
+                    className={`text-left rounded-xl border px-3.5 py-3 transition-all ${on ? "border-[#2D8CFF] bg-[#F4F9FF] shadow-[0_0_0_3px_rgba(45,140,255,0.10)]" : "border-[#E5E5E5] hover:border-[#A3A3A3] bg-white"}`}>
+                    <span className={`text-[14px] font-bold ${on ? "text-[#2D8CFF]" : "text-[#0A0A0A]"}`}>{p.name}</span>
                     <span className="block text-[12px] text-[#525252] mt-1 leading-snug">{p.summary}</span>
                   </button>
                 );
@@ -504,22 +504,22 @@ export default function ScreenerPage() {
               {strategyScreens.length === 0 && <span className="text-[12px] text-[#A3A3A3]">None yet for {strategy === "swing" ? "swing trading" : "long-term investing"}</span>}
               {strategyScreens.map((s) => (
                 <button key={s.id} onClick={() => loadScreen(s)} title={`${MARKETS.find((m) => m.id === s.market)?.label} · saved ${new Date(s.updatedAt).toLocaleDateString()}`}
-                  className={`px-3 py-1 rounded-full text-[12px] font-semibold border transition-all ${activeScreen === s.id ? "bg-[#1F65F0] text-white border-[#1F65F0]" : "bg-[#F7F7F8] text-[#525252] border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A]"}`}>
+                  className={`px-3 py-1 rounded-full text-[12px] font-semibold border transition-all ${activeScreen === s.id ? "bg-[#2D8CFF] text-white border-[#2D8CFF]" : "bg-[#F7F7F8] text-[#525252] border-[#E5E5E5] hover:border-[#2D8CFF] hover:text-[#0A0A0A]"}`}>
                   {s.name}{s.market !== "US" ? ` · ${s.market}` : ""}
                 </button>
               ))}
               <span className="flex-1" />
               {active ? (
                 <span className="flex items-center gap-1.5 flex-wrap">
-                  {dirty && <button onClick={updateActive} className="px-3 py-1 rounded-full text-[12px] font-semibold text-white bg-[#1F65F0] hover:bg-[#1550D8]">Save changes to &ldquo;{active.name}&rdquo;</button>}
-                  <button onClick={() => { setSaveMode("new"); setSaveName(`${active.name} (copy)`); }} className="px-3 py-1 rounded-full text-[12px] font-semibold text-[#525252] border border-[#E5E5E5] hover:border-[#0A0A0A]">Save as new</button>
-                  <button onClick={() => { setSaveMode("rename"); setSaveName(active.name); }} className="px-3 py-1 rounded-full text-[12px] font-semibold text-[#525252] border border-[#E5E5E5] hover:border-[#0A0A0A]">Rename</button>
-                  <button onClick={deleteActive} className="px-3 py-1 rounded-full text-[12px] font-semibold text-[#DC2626] border border-[#E5E5E5] hover:border-[#DC2626]">Delete</button>
+                  {dirty && <button onClick={updateActive} className="px-3 py-1 rounded-full text-[12px] font-semibold text-white bg-[#2D8CFF] hover:bg-[#1A73E0]">Save changes to &ldquo;{active.name}&rdquo;</button>}
+                  <button onClick={() => { setSaveMode("new"); setSaveName(`${active.name} (copy)`); }} className="px-3 py-1 rounded-full text-[12px] font-semibold text-[#525252] border border-[#E5E5E5] hover:border-[#2D8CFF]">Save as new</button>
+                  <button onClick={() => { setSaveMode("rename"); setSaveName(active.name); }} className="px-3 py-1 rounded-full text-[12px] font-semibold text-[#525252] border border-[#E5E5E5] hover:border-[#2D8CFF]">Rename</button>
+                  <button onClick={deleteActive} className="px-3 py-1 rounded-full text-[12px] font-semibold text-[#F04E23] border border-[#E5E5E5] hover:border-[#F04E23]">Delete</button>
                 </span>
               ) : (
                 <button onClick={() => { setSaveMode("new"); setSaveName(""); }} disabled={!setupId && !activeFilters.length}
                   title={!setupId && !activeFilters.length ? "Pick a setup or set some filters first" : "Save this screen"}
-                  className="px-3 py-1 rounded-full text-[12px] font-semibold text-[#525252] border border-dashed border-[#D4D4D4] hover:border-[#1F65F0] hover:text-[#1F65F0] disabled:opacity-40">
+                  className="px-3 py-1 rounded-full text-[12px] font-semibold text-[#525252] border border-dashed border-[#D4D4D4] hover:border-[#2D8CFF] hover:text-[#2D8CFF] disabled:opacity-40">
                   + Save this screen
                 </button>
               )}
@@ -531,7 +531,7 @@ export default function ScreenerPage() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E5E5]">
               <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">3 · Filters <span className="normal-case tracking-normal font-normal text-[#A3A3A3]">· {strategy === "swing" ? "swing" : "long-term"} filters only</span></span>
               {(activeFilters.length > 0 || setupId) && (
-                <button onClick={() => { setFilters({}); setSetupId(null); setActiveScreen(null); }} className="text-[11px] text-[#EF4444] hover:text-[#DC2626] font-semibold">Reset</button>
+                <button onClick={() => { setFilters({}); setSetupId(null); setActiveScreen(null); }} className="text-[11px] text-[#F04E23] hover:text-[#F04E23] font-semibold">Reset</button>
               )}
             </div>
             <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -541,7 +541,7 @@ export default function ScreenerPage() {
                     {f.label}{f.needs && f.key !== "sector" ? " *" : ""}
                   </label>
                   <select id={`f-${f.key}`} value={filters[f.key] ?? ""} onChange={(e) => setFilter(f.key, e.target.value)}
-                    className={`w-full rounded-xl px-2.5 py-2 text-[13px] border focus:outline-none transition-all ${filters[f.key] ? "bg-[#EBF2FF] text-[#1F65F0] border-[#1F65F0]" : "bg-[#F7F7F8] text-[#0A0A0A] border-[#E5E5E5] focus:border-[#1F65F0] focus:bg-white"}`}>
+                    className={`w-full rounded-xl px-2.5 py-2 text-[13px] border focus:outline-none transition-all ${filters[f.key] ? "bg-[#EAF4FF] text-[#2D8CFF] border-[#2D8CFF]" : "bg-[#F7F7F8] text-[#0A0A0A] border-[#E5E5E5] focus:border-[#2D8CFF] focus:bg-white"}`}>
                     <option value="">Any</option>
                     {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -551,9 +551,9 @@ export default function ScreenerPage() {
             {activeFilters.length > 0 && (
               <div className="px-4 pb-3 flex flex-wrap gap-1.5">
                 {activeFilters.map((f) => (
-                  <span key={f.key} className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 bg-[#EBF2FF] border border-[#1F65F0]/20 text-[#1F65F0] text-[11px] font-semibold rounded-full">
+                  <span key={f.key} className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 bg-[#EAF4FF] border border-[#2D8CFF]/20 text-[#2D8CFF] text-[11px] font-semibold rounded-full">
                     <span className="opacity-60">{f.label}:</span> {optionLabel(f.key, filters[f.key])}
-                    <button onClick={() => setFilter(f.key, "")} className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#1F65F0]/10" aria-label={`Clear ${f.label}`}>×</button>
+                    <button onClick={() => setFilter(f.key, "")} className="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#2D8CFF]/10" aria-label={`Clear ${f.label}`}>×</button>
                   </span>
                 ))}
               </div>
@@ -568,7 +568,7 @@ export default function ScreenerPage() {
           <div className="flex items-center justify-between gap-3 flex-wrap mb-2 px-0.5">
             <div className="text-[13px] text-[#525252]">
               {data === undefined || (loading && !data) ? "Loading…" : !data ? (
-                <span className="text-[#EF4444]">Screener data unavailable. Try Refresh in a moment.</span>
+                <span className="text-[#F04E23]">Screener data unavailable. Try Refresh in a moment.</span>
               ) : (
                 <>
                   <span className="font-semibold text-[#0A0A0A]">{displayed.length}</span>
@@ -577,7 +577,7 @@ export default function ScreenerPage() {
                     {" "}· {setup ? `${setup.name} setup` : active ? active.name : activeFilters.length ? "custom filters" : `${marketDef.label} stocks`}
                     {" "}· checked {needs.size ? `the ${lookupSet.length} largest of ${quoteStage.length} candidates` : `${data.value.results.length} stocks`}
                   </span>
-                  {pending > 0 && <span className="ml-2 text-[#1F65F0]">Looking up {pending} more…</span>}
+                  {pending > 0 && <span className="ml-2 text-[#2D8CFF]">Looking up {pending} more…</span>}
                 </>
               )}
             </div>
@@ -585,19 +585,19 @@ export default function ScreenerPage() {
               {lists && displayed.length > 0 && (
                 <span className="flex items-center gap-1.5">
                   <select value={bulkList} onChange={(e) => setBulkList(e.target.value)} aria-label="Watchlist to add results to"
-                    className="px-2 py-1.5 text-[12px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#1F65F0]">
+                    className="px-2 py-1.5 text-[12px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#2D8CFF]">
                     {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                   </select>
-                  <button onClick={addAllToList} className="px-3 py-1.5 text-[12px] font-semibold text-[#1F65F0] border border-[#C7DAFE] bg-[#F5F8FF] rounded-xl hover:bg-[#EBF2FF]">
+                  <button onClick={addAllToList} className="px-3 py-1.5 text-[12px] font-semibold text-[#2D8CFF] border border-[#BBD9FF] bg-[#F4F9FF] rounded-xl hover:bg-[#EAF4FF]">
                     + Add all {displayed.length}
                   </button>
                 </span>
               )}
               <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Find in these results…" aria-label="Find a ticker or company in these results"
-                className="w-52 bg-white border border-[#E5E5E5] rounded-xl px-3 py-1.5 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#1F65F0]" />
+                className="w-52 bg-white border border-[#E5E5E5] rounded-xl px-3 py-1.5 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#2D8CFF]" />
             </div>
           </div>
-          {bulkMsg && <p className="text-[12px] text-[#166534] mb-2 px-0.5">✓ {bulkMsg}</p>}
+          {bulkMsg && <p className="text-[12px] text-[#007A2B] mb-2 px-0.5">✓ {bulkMsg}</p>}
           {data?.value.coverage === "universe" && (
             <p className="text-[12px] text-[#92400E] bg-[#FFFBEB] border border-[#FDE68A] rounded-xl px-3 py-2 mb-2">
               {market === "US"
@@ -629,7 +629,7 @@ export default function ScreenerPage() {
                   ) : !data ? (
                     <tr><td colSpan={columns.length + 4} className="py-20 text-center">
                       <p className="text-[#0A0A0A] font-semibold text-[13px] mb-1">Screener unavailable</p>
-                      <button onClick={() => load(true)} className="mt-2 text-[13px] font-semibold text-white bg-[#1F65F0] hover:bg-[#1550D8] px-4 py-2 rounded-xl">Retry</button>
+                      <button onClick={() => load(true)} className="mt-2 text-[13px] font-semibold text-white bg-[#2D8CFF] hover:bg-[#1A73E0] px-4 py-2 rounded-full">Retry</button>
                     </td></tr>
                   ) : displayed.length === 0 ? (
                     <tr><td colSpan={columns.length + 4} className="py-16 text-center">
@@ -648,7 +648,7 @@ export default function ScreenerPage() {
                     const isOpen = expanded === r.row.ticker;
                     return (
                       <Fragment key={r.row.ticker}>
-                        <tr className={`transition-colors ${isOpen ? "bg-[#F5F8FF]" : "hover:bg-[#F7F7F8]"}`}>
+                        <tr className={`transition-colors ${isOpen ? "bg-[#F4F9FF]" : "hover:bg-[#F7F7F8]"}`}>
                           <td className="pl-4 pr-1 py-2.5 text-[11px] text-[#A3A3A3] tabular-nums">{i + 1}</td>
                           <td className="px-3 py-2.5 max-w-[200px]">
                             <span className="flex items-center gap-1.5"><TickerLink ticker={r.row.ticker} />{r.row.currency && r.row.currency !== "USD" && <span className="text-[10px] font-semibold text-[#737373] border border-[#E5E5E5] rounded px-1">{r.row.currency}</span>}</span>
@@ -659,7 +659,7 @@ export default function ScreenerPage() {
                             {all.length ? (
                               <button onClick={() => setExpanded(isOpen ? null : r.row.ticker)} className="flex items-center gap-1.5 text-left w-full group" title="Why am I seeing this?">
                                 <span className={`text-[11px] font-medium px-2 py-0.5 rounded-lg border truncate ${TONE_CLS[all[0].tone]}`}>{all[0].text}</span>
-                                {all.length > 1 && <span className="text-[11px] font-semibold text-[#1F65F0] shrink-0 group-hover:underline">+{all.length - 1}</span>}
+                                {all.length > 1 && <span className="text-[11px] font-semibold text-[#2D8CFF] shrink-0 group-hover:underline">+{all.length - 1}</span>}
                               </button>
                             ) : <span className="text-[11px] text-[#A3A3A3]">—</span>}
                           </td>
@@ -676,7 +676,7 @@ export default function ScreenerPage() {
                           </td>
                         </tr>
                         {isOpen && (
-                          <tr className="bg-[#F5F8FF]">
+                          <tr className="bg-[#F4F9FF]">
                             <td />
                             <td colSpan={columns.length + 3} className="px-3 pb-4 pt-1">
                               <p className="text-[12px] font-bold text-[#0A0A0A] mb-2">Why am I seeing {r.row.ticker}?</p>
@@ -691,7 +691,7 @@ export default function ScreenerPage() {
                                   <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-1.5">For your portfolio</p>
                                   {ctx.length ? (
                                     <ul className="space-y-1">{ctx.map((x) => (
-                                      <li key={x.text} className={`text-[13px] ${x.tone === "warn" ? "text-[#92400E]" : x.tone === "good" ? "text-[#166534]" : "text-[#262626]"}`}>{x.tone === "warn" ? "⚠" : "•"} {x.text}</li>
+                                      <li key={x.text} className={`text-[13px] ${x.tone === "warn" ? "text-[#92400E]" : x.tone === "good" ? "text-[#007A2B]" : "text-[#262626]"}`}>{x.tone === "warn" ? "⚠" : "•"} {x.text}</li>
                                     ))}</ul>
                                   ) : <p className="text-[13px] text-[#A3A3A3]">{extra[r.row.ticker]?.industry !== undefined ? "No overlap with your holdings or watchlists." : "Looking up sector…"}</p>}
                                 </div>
@@ -720,17 +720,17 @@ export default function ScreenerPage() {
       {saveMode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl border border-[#E5E5E5] shadow-2xl p-6 w-full max-w-sm mx-4">
-            <h2 className="text-[18px] font-black text-[#0A0A0A] mb-1">{saveMode === "rename" ? "Rename screen" : "Save screen"}</h2>
+            <h2 className="text-[18px] font-semibold text-[#0A0A0A] mb-1">{saveMode === "rename" ? "Rename screen" : "Save screen"}</h2>
             <p className="text-[13px] text-[#525252] mb-4">
               {strategy === "swing" ? "Swing" : "Long-term"} · {marketDef.label}{setup ? ` · ${setup.name}` : ""}{activeFilters.length ? ` · ${activeFilters.length} filter${activeFilters.length > 1 ? "s" : ""}` : ""}
             </p>
             <input autoFocus type="text" value={saveName} onChange={(e) => setSaveName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") saveScreen(); if (e.key === "Escape") setSaveMode(null); }}
               placeholder="e.g. SG dividend payers, Tech pullbacks…"
-              className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2.5 text-[13px] focus:outline-none focus:border-[#1F65F0] mb-4" />
+              className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2.5 text-[13px] focus:outline-none focus:border-[#2D8CFF] mb-4" />
             <div className="flex gap-2">
-              <button onClick={() => setSaveMode(null)} className="flex-1 py-2.5 text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] rounded-xl hover:border-[#0A0A0A]">Cancel</button>
-              <button onClick={saveScreen} disabled={!saveName.trim()} className="flex-1 py-2.5 text-[13px] font-semibold text-white bg-[#1F65F0] hover:bg-[#1550D8] rounded-xl disabled:opacity-50">Save</button>
+              <button onClick={() => setSaveMode(null)} className="flex-1 py-2.5 text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] rounded-xl hover:border-[#2D8CFF]">Cancel</button>
+              <button onClick={saveScreen} disabled={!saveName.trim()} className="flex-1 py-2.5 text-[13px] font-semibold text-white bg-[#2D8CFF] hover:bg-[#1A73E0] rounded-full disabled:opacity-50">Save</button>
             </div>
           </div>
         </div>

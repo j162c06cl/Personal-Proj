@@ -16,7 +16,7 @@ interface Props {
 const SECTORS = Object.keys(SECTOR_COLORS);
 
 const inputCls =
-  "w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2.5 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#1F65F0] focus:bg-white focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all";
+  "w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2.5 text-[13px] text-[#0A0A0A] placeholder-[#A3A3A3] focus:outline-none focus:border-[#2D8CFF] focus:bg-white focus:shadow-[0_0_0_3px_rgba(45,140,255,0.12)] transition-all";
 
 export default function PositionForm({ initial, onSave, onCancel }: Props) {
   const [ticker, setTicker] = useState(initial?.ticker ?? "");
@@ -184,7 +184,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
                 type="button"
                 onClick={fetchPriceOnDate}
                 disabled={fetchingPrice}
-                className="text-[11px] bg-[#F7F7F8] border border-[#E5E5E5] hover:border-[#0A0A0A] hover:text-[#0A0A0A] disabled:opacity-50 text-[#525252] font-semibold px-3 py-2.5 rounded-xl whitespace-nowrap transition-colors"
+                className="text-[11px] bg-[#F7F7F8] border border-[#E5E5E5] hover:border-[#2D8CFF] hover:text-[#0A0A0A] disabled:opacity-50 text-[#525252] font-semibold px-3 py-2.5 rounded-xl whitespace-nowrap transition-colors"
               >
                 {fetchingPrice ? "…" : "Fetch"}
               </button>
@@ -206,19 +206,19 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
             />
           </div>
 
-          {error && <p className="text-[12px] text-[#EF4444]">{error}</p>}
+          {error && <p className="text-[12px] text-[#F04E23]">{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 px-4 py-2.5 text-[13px] text-[#525252] border border-[#E5E5E5] bg-white rounded-xl hover:border-[#0A0A0A] hover:text-[#0A0A0A] font-medium transition-colors"
+              className="flex-1 px-4 py-2.5 text-[13px] text-[#525252] border border-[#E5E5E5] bg-white rounded-xl hover:border-[#2D8CFF] hover:text-[#0A0A0A] font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2.5 text-[13px] bg-[#1F65F0] hover:bg-[#1550D8] text-white rounded-xl font-semibold transition-colors"
+              className="flex-1 px-4 py-2.5 text-[13px] bg-[#2D8CFF] hover:bg-[#1A73E0] text-white rounded-full font-semibold transition-colors"
             >
               {initial ? "Save Changes" : "Add Position"}
             </button>

@@ -23,7 +23,7 @@ function InputRow({ label, value, onChange, min, max, step, prefix, suffix }: {
         {prefix && <span className="text-[#525252] text-[13px] font-medium">{prefix}</span>}
         <input type="number" min={min} max={max} step={step ?? 1} value={value}
           onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-          className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2.5 text-[13px] text-[#0A0A0A] focus:outline-none focus:border-[#1F65F0] focus:bg-white focus:shadow-[0_0_0_3px_rgba(31,101,240,0.12)] transition-all" />
+          className="w-full bg-[#F7F7F8] border border-[#E5E5E5] rounded-xl px-3 py-2.5 text-[13px] text-[#0A0A0A] focus:outline-none focus:border-[#2D8CFF] focus:bg-white focus:shadow-[0_0_0_3px_rgba(45,140,255,0.12)] transition-all" />
         {suffix && <span className="text-[#525252] text-[13px] font-medium">{suffix}</span>}
       </div>
     </div>
@@ -32,15 +32,15 @@ function InputRow({ label, value, onChange, min, max, step, prefix, suffix }: {
 
 function StatCard({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
-    <div className={`rounded-2xl p-4 border ${highlight ? "bg-[#EBF2FF] border-[#1F65F0]/20" : "bg-white border-[#E5E5E5]"}`}>
+    <div className={`rounded-2xl p-4 border ${highlight ? "bg-[#EAF4FF] border-[#2D8CFF]/20" : "bg-white border-[#E5E5E5]"}`}>
       <p className="text-[11px] font-semibold text-[#525252] mb-1 uppercase tracking-wider">{label}</p>
-      <p className={`text-[18px] font-bold ${highlight ? "text-[#1F65F0]" : "text-[#0A0A0A]"}`}>{value}</p>
+      <p className={`text-[18px] font-bold ${highlight ? "text-[#2D8CFF]" : "text-[#0A0A0A]"}`}>{value}</p>
       {sub && <p className="text-[10px] text-[#525252] mt-0.5">{sub}</p>}
     </div>
   );
 }
 
-const CHART_COLORS = { personal: "#22C55E", cpf: "#1F65F0", total: "#F59E0B" };
+const CHART_COLORS = { personal: "#00B341", cpf: "#2D8CFF", total: "#F59E0B" };
 
 function formatYAxis(v: number) {
   if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
@@ -67,7 +67,7 @@ export default function RetirementPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A]">Retirement Planner</h1>
+        <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Retirement Planner</h1>
         <p className="text-[14px] text-[#525252] mt-1">Singapore-focused retirement calculator with CPF projection</p>
       </div>
 
@@ -75,13 +75,13 @@ export default function RetirementPage() {
         {/* Inputs */}
         <div className="lg:col-span-1 bg-white rounded-2xl border border-[#E5E5E5] p-5">
           {/* Tab selector */}
-          <div className="flex bg-[#EBEBEB] rounded-xl p-1 gap-0.5 mb-5">
+          <div className="flex rounded-full p-0.5 gap-0.5 mb-5">
             {(["basic", "cpf"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`flex-1 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                className={`flex-1 px-3 py-1.5 rounded-full text-[13px] font-medium transition-all duration-150 ${
                   tab === t
-                    ? "bg-white text-[#0A0A0A] font-semibold shadow-sm border border-[#E5E5E5]"
-                    : "text-[#525252] hover:text-[#0A0A0A]"
+                    ? "bg-[#2D8CFF] text-white font-semibold"
+                    : "text-[#2D8CFF] hover:bg-[#EAF4FF]"
                 }`}>
                 {t === "basic" ? "Personal" : "CPF"}
               </button>
@@ -121,14 +121,14 @@ export default function RetirementPage() {
           </div>
 
           {/* FIRE */}
-          <div className={`rounded-2xl p-4 border ${result.isFireAchieved ? "bg-[#EBF2FF] border-[#1F65F0]/20" : "bg-white border-[#E5E5E5]"}`}>
+          <div className={`rounded-2xl p-4 border ${result.isFireAchieved ? "bg-[#EAF4FF] border-[#2D8CFF]/20" : "bg-white border-[#E5E5E5]"}`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[13px] font-semibold text-[#0A0A0A]">FIRE Number <span className="text-[#525252] font-normal text-[11px]">(25× annual expenses)</span></p>
-                <p className="text-[22px] font-bold text-[#1F65F0] mt-1">{formatLargeNumber(result.fireNumber)}</p>
+                <p className="text-[22px] font-bold text-[#2D8CFF] mt-1">{formatLargeNumber(result.fireNumber)}</p>
               </div>
               <div className="text-right">
-                <p className={`text-[13px] font-semibold ${result.isFireAchieved ? "text-[#1F65F0]" : "text-amber-600"}`}>
+                <p className={`text-[13px] font-semibold ${result.isFireAchieved ? "text-[#2D8CFF]" : "text-amber-600"}`}>
                   {result.isFireAchieved ? "✓ FIRE Achieved" : "Not Yet Achieved"}
                 </p>
                 <p className="text-[11px] text-[#525252] mt-1">
@@ -139,7 +139,7 @@ export default function RetirementPage() {
               </div>
             </div>
             <div className="mt-3 bg-[#EBEBEB] rounded-full h-2">
-              <div className="bg-[#1F65F0] h-2 rounded-full transition-all"
+              <div className="bg-[#2D8CFF] h-2 rounded-full transition-all"
                 style={{ width: `${Math.min(100, (result.totalAtRetirement / result.fireNumber) * 100).toFixed(1)}%` }} />
             </div>
             <p className="text-[11px] text-[#525252] mt-1">{Math.min(100, (result.totalAtRetirement / result.fireNumber) * 100).toFixed(1)}% of FIRE target</p>
@@ -185,14 +185,14 @@ export default function RetirementPage() {
               <div key={s.label} onClick={() => setInputs((p) => ({ ...p, expectedReturn: s.rate }))}
                 className={`rounded-2xl p-4 cursor-pointer transition-all duration-150 border ${
                   isActive
-                    ? "bg-[#EBF2FF] border-[#1F65F0]/30 shadow-[0_4px_16px_rgba(31,101,240,0.12)]"
+                    ? "bg-[#EAF4FF] border-[#2D8CFF]/30 shadow-[0_4px_16px_rgba(45,140,255,0.12)]"
                     : "bg-[#F7F7F8] border-[#E5E5E5] hover:border-[#C8C8C8]"
                 }`}>
                 <div className="flex justify-between items-start mb-3">
                   <p className="font-semibold text-[#0A0A0A] text-[13px]">{s.label}</p>
                   <span className="text-[10px] font-semibold bg-white border border-[#E5E5E5] text-[#525252] px-2 py-0.5 rounded-full">{s.rate}% p.a.</span>
                 </div>
-                <p className="text-[20px] font-bold text-[#1F65F0]">{formatLargeNumber(s.result.totalAtRetirement)}</p>
+                <p className="text-[20px] font-bold text-[#2D8CFF]">{formatLargeNumber(s.result.totalAtRetirement)}</p>
                 <p className="text-[11px] text-[#525252] mt-1">Monthly income: {formatCurrency(s.result.monthlyIncome)}</p>
                 <p className="text-[11px] text-[#525252]">FIRE: {s.result.isFireAchieved ? "✓ Achieved" : "Not reached"}</p>
               </div>

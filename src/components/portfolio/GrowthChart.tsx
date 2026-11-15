@@ -12,7 +12,7 @@ type Period = "3M" | "6M" | "1Y" | "All";
 const PERIODS: Period[] = ["3M", "6M", "1Y", "All"];
 const FIXED: Record<Exclude<Period, "All">, ChartRange> = { "3M": "3mo", "6M": "6mo", "1Y": "1y" };
 
-const VALUE = "#1F65F0";
+const VALUE = "#2D8CFF";
 const INVESTED = "#A3A3A3";
 
 /** Total portfolio value over time against the money put in */
@@ -69,7 +69,7 @@ export default function GrowthChart({ positions, quotes, toUsd = {} }: { positio
           <h2 className="text-[15px] font-bold text-[#0A0A0A]">Portfolio growth</h2>
           {end && gain !== null ? (
             <p className="text-[13px] text-[#525252] mt-0.5">
-              <span className={`font-semibold tabular-nums ${gain >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
+              <span className={`font-semibold tabular-nums ${gain >= 0 ? "text-[#00B341]" : "text-[#F04E23]"}`}>
                 {gain >= 0 ? "+" : "−"}{money.fmt(Math.abs(gain))}
               </span>{" "}
               {period === "All" && startedInRange ? "since your first purchase" : `over ${period === "All" ? "the last 5 years" : `the last ${period}`}`}, not counting money you added
@@ -78,13 +78,13 @@ export default function GrowthChart({ positions, quotes, toUsd = {} }: { positio
             <p className="text-[13px] text-[#525252] mt-0.5">Value of your holdings against the money you put in</p>
           )}
         </div>
-        <div className="flex items-center bg-[#EBEBEB] rounded-xl p-1 gap-0.5" role="group" aria-label="Time period">
+        <div className="flex items-center rounded-full p-0.5 gap-0.5" role="group" aria-label="Time period">
           {PERIODS.map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               aria-pressed={period === p}
-              className={`px-3 py-1 rounded-lg text-[12px] font-semibold transition-all ${period === p ? "bg-white text-[#0A0A0A] shadow-sm" : "text-[#525252] hover:text-[#0A0A0A]"}`}
+              className={`px-3 py-1 rounded-full text-[12px] font-semibold transition-all ${period === p ? "bg-[#2D8CFF] text-white font-semibold" : "text-[#2D8CFF] hover:bg-[#EAF4FF]"}`}
             >
               {p}
             </button>
@@ -126,7 +126,7 @@ export default function GrowthChart({ positions, quotes, toUsd = {} }: { positio
                       <p className="font-semibold text-[#0A0A0A] mb-1">{new Date(p.t + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                       <p className="text-[#525252]">Value <span className="font-semibold text-[#0A0A0A] tabular-nums">{money.fmt(p.value)}</span></p>
                       <p className="text-[#525252]">Invested <span className="font-semibold text-[#0A0A0A] tabular-nums">{money.fmt(p.invested)}</span></p>
-                      <p className="text-[#525252]">Gain <span className={`font-semibold tabular-nums ${diff >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}`}>{diff >= 0 ? "+" : "−"}{money.fmt(Math.abs(diff))}</span></p>
+                      <p className="text-[#525252]">Gain <span className={`font-semibold tabular-nums ${diff >= 0 ? "text-[#00B341]" : "text-[#F04E23]"}`}>{diff >= 0 ? "+" : "−"}{money.fmt(Math.abs(diff))}</span></p>
                     </div>
                   );
                 }}

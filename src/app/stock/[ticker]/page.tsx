@@ -15,7 +15,7 @@ import {
   rateDebtToEquity, rateDrawdown, rateEarningsSoon, rateEvToEbitda, rateForwardPE, rateFreeCashFlow, rateFromHigh,
   rateGrossMargin, rateGrowth, rateMACD, rateNetCash, rateNetMargin, rateOperatingMargin, ratePayout, ratePE, ratePEG,
   ratePEvsHistory, ratePriceToBook, ratePriceToSales, ratePriceVsAverage, rateROE, rateRSI, rateShortInterest, rateTrend,
-  rateVolatility, signalOf, signalTone,
+  rateVolatility, signalOf, signalTone, DEFAULT_BENCHMARKS,
 } from "@/lib/ratings";
 import FinancialHistory from "@/components/research/FinancialHistory";
 import { ResearchSummaryView, Verdicts } from "@/components/research/Verdicts";
@@ -80,12 +80,12 @@ function joinWords(words: string[]) {
 
 // ── Colours: green good, grey neutral, red bad ──────────────────────────────
 
-const TEXT: Record<Rating, string> = { good: "text-[#16A34A]", neutral: "text-[#737373]", bad: "text-[#DC2626]" };
-const DOT: Record<Rating, string> = { good: "bg-[#16A34A]", neutral: "bg-[#A3A3A3]", bad: "bg-[#DC2626]" };
+const TEXT: Record<Rating, string> = { good: "text-[#00A13A]", neutral: "text-[#737373]", bad: "text-[#E8461C]" };
+const DOT: Record<Rating, string> = { good: "bg-[#00B341]", neutral: "bg-[#A3A3A3]", bad: "bg-[#F04E23]" };
 const CALL_STYLE: Record<Call, string> = {
-  Buy: "bg-[#16A34A] text-white",
+  Buy: "bg-[#00B341] text-white",
   Hold: "bg-[#737373] text-white",
-  Sell: "bg-[#DC2626] text-white",
+  Sell: "bg-[#F04E23] text-white",
 };
 
 // ── Building blocks ─────────────────────────────────────────────────────────
@@ -124,11 +124,11 @@ function Metric({ label, value, rated, hint }: MetricDef) {
 function SignalCounts({ s }: { s: Signal }) {
   return (
     <span className="text-[12px] tabular-nums whitespace-nowrap">
-      <span className="text-[#16A34A] font-semibold">{s.good} good</span>
+      <span className="text-[#00B341] font-semibold">{s.good} good</span>
       <span className="text-[#A3A3A3]"> · </span>
       <span className="text-[#737373] font-semibold">{s.neutral} neutral</span>
       <span className="text-[#A3A3A3]"> · </span>
-      <span className="text-[#DC2626] font-semibold">{s.bad} bad</span>
+      <span className="text-[#F04E23] font-semibold">{s.bad} bad</span>
     </span>
   );
 }
@@ -167,13 +167,31 @@ function RangeBar({ low, high, value, labels }: { low: number; high: number; val
   return (
     <div>
       <div className="relative h-1.5 bg-[#EBEBEB] rounded-full">
-        <div className="absolute h-1.5 rounded-full bg-gradient-to-r from-[#FCA5A5] via-[#D4D4D4] to-[#86EFAC]" style={{ width: "100%" }} />
-        <div className="absolute w-3 h-3 -top-[3px] rounded-full bg-[#0A0A0A] border-2 border-white shadow" style={{ left: `calc(${pos}% - 6px)` }} />
+        <div className="absolute h-1.5 rounded-full bg-gradient-to-r from-[#FFC9B8] via-[#D4D4D4] to-[#6FD48F]" style={{ width: "100%" }} />
+        <div className="absolute w-3 h-3 -top-[3px] rounded-full bg-[#2D8CFF] border-2 border-white shadow" style={{ left: `calc(${pos}% - 6px)` }} />
       </div>
       <div className="flex justify-between text-[11px] text-[#525252] mt-1.5 tabular-nums">
         <span>{labels[0]}</span>
         <span>{labels[1]}</span>
       </div>
+    </div>
+  );
+}
+
+const RANGE_WORDS: Partial<Record<ChartRange, string>> = { "1mo": "month", "3mo": "3 months", "6mo": "6 months", "1y": "year", "5y": "5 years" };
+
+/** Accent-coloured text buttons with the chosen one filled */
+function RangePills({ range, onChange }: { range: ChartRange; onChange: (r: ChartRange) => void }) {
+  const on = "bg-[#2D8CFF] text-white";
+  const off = "text-[#2D8CFF] hover:bg-[#EAF4FF]";
+  return (
+    <div className="flex items-center gap-1">
+      {RANGE_LABELS.map((r) => (
+        <button key={r.value} onClick={() => onChange(r.value)}
+          className={`px-3 py-1 rounded-full text-[13px] font-bold transition-colors ${range === r.value ? on : off}`}>
+          {r.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -270,6 +288,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const defaultStrategy: "long-term" | "swing" =
     watchItem?.intent === "swing" || watchItem?.intent === "long-term" ? watchItem.intent : settings?.profile.strategy === "swing" ? "swing" : "long-term";
   const strategy = strategyOverride ?? defaultStrategy;
+  const bm = settings?.benchmarks ?? DEFAULT_BENCHMARKS;
 
   const analysis = useMemo(() => {
     if (quote === undefined || fund === undefined || daily === undefined || fin === undefined) return null;
@@ -310,16 +329,16 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const groups: Record<ScoredTab, Group[]> = {
     financials: f ? [
       { title: "Growth (year over year)", metrics: [
-        { label: "Revenue growth", value: signedPct(revGrowth), rated: rateGrowth(revGrowth) },
-        { label: "Earnings growth", value: signedPct(f.growth.earningsGrowth), rated: rateGrowth(f.growth.earningsGrowth) },
-        { label: "Quarterly EPS growth", value: signedPct(f.growth.earningsQuarterlyGrowth), rated: rateGrowth(f.growth.earningsQuarterlyGrowth) },
+        { label: "Revenue growth", value: signedPct(revGrowth), rated: rateGrowth(revGrowth, bm) },
+        { label: "Earnings growth", value: signedPct(f.growth.earningsGrowth), rated: rateGrowth(f.growth.earningsGrowth, bm) },
+        { label: "Quarterly EPS growth", value: signedPct(f.growth.earningsQuarterlyGrowth), rated: rateGrowth(f.growth.earningsQuarterlyGrowth, bm) },
         { label: "Revenue (TTM)", value: formatLargeNumber(f.growth.totalRevenue) },
       ] },
       { title: "Profitability", metrics: [
-        { label: "Gross margin", value: pct(f.profitability.grossMargin), rated: rateGrossMargin(f.profitability.grossMargin) },
-        { label: "Operating margin", value: pct(f.profitability.operatingMargin), rated: rateOperatingMargin(f.profitability.operatingMargin) },
-        { label: "Net margin", value: pct(f.profitability.profitMargin), rated: rateNetMargin(f.profitability.profitMargin) },
-        { label: "Return on equity", value: pct(roe), rated: rateROE(roe) },
+        { label: "Gross margin", value: pct(f.profitability.grossMargin), rated: rateGrossMargin(f.profitability.grossMargin, bm) },
+        { label: "Operating margin", value: pct(f.profitability.operatingMargin), rated: rateOperatingMargin(f.profitability.operatingMargin, bm) },
+        { label: "Net margin", value: pct(f.profitability.profitMargin), rated: rateNetMargin(f.profitability.profitMargin, bm) },
+        { label: "Return on equity", value: pct(roe), rated: rateROE(roe, bm) },
       ] },
       { title: "Financial health", metrics: [
         {
@@ -329,25 +348,25 @@ export default function StockResearchPage({ params }: { params: { ticker: string
           rated: rateNetCash(f.health.totalCash, f.health.totalDebt),
         },
         // Yahoo reports debt/equity as a percentage (150 = 1.5×)
-        { label: "Debt / equity", value: f.health.debtToEquity === null ? NA : `${(f.health.debtToEquity / 100).toFixed(2)}×`, rated: rateDebtToEquity(f.health.debtToEquity === null ? null : f.health.debtToEquity / 100) },
-        { label: "Current ratio", value: num(f.health.currentRatio), rated: rateCurrentRatio(f.health.currentRatio) },
+        { label: "Debt / equity", value: f.health.debtToEquity === null ? NA : `${(f.health.debtToEquity / 100).toFixed(2)}×`, rated: rateDebtToEquity(f.health.debtToEquity === null ? null : f.health.debtToEquity / 100, bm) },
+        { label: "Current ratio", value: num(f.health.currentRatio), rated: rateCurrentRatio(f.health.currentRatio, bm) },
         { label: "Free cash flow", value: formatLargeNumber(f.health.freeCashflow), rated: rateFreeCashFlow(f.health.freeCashflow) },
       ] },
     ] : [],
 
     valuation: f ? [
       { title: "Price multiples", metrics: [
-        { label: "P/E (trailing)", value: num(pe, 1), rated: ratePE(pe) },
-        { label: "P/E (forward)", value: num(f.valuation.forwardPE, 1), rated: rateForwardPE(f.valuation.forwardPE) },
-        { label: "PEG ratio", value: num(pegRatio(pe, f.growth.earningsGrowth)), rated: ratePEG(pegRatio(pe, f.growth.earningsGrowth)) },
-        { label: "P/E vs 4-yr avg", value: peHistoryAvg === null || pe === null ? NA : `${pe.toFixed(1)} vs ${peHistoryAvg.toFixed(1)}`, rated: ratePEvsHistory(pe, peHistoryAvg) },
-        { label: "Price / sales", value: num(f.valuation.priceToSales, 1), rated: ratePriceToSales(f.valuation.priceToSales) },
-        { label: "Price / book", value: num(f.valuation.priceToBook, 1), rated: ratePriceToBook(f.valuation.priceToBook) },
-        { label: "EV / EBITDA", value: num(f.valuation.evToEbitda, 1), rated: rateEvToEbitda(f.valuation.evToEbitda) },
+        { label: "P/E (trailing)", value: num(pe, 1), rated: ratePE(pe, bm) },
+        { label: "P/E (forward)", value: num(f.valuation.forwardPE, 1), rated: rateForwardPE(f.valuation.forwardPE, bm) },
+        { label: "PEG ratio", value: num(pegRatio(pe, f.growth.earningsGrowth)), rated: ratePEG(pegRatio(pe, f.growth.earningsGrowth), bm) },
+        { label: "P/E vs 4-yr avg", value: peHistoryAvg === null || pe === null ? NA : `${pe.toFixed(1)} vs ${peHistoryAvg.toFixed(1)}`, rated: ratePEvsHistory(pe, peHistoryAvg, bm) },
+        { label: "Price / sales", value: num(f.valuation.priceToSales, 1), rated: ratePriceToSales(f.valuation.priceToSales, bm) },
+        { label: "Price / book", value: num(f.valuation.priceToBook, 1), rated: ratePriceToBook(f.valuation.priceToBook, bm) },
+        { label: "EV / EBITDA", value: num(f.valuation.evToEbitda, 1), rated: rateEvToEbitda(f.valuation.evToEbitda, bm) },
         { label: "Enterprise value", value: formatLargeNumber(f.valuation.enterpriseValue) },
       ] },
       { title: "Analyst targets", metrics: [
-        { label: "Mean target", value: px(f.analysts.targetMean), rated: rateAnalystUpside(upside) },
+        { label: "Mean target", value: px(f.analysts.targetMean), rated: rateAnalystUpside(upside, bm) },
         { label: "Upside to target", value: signedPct(upside), rated: null, hint: f.analysts.count ? `${f.analysts.count} analysts` : undefined },
         { label: "Consensus", value: f.analysts.recommendation ? f.analysts.recommendation.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()) : NA },
         { label: "Target range", value: f.analysts.targetLow !== null && f.analysts.targetHigh !== null ? `${px(f.analysts.targetLow)}–${px(f.analysts.targetHigh)}` : NA },
@@ -363,7 +382,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
         { label: "50 vs 200-day", value: tech.sma50 === null || tech.sma200 === null ? NA : tech.sma50 > tech.sma200 ? "Golden cross" : "Death cross", rated: rateCross(tech.sma50, tech.sma200) },
       ] },
       { title: "Momentum", metrics: [
-        { label: "RSI (14)", value: num(tech.rsi14, 1), rated: rateRSI(tech.rsi14) },
+        { label: "RSI (14)", value: num(tech.rsi14, 1), rated: rateRSI(tech.rsi14, bm) },
         { label: "MACD", value: num(tech.macd), rated: rateMACD(tech.macd, tech.macdSignal, tech.macdCross) },
         {
           label: "Volume vs 50d avg",
@@ -375,21 +394,21 @@ export default function StockResearchPage({ params }: { params: { ticker: string
       { title: "Support & resistance", metrics: [
         { label: "Support (3-mo low)", value: px(tech.support3m), hint: fromPrice(tech.support3m) },
         { label: "Resistance (3-mo high)", value: px(tech.resistance3m), hint: fromPrice(tech.resistance3m) },
-        { label: "From 52-wk high", value: tech.pctFromHigh52 === null ? NA : `${tech.pctFromHigh52.toFixed(1)}%`, rated: rateFromHigh(tech.pctFromHigh52) },
+        { label: "From 52-wk high", value: tech.pctFromHigh52 === null ? NA : `${tech.pctFromHigh52.toFixed(1)}%`, rated: rateFromHigh(tech.pctFromHigh52, bm) },
         { label: "From 52-wk low", value: tech.low52Pct === null ? NA : `+${tech.low52Pct.toFixed(1)}%`, hint: `Low ${px(tech.low52)}` },
       ] },
     ] : [],
 
     risks: [
       { title: "Market risk", metrics: [
-        { label: "Beta", value: num(f?.risk.beta ?? null), rated: rateBeta(f?.risk.beta ?? null) },
-        { label: "Volatility (1y)", value: tech?.volatility1y == null ? NA : `${tech.volatility1y.toFixed(0)}%`, rated: rateVolatility(tech?.volatility1y ?? null) },
-        { label: "Max drawdown (1y)", value: tech?.maxDrawdown1y == null ? NA : `${tech.maxDrawdown1y.toFixed(1)}%`, rated: rateDrawdown(tech?.maxDrawdown1y ?? null) },
-        { label: "Short % of float", value: pct(f?.risk.shortPercentOfFloat ?? null), rated: rateShortInterest(f?.risk.shortPercentOfFloat ?? null) },
+        { label: "Beta", value: num(f?.risk.beta ?? null), rated: rateBeta(f?.risk.beta ?? null, bm) },
+        { label: "Volatility (1y)", value: tech?.volatility1y == null ? NA : `${tech.volatility1y.toFixed(0)}%`, rated: rateVolatility(tech?.volatility1y ?? null, bm) },
+        { label: "Max drawdown (1y)", value: tech?.maxDrawdown1y == null ? NA : `${tech.maxDrawdown1y.toFixed(1)}%`, rated: rateDrawdown(tech?.maxDrawdown1y ?? null, bm) },
+        { label: "Short % of float", value: pct(f?.risk.shortPercentOfFloat ?? null), rated: rateShortInterest(f?.risk.shortPercentOfFloat ?? null, bm) },
       ] },
       { title: "Dividend & events", metrics: [
         { label: "Dividend yield", value: pct(f?.dividend.yield ?? null, 2) },
-        { label: "Payout ratio", value: pct(f?.dividend.payoutRatio ?? null), rated: ratePayout(f?.dividend.payoutRatio ?? null) },
+        { label: "Payout ratio", value: pct(f?.dividend.payoutRatio ?? null), rated: ratePayout(f?.dividend.payoutRatio ?? null, bm) },
         {
           label: "Next earnings",
           value: f?.events.earningsDate ? localDate(f.events.earningsDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : NA,
@@ -404,13 +423,13 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const signals = Object.fromEntries(
     (Object.keys(groups) as ScoredTab[]).map((k) => [k, signalOf(groups[k].flatMap((g) => g.metrics.map((m) => m.rated)))])
   ) as Record<ScoredTab, Signal>;
-  const verdict = overallCall(signals, strategy);
+  const verdict = overallCall(signals, strategy, bm);
   const loadingCall = quote === undefined || fund === undefined || daily === undefined || fin === undefined || weekly === undefined;
 
   const verdictSentence = (() => {
     const tabs = Object.keys(TAB_PHRASE) as ScoredTab[];
-    const strong = tabs.filter((t) => signalTone(signals[t]) === "good");
-    const weak = tabs.filter((t) => signalTone(signals[t]) === "bad");
+    const strong = tabs.filter((t) => signalTone(signals[t], bm) === "good");
+    const weak = tabs.filter((t) => signalTone(signals[t], bm) === "bad");
     const clause = (ts: ScoredTab[], word: string) =>
       `${joinWords(ts.map((t) => TAB_PHRASE[t][0]))} ${ts.length === 1 && !TAB_PHRASE[ts[0]][1] ? "looks" : "look"} ${word}`;
     const parts = [strong.length ? clause(strong, "strong") : "", weak.length ? clause(weak, "weak") : ""].filter(Boolean);
@@ -423,14 +442,18 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   const cost = holdings.reduce((s, h) => s + h.quantity * h.purchasePrice, 0);
   const holdingPL = price !== null && shares ? price * shares - cost : null;
 
+  // Change over the chart's range, for the "past 6 months" line
+  const periodPct = chartRows.length > 1 ? ((chartRows[chartRows.length - 1].c - chartRows[0].c) / chartRows[0].c) * 100 : null;
+  const periodUp = periodPct === null ? up : periodPct >= 0;
+
   const notFound = quote !== undefined && (!q || q.price === null) && fund === null && daily === null;
 
   if (notFound) {
     return (
       <div className="max-w-xl mx-auto text-center py-24">
-        <h1 className="text-[28px] font-black text-[#0A0A0A]">No data for {ticker}</h1>
+        <h1 className="text-[28px] font-semibold text-[#0A0A0A]">No data for {ticker}</h1>
         <p className="text-[14px] text-[#525252] mt-2">Check the symbol, or the data providers may be unavailable right now.</p>
-        <Link href="/" className="inline-block mt-6 px-4 py-2 bg-[#1F65F0] text-white text-[14px] font-semibold rounded-xl">Back to dashboard</Link>
+        <Link href="/" className="inline-block mt-6 px-4 py-2 bg-[#2D8CFF] text-white text-[14px] font-semibold rounded-full">Back to dashboard</Link>
       </div>
     );
   }
@@ -439,19 +462,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
     <Section
       title="Price chart"
       right={
-        <div className="flex items-center bg-[#F0F0F0] rounded-lg p-0.5">
-          {RANGE_LABELS.map((r) => (
-            <button
-              key={r.value}
-              onClick={() => setRange(r.value)}
-              className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-colors ${
-                range === r.value ? "bg-white text-[#0A0A0A] shadow-sm" : "text-[#525252] hover:text-[#0A0A0A]"
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+        <RangePills range={range} onChange={setRange} />
       }
     >
       {daily === undefined || (range === "5y" && weekly === undefined) ? (
@@ -484,10 +495,10 @@ export default function StockResearchPage({ params }: { params: { ticker: string
     <section className="bg-white rounded-2xl border border-[#E5E5E5] p-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">The numbers say</p>
-        <div className="inline-flex items-center bg-[#EBEBEB] rounded-xl p-1 gap-0.5" role="group" aria-label="Judge as">
+        <div className="inline-flex items-center rounded-full p-0.5 gap-0.5" role="group" aria-label="Judge as">
           {(["long-term", "swing"] as const).map((st) => (
             <button key={st} onClick={() => setStrategy(st)}
-              className={`px-3 py-1 rounded-lg text-[12px] font-medium ${strategy === st ? "bg-white text-[#0A0A0A] font-semibold shadow-sm" : "text-[#525252] hover:text-[#0A0A0A]"}`}>
+              className={`px-3 py-1 rounded-full text-[12px] font-medium ${strategy === st ? "bg-[#2D8CFF] text-white font-semibold" : "text-[#2D8CFF] hover:bg-[#EAF4FF]"}`}>
               {st === "long-term" ? "Long-term" : "Swing trade"}
             </button>
           ))}
@@ -498,7 +509,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
         <>
           <div className="flex items-center gap-4 mt-3 flex-wrap">
             {verdict ? (
-              <span className={`text-[28px] font-black tracking-tight px-5 py-1.5 rounded-2xl ${CALL_STYLE[verdict.call]}`}>{verdict.call.toUpperCase()}</span>
+              <span className={`text-[28px] font-semibold tracking-tight px-5 py-1.5 rounded-2xl ${CALL_STYLE[verdict.call]}`}>{verdict.call.toUpperCase()}</span>
             ) : (
               <span className="text-[16px] font-bold px-4 py-2 rounded-2xl bg-[#F0F0F0] text-[#737373]">Not enough data</span>
             )}
@@ -511,16 +522,16 @@ export default function StockResearchPage({ params }: { params: { ticker: string
             {(Object.keys(TAB_PHRASE) as ScoredTab[]).map((k) => {
               const s = signals[k];
               const n = s.good + s.neutral + s.bad;
-              const t = signalTone(s);
+              const t = signalTone(s, bm);
               return (
                 <button key={k} onClick={() => setTab(k)} className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-[#FAFAFA] -mx-2 px-2 rounded-lg">
                   <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${t ? DOT[t] : "bg-[#E5E5E5]"}`} aria-hidden />
                   <span className="text-[13px] font-semibold text-[#0A0A0A] w-24 shrink-0">{TABS.find((x) => x.key === k)!.label}</span>
                   <span className="flex-1 h-2 rounded-full overflow-hidden bg-[#F0F0F0] hidden sm:flex" aria-hidden>
                     {n > 0 && <>
-                      <span className="bg-[#16A34A]" style={{ width: `${(s.good / n) * 100}%` }} />
+                      <span className="bg-[#00B341]" style={{ width: `${(s.good / n) * 100}%` }} />
                       <span className="bg-[#D4D4D4]" style={{ width: `${(s.neutral / n) * 100}%` }} />
-                      <span className="bg-[#DC2626]" style={{ width: `${(s.bad / n) * 100}%` }} />
+                      <span className="bg-[#F04E23]" style={{ width: `${(s.bad / n) * 100}%` }} />
                     </>}
                   </span>
                   {n > 0 ? <SignalCounts s={s} /> : <span className="text-[12px] text-[#A3A3A3]">No data</span>}
@@ -531,12 +542,13 @@ export default function StockResearchPage({ params }: { params: { ticker: string
           </div>
 
           <p className="text-[11px] text-[#737373] mt-4">
-            Each tab&apos;s numbers are rated green, grey or red by simple rules of thumb, then weighted for a {strategy === "long-term" ? "long-term investor (business and valuation count most)" : "swing trader (the chart counts most)"}.
-            A summary of the data, not financial advice.
+            Each tab&apos;s numbers are rated green, grey or red against your benchmarks, then weighted for a {strategy === "long-term" ? "long-term investor (business and valuation count most)" : "swing trader (the chart counts most)"}.
+            A summary of the data, not financial advice.{" "}
+            <Link href="/settings/benchmarks" className="font-semibold text-[#2D8CFF] hover:underline">Change the benchmarks</Link>
           </p>
           {analysis && (
             <div className="mt-3">
-              <button onClick={() => setShowChecklist((v) => !v)} className="text-[12px] font-semibold text-[#1F65F0] hover:underline">
+              <button onClick={() => setShowChecklist((v) => !v)} className="text-[12px] font-semibold text-[#2D8CFF] hover:underline">
                 {showChecklist ? "Hide the strategy checklist" : "See the strategy checklist"}
               </button>
               {showChecklist && <div className="mt-3"><Verdicts long={analysis.long} swing={analysis.swing} primary={strategy} /></div>}
@@ -615,14 +627,14 @@ export default function StockResearchPage({ params }: { params: { ticker: string
           {f?.profile.summary ? (
             <>
               <p className={`text-[14px] leading-relaxed text-[#262626] ${showFullSummary ? "" : "line-clamp-4"}`}>{f.profile.summary}</p>
-              <button onClick={() => setShowFullSummary((v) => !v)} className="text-[12px] font-semibold text-[#1F65F0] mt-1">{showFullSummary ? "Show less" : "Read more"}</button>
+              <button onClick={() => setShowFullSummary((v) => !v)} className="text-[12px] font-semibold text-[#2D8CFF] mt-1">{showFullSummary ? "Show less" : "Read more"}</button>
             </>
           ) : <p className="text-[13px] text-[#A3A3A3]">No business description available.</p>}
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-[#525252] mt-3">
             {f?.profile.industry && <span><span className="font-semibold text-[#0A0A0A]">Industry:</span> {f.profile.industry}</span>}
             {f?.profile.country && <span><span className="font-semibold text-[#0A0A0A]">HQ:</span> {f.profile.country}</span>}
             {f?.profile.employees && <span><span className="font-semibold text-[#0A0A0A]">Employees:</span> {f.profile.employees.toLocaleString()}</span>}
-            {f?.profile.website && <a href={f.profile.website} target="_blank" rel="noreferrer" className="text-[#1F65F0] hover:underline">{f.profile.website.replace(/^https?:\/\//, "")}</a>}
+            {f?.profile.website && <a href={f.profile.website} target="_blank" rel="noreferrer" className="text-[#2D8CFF] hover:underline">{f.profile.website.replace(/^https?:\/\//, "")}</a>}
           </div>
           {fund && <div className="mt-2">{sourceLine(fund)}</div>}
         </>
@@ -636,7 +648,6 @@ export default function StockResearchPage({ params }: { params: { ticker: string
         {callCard}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
-            {chart(false)}
             <Section title="Strengths & weaknesses">
               {analysis ? <ResearchSummaryView summary={analysis.summary} groups={["strengths", "weaknesses"]} limit={3} /> : <Skeleton h={160} />}
             </Section>
@@ -701,7 +712,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
               {([["1M", tech.returns.m1], ["3M", tech.returns.m3], ["6M", tech.returns.m6], ["YTD", tech.returns.ytd], ["1Y", tech.returns.y1]] as const).map(([label, v]) => (
                 <div key={label} className="rounded-xl bg-[#F7F7F8] px-2 py-2 text-center">
                   <p className="text-[11px] font-semibold text-[#525252]">{label}</p>
-                  <p className={`text-[15px] font-bold tabular-nums ${v === null ? "text-[#A3A3A3]" : v > 0 ? "text-[#16A34A]" : v < 0 ? "text-[#DC2626]" : "text-[#737373]"}`}>
+                  <p className={`text-[15px] font-bold tabular-nums ${v === null ? "text-[#A3A3A3]" : v > 0 ? "text-[#00B341]" : v < 0 ? "text-[#F04E23]" : "text-[#737373]"}`}>
                     {v === null ? NA : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
                   </p>
                 </div>
@@ -743,46 +754,64 @@ export default function StockResearchPage({ params }: { params: { ticker: string
   };
 
   const headline: MetricDef[] = [
-    { label: "P/E", value: num(pe, 1), rated: ratePE(pe) },
-    { label: "Revenue growth", value: signedPct(revGrowth), rated: rateGrowth(revGrowth) },
-    { label: "Return on equity", value: pct(roe), rated: rateROE(roe) },
+    { label: "P/E", value: num(pe, 1), rated: ratePE(pe, bm) },
+    { label: "Revenue growth", value: signedPct(revGrowth), rated: rateGrowth(revGrowth, bm) },
+    { label: "Return on equity", value: pct(roe), rated: rateROE(roe, bm) },
     { label: "Trend", value: tech?.trend ?? NA, rated: rateTrend(tech?.trend ?? null) },
   ];
 
   return (
     <div className="max-w-[1280px] mx-auto">
       {/* ── Header ── */}
-      <button onClick={() => window.history.back()} className="text-[13px] font-medium text-[#525252] hover:text-[#0A0A0A] mb-4">← Back</button>
+      <div className="flex items-center justify-between mb-2">
+        <button onClick={() => window.history.back()} aria-label="Back" className="-ml-2 p-2 rounded-full text-[#2D8CFF] hover:bg-[#EAF4FF] transition-colors">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M15 18l-6-6 6-6" /></svg>
+        </button>
+        {verdict && !loadingCall && (
+          <button onClick={() => setTab("overview")} title={`${verdict.call} for a ${strategy === "long-term" ? "long-term investor" : "swing trader"}`}
+            className={`shrink-0 text-[13px] font-bold tracking-wide px-4 py-1.5 rounded-full ${CALL_STYLE[verdict.call]}`}>
+            {verdict.call.toUpperCase()}
+          </button>
+        )}
+      </div>
 
-      <section className="bg-white rounded-2xl border border-[#E5E5E5] p-5 mb-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-[32px] font-black tracking-tight text-[#0A0A0A] leading-none">{ticker}</h1>
-              {exchange && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg" title="Listing exchange and trading currency">{exchange} · {ccy}</span>}
-              {f?.profile.sector && <span className="text-[11px] font-semibold text-[#525252] bg-white border border-[#E5E5E5] px-2 py-1 rounded-lg">{f.profile.sector}</span>}
-              {settings && settings.baseCurrency !== ccy && (
-                <span className="text-[11px] font-semibold text-[#92400E] bg-[#FFFBEB] border border-[#FDE68A] px-2 py-1 rounded-lg">Priced in {ccy}, your base is {settings.baseCurrency}</span>
-              )}
-            </div>
-            <p className="text-[15px] text-[#525252] mt-2 truncate">{name}</p>
-          </div>
-          {verdict && !loadingCall && (
-            <button onClick={() => setTab("overview")} title={`${verdict.call} for a ${strategy === "long-term" ? "long-term investor" : "swing trader"}`}
-              className={`shrink-0 text-[13px] font-black tracking-wide px-3 py-1.5 rounded-xl ${CALL_STYLE[verdict.call]}`}>
-              {verdict.call.toUpperCase()}
-            </button>
+      <section className="mb-4">
+        <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[13px]">
+          <span className="font-semibold text-[#0A0A0A] tracking-wide">{ticker}</span>
+          {exchange && <span className="text-[#737373]" title="Listing exchange and trading currency">{exchange} · {ccy}</span>}
+          {f?.profile.sector && <span className="text-[#737373]">· {f.profile.sector}</span>}
+          {settings && settings.baseCurrency !== ccy && (
+            <span className="text-[11px] font-semibold text-[#92400E] bg-[#FFFBEB] border border-[#FDE68A] px-2 py-0.5 rounded-full">Priced in {ccy}, your base is {settings.baseCurrency}</span>
           )}
         </div>
-        <div className="flex items-baseline gap-3 mt-3 flex-wrap">
-          <span className="text-[32px] font-bold tabular-nums text-[#0A0A0A]">{quote === undefined ? "…" : px(price)}</span>
-          {q?.change !== null && q?.changePercent !== null && q && (
-            <span className={`text-[16px] font-semibold tabular-nums ${up ? "text-[#16A34A]" : "text-[#DC2626]"}`}>
-              {up ? "+" : ""}{q.change!.toFixed(2)} ({up ? "+" : ""}{q.changePercent!.toFixed(2)}%) today
+        <h1 className="text-[30px] sm:text-[36px] font-medium tracking-tight text-[#0A0A0A] leading-tight mt-1 truncate">{name}</h1>
+        <p className="text-[30px] sm:text-[36px] font-medium tracking-tight tabular-nums text-[#0A0A0A] leading-tight">{quote === undefined ? "…" : px(price)}</p>
+        {q && q.change !== null && q.changePercent !== null && (
+          <p className="flex items-center gap-1.5 text-[14px] mt-1">
+            <span className={`font-semibold tabular-nums ${up ? "text-[#00B341]" : "text-[#F04E23]"}`}>
+              {up ? "▲" : "▼"} {sym}{Math.abs(q.change).toFixed(2)} ({Math.abs(q.changePercent).toFixed(2)}%)
+            </span>
+            <span className="text-[#525252]">Today</span>
+          </p>
+        )}
+        {quote && <SourceTag className="mt-1" source={quote.source} asOf={quote.asOf} cached={quote.cached} />}
+
+        <div className="mt-3">
+          {daily === undefined || (range === "5y" && weekly === undefined) ? (
+            <Skeleton h={240} />
+          ) : (
+            <PriceChart rows={chartRows} range={range} showSma={false} showVolume={false} currencySymbol={sym} minimal />
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <RangePills range={range} onChange={setRange} />
+          {periodPct !== null && (
+            <span className="text-[13px]">
+              <span className={`font-semibold tabular-nums ${periodUp ? "text-[#00B341]" : "text-[#F04E23]"}`}>{periodUp ? "▲" : "▼"} {Math.abs(periodPct).toFixed(2)}%</span>
+              <span className="text-[#525252]"> past {RANGE_WORDS[range]}</span>
             </span>
           )}
         </div>
-        {quote && <SourceTag className="mt-1" source={quote.source} asOf={quote.asOf} cached={quote.cached} />}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4 border-t border-[#F0F0F0] mt-4 pt-4">
           {headline.map((m) => <Metric key={m.label} {...m} />)}
@@ -792,10 +821,10 @@ export default function StockResearchPage({ params }: { params: { ticker: string
         <div className="space-y-2 border-t border-[#F0F0F0] mt-4 pt-4">
           <div className="flex items-center gap-2 flex-wrap">
             {shares > 0 && (
-              <span className="text-[13px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] px-3 py-1.5 rounded-xl font-medium">
+              <span className="text-[13px] bg-[#F7F7F8] text-[#0A0A0A] border border-[#E5E5E5] px-3 py-1.5 rounded-full font-medium">
                 You own {shares} share{shares !== 1 ? "s" : ""} · avg cost {px(cost / shares)}
                 {holdingPL !== null && (
-                  <> · <span className={holdingPL >= 0 ? "text-[#16A34A]" : "text-[#DC2626]"}>{holdingPL >= 0 ? "+" : ""}{money.fmt(holdingPL)}</span></>
+                  <> · <span className={holdingPL >= 0 ? "text-[#00B341]" : "text-[#F04E23]"}>{holdingPL >= 0 ? "+" : ""}{money.fmt(holdingPL)}</span></>
                 )}
               </span>
             )}
@@ -822,7 +851,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
                 <span className="text-[13px] text-[#525252] italic truncate max-w-md" title={watchItem.thesis || watchItem.note}>&ldquo;{watchItem.thesis || watchItem.note}&rdquo;</span>
               )}
               {onLists.length > 0 && (
-                <Link href="/watchlist" className="text-[12px] font-semibold text-[#1F65F0] hover:underline ml-auto">Edit plan →</Link>
+                <Link href="/watchlist" className="text-[12px] font-semibold text-[#2D8CFF] hover:underline ml-auto">Edit plan →</Link>
               )}
             </div>
           )}
@@ -830,20 +859,22 @@ export default function StockResearchPage({ params }: { params: { ticker: string
       </section>
 
       {/* ── Tabs ── */}
-      <div className="flex flex-wrap gap-2 mb-5" role="tablist">
-        {TABS.map((t) => {
-          const tone = t.key !== "overview" && t.key !== "news" && !loadingCall ? signalTone(signals[t.key as ScoredTab]) : null;
-          const active = tab === t.key;
-          return (
-            <button key={t.key} role="tab" aria-selected={active} onClick={() => setTab(t.key)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-semibold border transition-colors ${
-                active ? "bg-[#0A0A0A] text-white border-[#0A0A0A]" : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3] hover:text-[#0A0A0A]"
-              }`}>
-              {tone && <span className={`w-2 h-2 rounded-full ${DOT[tone]}`} aria-hidden />}
-              {t.label}
-            </button>
-          );
-        })}
+      <div className="sticky top-14 lg:top-16 z-40 bg-white/95 backdrop-blur -mx-4 px-4 sm:mx-0 sm:px-0 py-2 mb-4 border-b border-[#F0F0F0]">
+        <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist">
+          {TABS.map((t) => {
+            const tone = t.key !== "overview" && t.key !== "news" && !loadingCall ? signalTone(signals[t.key as ScoredTab], bm) : null;
+            const active = tab === t.key;
+            return (
+              <button key={t.key} role="tab" aria-selected={active} onClick={() => setTab(t.key)}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[14px] font-semibold transition-colors ${
+                  active ? "bg-[#2D8CFF] text-white" : "text-[#2D8CFF] hover:bg-[#EAF4FF]"
+                }`}>
+                {tone && <span className={`w-2 h-2 rounded-full ${DOT[tone]} ${active ? "ring-2 ring-white" : ""}`} aria-hidden />}
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div role="tabpanel">{tabContent[tab]}</div>

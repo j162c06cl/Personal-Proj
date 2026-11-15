@@ -13,15 +13,15 @@ export function SourceLine({ source }: { source: SourceRef }) {
   const date = fmtDate(source.date);
   const text = `${source.label}${date ? ` · ${date}` : ""}`;
   return source.url ? (
-    <a href={source.url} target="_blank" rel="noreferrer" className="text-[10px] text-[#1F65F0] hover:underline">{text} ↗</a>
+    <a href={source.url} target="_blank" rel="noreferrer" className="text-[10px] text-[#2D8CFF] hover:underline">{text} ↗</a>
   ) : (
     <span className="text-[10px] text-[#A3A3A3]">{text}</span>
   );
 }
 
 const ICON: Record<Check["status"], { mark: string; cls: string; label: string }> = {
-  pass: { mark: "✓", cls: "bg-[#DCFCE7] text-[#166534]", label: "Passes" },
-  fail: { mark: "✕", cls: "bg-[#FEE2E2] text-[#991B1B]", label: "Fails" },
+  pass: { mark: "✓", cls: "bg-[#DCFCE7] text-[#007A2B]", label: "Passes" },
+  fail: { mark: "✕", cls: "bg-[#FFF0EB] text-[#B8360F]", label: "Fails" },
   unknown: { mark: "?", cls: "bg-[#F0F0F0] text-[#737373]", label: "Can't judge" },
 };
 
@@ -30,7 +30,7 @@ function CheckBar({ v }: { v: Verdict }) {
   return (
     <div className="flex gap-1" aria-hidden>
       {v.checks.map((c) => (
-        <span key={c.id} className={`h-1.5 flex-1 rounded-full ${c.status === "pass" ? "bg-[#16A34A]" : c.status === "fail" ? "bg-[#DC2626]" : "bg-[#E5E5E5]"}`} />
+        <span key={c.id} className={`h-1.5 flex-1 rounded-full ${c.status === "pass" ? "bg-[#00B341]" : c.status === "fail" ? "bg-[#F04E23]" : "bg-[#E5E5E5]"}`} />
       ))}
     </div>
   );
@@ -44,7 +44,7 @@ function VerdictCard({ v, primary, compact, onCollapse }: { v: Verdict; primary:
   useEffect(() => setShowChecks(!compact), [compact]);
 
   return (
-    <section className={`bg-white rounded-2xl border p-5 ${primary ? "border-[#1F65F0] shadow-[0_0_0_3px_rgba(31,101,240,0.08)]" : "border-[#E5E5E5]"}`}>
+    <section className={`bg-white rounded-2xl border p-5 ${primary ? "border-[#2D8CFF] shadow-[0_0_0_3px_rgba(45,140,255,0.08)]" : "border-[#E5E5E5]"}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-bold text-[#0A0A0A]">{title(v)}</h2>
@@ -52,12 +52,12 @@ function VerdictCard({ v, primary, compact, onCollapse }: { v: Verdict; primary:
             {v.strategy === "long-term" ? "Judged on the business: growth, profits, cash, debt, valuation and the long trend." : "Judged on the chart: trend, momentum, volume, entry, risk and earnings timing."}
           </p>
         </div>
-        {primary && <span className="shrink-0 text-[10px] font-semibold text-[#1F65F0] bg-[#EBF2FF] px-2 py-0.5 rounded">Your strategy</span>}
+        {primary && <span className="shrink-0 text-[10px] font-semibold text-[#2D8CFF] bg-[#EAF4FF] px-2 py-0.5 rounded">Your strategy</span>}
         {onCollapse && <button onClick={onCollapse} className="shrink-0 text-[12px] font-semibold text-[#525252] hover:text-[#0A0A0A]">Hide</button>}
       </div>
       <p className="text-[13px] text-[#0A0A0A] font-medium mt-3">{v.summary}</p>
       <div className="mt-3"><CheckBar v={v} /></div>
-      <button onClick={() => setShowChecks((o) => !o)} className="mt-2 text-[12px] font-semibold text-[#1F65F0] hover:underline">
+      <button onClick={() => setShowChecks((o) => !o)} className="mt-2 text-[12px] font-semibold text-[#2D8CFF] hover:underline">
         {showChecks ? "Hide the checks" : `See the ${v.checks.length} checks · ${tally(v)}`}
       </button>
       {showChecks && (
@@ -104,9 +104,9 @@ export function Verdicts({ long, swing, primary, compact = false }: { long: Verd
 }
 
 const GROUPS: { key: keyof ResearchSummary; title: string; empty: string; dot: string }[] = [
-  { key: "strengths", title: "Strengths", empty: "None stand out in the available data.", dot: "bg-[#16A34A]" },
-  { key: "weaknesses", title: "Weaknesses", empty: "None stand out in the available data.", dot: "bg-[#DC2626]" },
-  { key: "catalysts", title: "Catalysts", empty: "No scheduled events or notable positive headlines.", dot: "bg-[#1F65F0]" },
+  { key: "strengths", title: "Strengths", empty: "None stand out in the available data.", dot: "bg-[#00B341]" },
+  { key: "weaknesses", title: "Weaknesses", empty: "None stand out in the available data.", dot: "bg-[#F04E23]" },
+  { key: "catalysts", title: "Catalysts", empty: "No scheduled events or notable positive headlines.", dot: "bg-[#2D8CFF]" },
   { key: "risks", title: "Risks", empty: "No specific risks flagged in the available data.", dot: "bg-[#D97706]" },
 ];
 
@@ -142,7 +142,7 @@ export function ResearchSummaryView({ summary, limit: initialLimit, groups }: { 
         })}
       </div>
       {hidden > 0 && (
-        <button onClick={() => setShowAll((v) => !v)} className="mt-4 text-[12px] font-semibold text-[#1F65F0] hover:underline">
+        <button onClick={() => setShowAll((v) => !v)} className="mt-4 text-[12px] font-semibold text-[#2D8CFF] hover:underline">
           {showAll ? "Show fewer" : `Show all (${hidden} more)`}
         </button>
       )}
