@@ -19,4 +19,16 @@ html { scroll-behavior: smooth; }
   --green: #00B341;
   --red: #F04E23;
   --chart-grid: rgba(0, 0, 0, 0.05);
+  /* Chart indicator lines */
+  --ind-sma20: #2D8CFF;
+  --ind-sma50: #7C5CFC;
+  --ind-sma200: #F59E0B;
+  --ind-ema9: #06B6D4;
+  --ind-ema21: #EC4899;
+  --ind-vwap: #525252;
+  --ind-avgvol: #737373;
+  --ind-relvol: #525252;
+  --ind-rsi: #7C5CFC;
+  --ind-macd: #2D8CFF;
+  --ind-macd-signal: #F59E0B;
 }
