@@ -7,14 +7,20 @@ import { useRouter } from "next/navigation";
 import { getCandles, getQuote } from "@/lib/data";
 import { CandleSeries, Timeframe, isTimeframe, isValidTicker, timeframeInfo } from "@/lib/marketData/types";
 import { toChartData } from "@/lib/marketData/clean";
+import { IndicatorId, computeIndicators } from "@/lib/marketData/indicators";
 import { QuoteData, Sourced } from "@/lib/types";
 import { currencySymbol } from "@/lib/markets";
 import SourceTag from "@/components/SourceTag";
 import TickerAutocomplete from "@/components/TickerAutocomplete";
 import TimeframePicker from "@/components/chart/TimeframePicker";
 import OhlcvLegend from "@/components/chart/OhlcvLegend";
+import IndicatorMenu from "@/components/chart/IndicatorMenu";
+import IndicatorLegend from "@/components/chart/IndicatorLegend";
+import { DEFAULT_INDICATORS, PANEL_HEIGHT, isIndicatorId, panelCount } from "@/components/chart/indicatorDefs";
 
 const CHART_HEIGHT = "h-[340px] sm:h-[480px]";
+/** Height of the price panel; matches CHART_HEIGHT */
+const PRICE_HEIGHT = { phone: 340, wide: 480 };
 
 function Skeleton() {
   return <div className={`bg-black/[0.04] rounded-xl animate-pulse ${CHART_HEIGHT}`} />;
@@ -24,6 +30,7 @@ function Skeleton() {
 const CandlestickChart = dynamic(() => import("@/components/chart/CandlestickChart"), { ssr: false, loading: Skeleton });
 
 const TIMEFRAME_KEY = "chart_timeframe";
+const INDICATORS_KEY = "chart_indicators";
 
 const ZONE_NAMES: Record<string, string> = { "America/New_York": "New York", "Asia/Singapore": "Singapore" };
 
@@ -37,18 +44,39 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   const [hover, setHover] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [retry, setRetry] = useState(0);
+  const [enabled, setEnabled] = useState<ReadonlySet<IndicatorId>>(() => new Set(DEFAULT_INDICATORS));
+  const [phone, setPhone] = useState(false);
 
-  // Remember the last timeframe across visits
+  // Remember the last timeframe and indicators across visits
   useEffect(() => {
     try {
       const saved = localStorage.getItem(TIMEFRAME_KEY);
       if (isTimeframe(saved)) setTimeframe(saved);
+      const ids: unknown = JSON.parse(localStorage.getItem(INDICATORS_KEY) ?? "null");
+      if (Array.isArray(ids)) setEnabled(new Set(ids.filter(isIndicatorId)));
     } catch {}
+  }, []);
+
+  // The price panel is shorter on a phone (matches CHART_HEIGHT)
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const update = () => setPhone(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
   }, []);
 
   function chooseTimeframe(tf: Timeframe) {
     setTimeframe(tf);
     try { localStorage.setItem(TIMEFRAME_KEY, tf); } catch {}
+  }
+
+  function toggleIndicator(id: IndicatorId) {
+    const next = new Set(enabled);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setEnabled(next);
+    try { localStorage.setItem(INDICATORS_KEY, JSON.stringify(Array.from(next))); } catch {}
   }
 
   useEffect(() => {
@@ -107,6 +135,13 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   );
   const candles = chartData?.candles ?? [];
   const shown = candles.length ? Math.min(Math.max(hover ?? candles.length - 1, 0), candles.length - 1) : -1;
+  const barsIntraday = s ? timeframeInfo(s.timeframe).intraday : false;
+  const indicators = useMemo(
+    () => (chartData && s ? computeIndicators(chartData.candles, enabled, timeframeInfo(s.timeframe).intraday, s.timeZone) : {}),
+    [chartData, s, enabled]
+  );
+  const chartHeight = (phone ? PRICE_HEIGHT.phone : PRICE_HEIGHT.wide) + panelCount(enabled) * PANEL_HEIGHT;
+  const priceDigits = candles.length && candles[candles.length - 1].close < 1 ? 3 : 2;
   const q = quote?.value;
   const sym = currencySymbol(s?.currency ?? q?.currency);
   const name = s?.name ?? q?.name ?? null;
@@ -155,7 +190,10 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
       <section className="mt-5 border border-[#E5E5E5] rounded-2xl p-3 sm:p-4">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
           <TimeframePicker value={timeframe} onChange={chooseTimeframe} />
-          {loading && series !== undefined && <span className="text-[12px] text-[#A3A3A3]">Loading {info.label} bars…</span>}
+          <div className="flex items-center gap-3 ml-auto">
+            {loading && series !== undefined && <span className="text-[12px] text-[#A3A3A3]">Loading {info.label} bars…</span>}
+            <IndicatorMenu enabled={enabled} intraday={info.intraday} onToggle={toggleIndicator} />
+          </div>
         </div>
 
         {series === undefined ? (
@@ -177,21 +215,24 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
           <>
             {/* Dimmed while the next timeframe loads, so the old bars aren't mistaken for the new ones */}
             <div className={`transition-opacity ${loading ? "opacity-40" : ""}`} aria-busy={loading}>
-              <div className="mb-2">
+              <div className="mb-2 space-y-0.5">
                 <OhlcvLegend candle={candles[shown]} prev={candles[shown - 1] ?? null} timeframe={s.timeframe} timeZone={s.timeZone} symbol={sym} />
+                <IndicatorLegend values={indicators} enabled={enabled} index={shown} intraday={barsIntraday} priceDigits={priceDigits} symbol={sym} />
               </div>
               <CandlestickChart
                 data={chartData}
-                intraday={timeframeInfo(s.timeframe).intraday}
+                indicators={indicators}
+                intraday={barsIntraday}
                 viewKey={`${s.ticker}:${s.timeframe}`}
                 label={`${timeframeInfo(s.timeframe).label} candlestick chart of ${s.ticker} with volume`}
                 onHover={setHover}
-                className={CHART_HEIGHT}
+                height={chartHeight}
               />
             </div>
             <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-3 text-[11px] text-[#A3A3A3]">
               <SourceTag source={`${series.source} · ${timeframeInfo(s.timeframe).label} bars`} asOf={series.asOf} cached={series.cached} />
               <span>{s.coverage}</span>
+              {enabled.size > 0 && <span>Indicators calculated in the app from these bars</span>}
               {timeframeInfo(s.timeframe).intraday && (
                 <span>{chartData.clock === "UTC" ? "Times in UTC" : `Times in ${ZONE_NAMES[s.timeZone] ?? s.timeZone} exchange time`}</span>
               )}

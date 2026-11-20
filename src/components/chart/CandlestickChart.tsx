@@ -1,22 +1,30 @@
 "use client";
 
-// Interactive candlestick + volume chart built on TradingView Lightweight Charts.
+// Interactive candlestick + volume chart built on TradingView Lightweight Charts, with
+// indicator lines over the price and optional RSI / MACD panels below it.
 // Touches the DOM on creation, so pages load it with next/dynamic and ssr: false.
 
 import { useEffect, useRef, useState } from "react";
 import {
-  CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, createChart,
-  IChartApi, ISeriesApi, LogicalRange, MouseEventParams, Time, UTCTimestamp,
+  CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart,
+  IChartApi, ISeriesApi, LogicalRange, MouseEventParams, SeriesType, Time, UTCTimestamp,
 } from "lightweight-charts";
 import { ChartData } from "@/lib/marketData/clean";
+import { IndicatorValues, Series } from "@/lib/marketData/indicators";
+import { MACD_SIGNAL_COLOR, PANEL_HEIGHT, indicatorDef } from "./indicatorDefs";
 
 /** Bars shown when a series first loads; the rest is a scroll or zoom away */
 const INITIAL_BARS = 130;
+
+/** Indicators drawn over the price (or, for average volume, over the volume bars) */
+const OVERLAYS = ["sma20", "sma50", "sma200", "ema9", "ema21", "vwap", "avgVolume"] as const;
+const PANEL_SERIES = ["rsi", "macdHist", "macdLine", "macdSignal"] as const;
 
 function cssVar(name: string, fallback: string) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
 }
+const colorOf = (c: [string, string]) => cssVar(c[0], c[1]);
 
 /** Whether the newest bar is in view (the range can end a fraction of a bar short of it) */
 function showsLatest(range: LogicalRange, bars: number) {
@@ -33,13 +41,16 @@ function withAlpha(hex: string, alpha: number) {
 
 export default function CandlestickChart({
   data,
+  indicators,
   intraday,
   viewKey,
   label,
   onHover,
-  className = "h-[460px]",
+  height,
 }: {
   data: ChartData;
+  /** Indicator values aligned with data.candles; only the switched-on ones are present */
+  indicators: IndicatorValues;
   intraday: boolean;
   /** Identifies what is shown (ticker + timeframe). A new key resets the view; the same key
    *  with fresh data (a refresh) keeps the reader's zoom and scroll position. */
@@ -48,19 +59,23 @@ export default function CandlestickChart({
   label: string;
   /** Index into data.candles under the crosshair, or null when the pointer leaves the chart */
   onHover: (index: number | null) => void;
-  /** Sets the height; the chart resizes itself to fill the box */
-  className?: string;
+  /** Total height in pixels, including PANEL_HEIGHT for each RSI / MACD panel */
+  height: number;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const candles = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volume = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const extra = useRef(new Map<string, ISeriesApi<SeriesType>>());
+  const panelSet = useRef("");
+  const paneLayout = useRef("");
   const colors = useRef({ up: "#00B341", down: "#F04E23" });
   const shownKey = useRef<string | null>(null);
   const barCount = useRef(0);
   const hoverRef = useRef(onHover);
   hoverRef.current = onHover;
   const [awayFromLatest, setAwayFromLatest] = useState(false);
+  const panels = (indicators.rsi ? 1 : 0) + (indicators.macd ? 1 : 0);
 
   // Create the chart once
   useEffect(() => {
@@ -77,6 +92,7 @@ export default function CandlestickChart({
         fontFamily: getComputedStyle(container.current).fontFamily,
         fontSize: 11,
         attributionLogo: true, // required credit for TradingView's library
+        panes: { separatorColor: cssVar("--border", "#E5E5E5") },
       },
       grid: {
         vertLines: { color: cssVar("--chart-grid", "rgba(0,0,0,0.05)") },
@@ -95,7 +111,7 @@ export default function CandlestickChart({
     candles.current = c.addSeries(CandlestickSeries, {
       upColor: up, downColor: down, borderUpColor: up, borderDownColor: down, wickUpColor: up, wickDownColor: down,
     });
-    // Volume shares the pane on its own hidden scale, kept to the bottom fifth
+    // Volume shares the price panel on its own hidden scale, kept to the bottom fifth
     volume.current = c.addSeries(HistogramSeries, {
       priceScaleId: "volume", priceFormat: { type: "volume" }, lastValueVisible: false, priceLineVisible: false,
     });
@@ -109,16 +125,20 @@ export default function CandlestickChart({
     c.subscribeCrosshairMove(onMove);
     c.timeScale().subscribeVisibleLogicalRangeChange(onRange);
     chart.current = c;
+    const series = extra.current;
 
     return () => {
       c.unsubscribeCrosshairMove(onMove);
       c.timeScale().unsubscribeVisibleLogicalRangeChange(onRange);
       c.remove();
       chart.current = candles.current = volume.current = null;
+      series.clear();
+      panelSet.current = paneLayout.current = "";
       shownKey.current = null;
     };
   }, []);
 
+  // Candles and volume
   useEffect(() => {
     const c = chart.current;
     if (!c || !candles.current || !volume.current) return;
@@ -154,18 +174,102 @@ export default function CandlestickChart({
     else if (keptDates) c.timeScale().setVisibleRange(keptDates);
   }, [data, viewKey, intraday]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Indicators
+  useEffect(() => {
+    const c = chart.current;
+    if (!c) return;
+    const map = extra.current;
+    const t = (i: number) => data.times[i] as UTCTimestamp;
+    const points = (s: Series) => s.map((v, i) => (v === null ? { time: t(i) } : { time: t(i), value: v }));
+    const remove = (key: string) => {
+      const s = map.get(key);
+      if (s) { c.removeSeries(s); map.delete(key); }
+    };
+    const quiet = { lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false } as const;
+
+    // Lines over the price; average volume sits on the volume bars' scale
+    for (const key of OVERLAYS) {
+      const s = indicators[key];
+      if (!s) { remove(key); continue; }
+      let api = map.get(key);
+      if (!api) {
+        api = key === "avgVolume"
+          ? c.addSeries(LineSeries, { ...quiet, color: colorOf(indicatorDef(key).color), lineWidth: 1, priceScaleId: "volume", priceFormat: { type: "volume" } })
+          : c.addSeries(LineSeries, { ...quiet, color: colorOf(indicatorDef(key).color), lineWidth: 2, lineStyle: key === "vwap" ? LineStyle.Dashed : LineStyle.Solid });
+        map.set(key, api);
+      }
+      if (key === "vwap") {
+        // VWAP restarts each session. The library colours a segment by the point it starts
+        // from, so making each session's last point transparent hides the jump to the next.
+        const day = (i: number) => Math.floor(data.times[i] / 86_400);
+        api.setData(s.map((v, i) =>
+          v === null ? { time: t(i) }
+          : i < s.length - 1 && day(i + 1) !== day(i) ? { time: t(i), value: v, color: "transparent" }
+          : { time: t(i), value: v }));
+      } else {
+        api.setData(points(s));
+      }
+    }
+
+    // RSI and MACD panels are rebuilt in order when either is switched on or off, so their
+    // positions never depend on which one was added first
+    const wanted = [indicators.rsi && "rsi", indicators.macd && "macd"].filter(Boolean).join(",");
+    if (wanted !== panelSet.current) {
+      PANEL_SERIES.forEach(remove);
+      let pane = 1;
+      if (indicators.rsi) {
+        const rsi = c.addSeries(LineSeries, {
+          color: colorOf(indicatorDef("rsi").color), lineWidth: 2, priceLineVisible: false,
+          priceFormat: { type: "price", precision: 1, minMove: 0.1 },
+          autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+        }, pane++);
+        for (const level of [70, 30]) {
+          rsi.createPriceLine({ price: level, color: cssVar("--text-tertiary", "#A3A3A3"), lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "" });
+        }
+        map.set("rsi", rsi);
+      }
+      if (indicators.macd) {
+        const fmt = { type: "price", precision: 2, minMove: 0.01 } as const;
+        map.set("macdHist", c.addSeries(HistogramSeries, { lastValueVisible: false, priceLineVisible: false, priceFormat: fmt }, pane));
+        map.set("macdLine", c.addSeries(LineSeries, { ...quiet, color: colorOf(indicatorDef("macd").color), lineWidth: 2, priceFormat: fmt }, pane));
+        map.set("macdSignal", c.addSeries(LineSeries, { ...quiet, color: colorOf(MACD_SIGNAL_COLOR), lineWidth: 2, priceFormat: fmt }, pane));
+      }
+      panelSet.current = wanted;
+    }
+
+    if (indicators.rsi) map.get("rsi")!.setData(points(indicators.rsi));
+    if (indicators.macd) {
+      const { up, down } = colors.current;
+      map.get("macdHist")!.setData(indicators.macd.histogram.map((v, i) =>
+        v === null ? { time: t(i) } : { time: t(i), value: v, color: withAlpha(v >= 0 ? up : down, 0.45) }));
+      map.get("macdLine")!.setData(points(indicators.macd.line));
+      map.get("macdSignal")!.setData(points(indicators.macd.signal));
+    }
+
+    // Each panel gets PANEL_HEIGHT and the price panel the rest. Only re-applied when the
+    // panels or height change, so a refresh doesn't undo a divider the reader has dragged.
+    const layout = `${wanted}|${height}`;
+    if (layout !== paneLayout.current) {
+      const panes = c.panes();
+      panes.forEach((p, i) => p.setStretchFactor(i === 0 ? Math.max(height - PANEL_HEIGHT * (panes.length - 1), 1) : PANEL_HEIGHT));
+      paneLayout.current = layout;
+    }
+  }, [indicators, data, height]);
+
   function showLatest() {
     const n = barCount.current;
     chart.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - INITIAL_BARS), to: n + 3 });
   }
 
   return (
-    <div className={`relative w-full ${className}`}>
+    <div className="relative w-full" style={{ height }}>
       <div ref={container} role="img" aria-label={label} className="absolute inset-0" />
       {awayFromLatest && (
         <button
           onClick={showLatest}
-          className="absolute bottom-10 right-16 z-10 px-3 py-1 text-[12px] font-semibold bg-white text-[#2D8CFF] border border-[#E5E5E5] rounded-full shadow-sm hover:border-[#2D8CFF]"
+          // Sits at the bottom of the price panel, above any RSI / MACD panels
+          style={{ bottom: 40 + panels * PANEL_HEIGHT }}
+          className="absolute right-16 z-10 px-3 py-1 text-[12px] font-semibold bg-white text-[#2D8CFF] border border-[#E5E5E5] rounded-full shadow-sm hover:border-[#2D8CFF]"
         >
           Latest »
         </button>
