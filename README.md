@@ -24,7 +24,9 @@ Built with Next.js 14, TypeScript, Tailwind CSS and Recharts. No accounts, no da
 
 ![Watchlist](docs/screenshots/watchlist.png)
 
-**Interactive chart.** Every research page links to a full chart at `/stock/[ticker]/chart`: candlesticks with volume, zoom and scroll (mouse wheel, drag or pinch), and a crosshair readout of each bar's open, high, low, close, volume and change from the previous bar. Timeframes are 1D, 4H, 1H, 15m and 5m, with intraday bar times shown on the exchange's own clock (New York or Singapore). Built on TradingView's open-source [Lightweight Charts](https://github.com/tradingview/lightweight-charts) library. Indicators, support/resistance and setup detection are planned next.
+**Interactive chart.** Every research page links to a full chart at `/stock/[ticker]/chart`: candlesticks with volume, zoom and scroll (mouse wheel, drag or pinch), and a crosshair readout of each bar's open, high, low, close, volume and change from the previous bar. Timeframes are 1D, 4H, 1H, 15m and 5m, with intraday bar times shown on the exchange's own clock (New York or Singapore). Built on TradingView's open-source [Lightweight Charts](https://github.com/tradingview/lightweight-charts) library.
+
+An **Indicators** menu switches on moving averages (SMA 20/50/200, EMA 9/21), VWAP, average volume, relative volume, RSI (14) and MACD (12, 26, 9), each with a plain-language explanation. Averages and VWAP are drawn over the price, RSI and MACD get their own panels below it, and the readout shows every value for the bar under the crosshair. Relative volume compares a daily bar with the previous 20 sessions, and an intraday bar with the same time of day over the previous 10 sessions, since volume is always heavy at the open. VWAP restarts each session, so it is offered on intraday timeframes only. All indicators are calculated in the app from the chart's own bars. Support/resistance and setup detection are planned next.
 
 Also: portfolio tracker with sector allocation, investment-return calculator, retirement planner, economic calendar and glossary.
 
@@ -70,9 +72,9 @@ Browser                                           Next.js API routes (proxy)    
 | `src/lib/analysis.ts` | Long-term and swing verdicts, and the sourced research summary |
 | `src/lib/markets.ts` | Supported markets, exchanges and per-currency formatting |
 | `src/lib/indicators.ts` | SMA, EMA, RSI, MACD, ATR and trend classification |
-| `src/lib/marketData/` | Candle and timeframe types, the `CandleProvider` interface, exchange-time helpers, 1H → 4H grouping |
+| `src/lib/marketData/` | Candle and timeframe types, the `CandleProvider` interface, exchange-time helpers, 1H → 4H grouping, data cleaning, chart indicators (VWAP, average and relative volume) |
 | `src/lib/server/providers/` | Candle providers (Yahoo today); `index.ts` picks which one `/api/candles` uses |
-| `src/components/chart/` | Candlestick chart, timeframe picker and OHLCV readout |
+| `src/components/chart/` | Candlestick chart, timeframe picker, OHLCV and indicator readouts, indicator menu and definitions |
 | `src/lib/server/news.ts` | Headline relevance scoring and duplicate-story merging |
 | `src/lib/server/snapshot.ts` | Saved-data fallback for the API routes |
 | `src/app/api/*` | Server routes that proxy and normalise Yahoo Finance |
@@ -82,7 +84,7 @@ Browser                                           Next.js API routes (proxy)    
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # unit tests (rules, indicators, news, portfolio history, categories, chart data)
+npm test           # unit tests (rules, indicators, news, portfolio history, categories, chart data and indicators)
 npm run build      # production build
 ```
 
