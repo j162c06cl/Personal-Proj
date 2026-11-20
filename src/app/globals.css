@@ -34,4 +34,6 @@ html { scroll-behavior: smooth; }
   /* The reader's chart drawings */
   --draw: #0A0A0A;
   --draw-note: #2D8CFF;
+  /* Detected setups */
+  --setup: #7C3AED;
 }

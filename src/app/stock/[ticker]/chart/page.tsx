@@ -10,6 +10,7 @@ import { toChartData } from "@/lib/marketData/clean";
 import { IndicatorId, computeIndicators } from "@/lib/marketData/indicators";
 import { analyseLevels, touchesAt } from "@/lib/marketData/levels";
 import { chartTrend } from "@/lib/marketData/trend";
+import { SETUP_INFO, scanSetups } from "@/lib/marketData/setups";
 import { AnchorPoint, ChartAnnotations, NOTE_MAX, barIndexAt, emptyAnnotations } from "@/lib/marketData/annotations";
 import { loadChartAnnotations, newId, saveChartAnnotations } from "@/lib/store";
 import { QuoteData, Sourced } from "@/lib/types";
@@ -25,7 +26,10 @@ import DrawTools, { drawHint } from "@/components/chart/DrawTools";
 import TrendCard from "@/components/chart/TrendCard";
 import LevelsCard, { LevelRow } from "@/components/chart/LevelsCard";
 import DrawingsCard, { NoteRow, TrendlineRow } from "@/components/chart/DrawingsCard";
-import { ChartLevel, ChartNoteMark, ChartPoint, ChartTrendline, DrawTool, formatBarTime } from "@/components/chart/drawing";
+import SetupsCard, { SetupSelection } from "@/components/chart/SetupsCard";
+import {
+  ChartHighlight, ChartLevel, ChartNoteMark, ChartPoint, ChartSetupMark, ChartTrendline, DrawTool, formatBarTime,
+} from "@/components/chart/drawing";
 
 const CHART_HEIGHT = "h-[340px] sm:h-[480px]";
 /** Height of the price panel; matches CHART_HEIGHT */
@@ -67,6 +71,8 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   /** Bar a new note is being written for */
   const [noteTime, setNoteTime] = useState<number | null>(null);
   const [noteText, setNoteText] = useState("");
+  /** Setup picked to show on the chart */
+  const [selectedSetup, setSelectedSetup] = useState<SetupSelection | null>(null);
 
   // Remember the last timeframe, indicators and detected-levels choice across visits
   useEffect(() => {
@@ -101,11 +107,12 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     return () => { current = false; };
   }, [ticker]);
 
-  // A half-finished drawing doesn't carry over to another chart
+  // A half-finished drawing or a picked setup doesn't carry over to another chart
   useEffect(() => {
     setTool(null);
     setAnchor(null);
     setNoteTime(null);
+    setSelectedSetup(null);
   }, [ticker, timeframe]);
 
   // Esc puts the drawing tool away
@@ -279,6 +286,33 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     return { lines, onChartLines, notes, marks, elsewhere };
   }, [chartData, drawings.trendlines, drawings.notes, barsTf, slack]);
 
+  // ── Setups: judged on every recent bar, using only the bars up to each one ──
+  const setups = useMemo(
+    () => (chartData ? scanSetups(chartData.candles, (v) => `${sym}${v.toFixed(priceDigits)}`) : []),
+    [chartData, sym, priceDigits]
+  );
+
+  // Arrows under recent setups (and under an older one picked to show)
+  const setupMarks = useMemo<ChartSetupMark[]>(() => setups.flatMap((s) => {
+    const show = s.recent || (selectedSetup?.type === s.type && selectedSetup.which === "last");
+    return show && s.last ? [{ id: `setup-${s.type}`, index: s.lastStart ?? s.last.index, text: SETUP_INFO[s.type].short }] : [];
+  }), [setups, selectedSetup]);
+
+  const highlight = useMemo<ChartHighlight | null>(() => {
+    const s = selectedSetup && setups.find((x) => x.type === selectedSetup.type);
+    const check = s ? (selectedSetup!.which === "last" ? s.last : s.latest) : null;
+    if (!s || !check) return null;
+    return {
+      key: `${s.type}:${selectedSetup!.which}:${check.index}`,
+      from: selectedSetup!.which === "last" ? Math.min(check.range[0], s.lastStart ?? check.range[0]) : check.range[0],
+      to: check.range[1],
+      lines: [
+        ...check.levels.map((l) => ({ price: l.price, label: l.label, kind: "level" as const })),
+        ...(check.invalidation.price !== null ? [{ price: check.invalidation.price, label: "Invalidation", kind: "invalidation" as const }] : []),
+      ],
+    };
+  }, [selectedSetup, setups]);
+
   // Memoised so hovering (which re-renders the page) doesn't reset the trendline preview
   const anchorPoint = useMemo<ChartPoint | null>(() => {
     const i = anchor && chartData ? barIndexAt(chartData.times, anchor.time, slack) : null;
@@ -429,6 +463,8 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
                 anchor={anchorPoint}
                 drawing={tool !== null}
                 onPick={pick}
+                setupMarks={setupMarks}
+                highlight={highlight}
               />
             </div>
             <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-3 text-[11px] text-[#A3A3A3]">
@@ -447,6 +483,15 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
       {ready && s && chartData && analysis && trend && (
         <aside className="space-y-4 min-w-0" aria-label="Chart analysis">
           <TrendCard trend={trend} times={chartData.times} intraday={barsIntraday} timeframeLabel={timeframeInfo(s.timeframe).label} price={fmtPrice} />
+          <SetupsCard
+            summaries={setups}
+            times={chartData.times}
+            intraday={barsIntraday}
+            timeframeLabel={timeframeInfo(s.timeframe).label}
+            barCount={candles.length}
+            selected={selectedSetup}
+            onSelect={setSelectedSetup}
+          />
           <LevelsCard
             rows={levelRows}
             showDetected={showDetected}
