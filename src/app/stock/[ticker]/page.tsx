@@ -805,12 +805,17 @@ export default function StockResearchPage({ params }: { params: { ticker: string
         </div>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <RangePills range={range} onChange={setRange} />
-          {periodPct !== null && (
-            <span className="text-[13px]">
-              <span className={`font-semibold tabular-nums ${periodUp ? "text-[#00B341]" : "text-[#F04E23]"}`}>{periodUp ? "▲" : "▼"} {Math.abs(periodPct).toFixed(2)}%</span>
-              <span className="text-[#525252]"> past {RANGE_WORDS[range]}</span>
-            </span>
-          )}
+          <span className="flex items-center gap-3 text-[13px]">
+            {periodPct !== null && (
+              <span>
+                <span className={`font-semibold tabular-nums ${periodUp ? "text-[#00B341]" : "text-[#F04E23]"}`}>{periodUp ? "▲" : "▼"} {Math.abs(periodPct).toFixed(2)}%</span>
+                <span className="text-[#525252]"> past {RANGE_WORDS[range]}</span>
+              </span>
+            )}
+            <Link href={`/stock/${encodeURIComponent(ticker)}/chart`} className="font-semibold text-[#2D8CFF] hover:underline">
+              Full chart →
+            </Link>
+          </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4 border-t border-[#F0F0F0] mt-4 pt-4">
