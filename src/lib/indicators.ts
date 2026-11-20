@@ -62,6 +62,26 @@ export function macd(values: number[], fast = 12, slow = 26, signal = 9) {
 
 export type Trend = "Uptrend" | "Downtrend" | "Mixed";
 
+/** Which pair of averages a trend reading used: 50/200 when there's enough history, else 20/50 */
+export type TrendBasis = "50/200" | "20/50";
+
+/**
+ * Trend from how price and two moving averages are stacked. Uptrend: price above the faster
+ * average, which is above the slower one. Downtrend: the reverse. Anything else is Mixed.
+ * Shared by the research page and the chart so they can't disagree.
+ */
+export function trendFromAverages(
+  price: number, s20: number | null, s50: number | null, s200: number | null
+): { trend: Trend; basis: TrendBasis | null; fast: number | null; slow: number | null } {
+  const [basis, fast, slow]: [TrendBasis | null, number | null, number | null] =
+    s50 !== null && s200 !== null ? ["50/200", s50, s200]
+    : s20 !== null && s50 !== null ? ["20/50", s20, s50]
+    : [null, null, null];
+  if (fast === null || slow === null) return { trend: "Mixed", basis: null, fast: null, slow: null };
+  const trend: Trend = price > fast && fast > slow ? "Uptrend" : price < fast && fast < slow ? "Downtrend" : "Mixed";
+  return { trend, basis, fast, slow };
+}
+
 export interface Technicals {
   last: number;
   sma20: number | null;
@@ -137,14 +157,7 @@ export function computeTechnicals(points: PricePoint[]): Technicals | null {
   }
   const atr = trs.reduce((a, b) => a + b, 0) / trs.length;
 
-  let trend: Trend = "Mixed";
-  if (s50 !== null && s200 !== null) {
-    if (price > s50 && s50 > s200) trend = "Uptrend";
-    else if (price < s50 && s50 < s200) trend = "Downtrend";
-  } else if (s20 !== null && s50 !== null) {
-    if (price > s20 && s20 > s50) trend = "Uptrend";
-    else if (price < s20 && s20 < s50) trend = "Downtrend";
-  }
+  const { trend } = trendFromAverages(price, s20, s50, s200);
 
   const vol = (days: number) => {
     const slice = closes.slice(-(days + 1));
