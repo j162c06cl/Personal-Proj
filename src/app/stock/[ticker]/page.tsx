@@ -6,7 +6,7 @@ import { getChart, getFinancials, getFundamentals, getNews, getQuote } from "@/l
 import { loadPortfolio, loadWatchlists } from "@/lib/store";
 import { computeTechnicals, smaOverlay, Technicals } from "@/lib/indicators";
 import { ChartData, ChartRange, FinancialHistory as FinHistory, Fundamentals, NewsFeed, PortfolioPosition, QuoteData, Sourced, Watchlist } from "@/lib/types";
-import WatchButton, { tagInfo, watchedIn } from "@/components/WatchButton";
+import WatchButton, { watchedIn } from "@/components/WatchButton";
 import { formatVolume } from "@/lib/formatters";
 import { currencySymbol, defaultCurrency, formatBig } from "@/lib/markets";
 import { historicalPE, longTermVerdict, researchSummary, swingVerdict } from "@/lib/analysis";
@@ -805,12 +805,17 @@ export default function StockResearchPage({ params }: { params: { ticker: string
         </div>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <RangePills range={range} onChange={setRange} />
-          {periodPct !== null && (
-            <span className="text-[13px]">
-              <span className={`font-semibold tabular-nums ${periodUp ? "text-[#00B341]" : "text-[#F04E23]"}`}>{periodUp ? "▲" : "▼"} {Math.abs(periodPct).toFixed(2)}%</span>
-              <span className="text-[#525252]"> past {RANGE_WORDS[range]}</span>
-            </span>
-          )}
+          <span className="flex items-center gap-3 text-[13px]">
+            {periodPct !== null && (
+              <span>
+                <span className={`font-semibold tabular-nums ${periodUp ? "text-[#00B341]" : "text-[#F04E23]"}`}>{periodUp ? "▲" : "▼"} {Math.abs(periodPct).toFixed(2)}%</span>
+                <span className="text-[#525252]"> past {RANGE_WORDS[range]}</span>
+              </span>
+            )}
+            <Link href={`/stock/${encodeURIComponent(ticker)}/chart`} className="font-semibold text-[#2D8CFF] hover:underline">
+              Full chart →
+            </Link>
+          </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-4 border-t border-[#F0F0F0] mt-4 pt-4">
@@ -836,11 +841,9 @@ export default function StockResearchPage({ params }: { params: { ticker: string
               onSaved={setLists}
             />
           </div>
-          {/* A bare "watching" tag says nothing the Watch button doesn't already */}
-          {watchItem && (watchItem.tag !== "watching" || watchItem.targetPrice != null || watchItem.invalidation != null || watchItem.thesis || watchItem.note) && (
+          {watchItem && (watchItem.targetPrice != null || watchItem.invalidation != null || watchItem.thesis || watchItem.note) && (
             <div className="flex items-center gap-x-4 gap-y-1 flex-wrap bg-[#FAFAFA] border border-[#E5E5E5] rounded-xl px-3 py-2">
-              <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Your plan</span>
-              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg border ${tagInfo(watchItem.tag).cls}`}>{tagInfo(watchItem.tag).label}</span>
+              <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Your note</span>
               {watchItem.targetPrice != null && (
                 <span className="text-[12px] text-[#525252]">Target <span className="font-semibold text-[#0A0A0A]">{px(watchItem.targetPrice)}</span></span>
               )}
@@ -851,7 +854,7 @@ export default function StockResearchPage({ params }: { params: { ticker: string
                 <span className="text-[13px] text-[#525252] italic truncate max-w-md" title={watchItem.thesis || watchItem.note}>&ldquo;{watchItem.thesis || watchItem.note}&rdquo;</span>
               )}
               {onLists.length > 0 && (
-                <Link href="/watchlist" className="text-[12px] font-semibold text-[#2D8CFF] hover:underline ml-auto">Edit plan →</Link>
+                <Link href="/watchlist" className="text-[12px] font-semibold text-[#2D8CFF] hover:underline ml-auto">Edit →</Link>
               )}
             </div>
           )}

@@ -18,4 +18,5 @@ html { scroll-behavior: smooth; }
   --border: #E5E5E5;
   --green: #00B341;
   --red: #F04E23;
+  --chart-grid: rgba(0, 0, 0, 0.05);
 }

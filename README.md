@@ -24,6 +24,8 @@ Built with Next.js 14, TypeScript, Tailwind CSS and Recharts. No accounts, no da
 
 ![Watchlist](docs/screenshots/watchlist.png)
 
+**Interactive chart.** Every research page links to a full chart at `/stock/[ticker]/chart`: candlesticks with volume, zoom and scroll (mouse wheel, drag or pinch), and a crosshair readout of each bar's open, high, low, close, volume and change from the previous bar. Timeframes are 1D, 4H, 1H, 15m and 5m, with intraday bar times shown on the exchange's own clock (New York or Singapore). Built on TradingView's open-source [Lightweight Charts](https://github.com/tradingview/lightweight-charts) library. Indicators, support/resistance and setup detection are planned next.
+
 Also: portfolio tracker with sector allocation, investment-return calculator, retirement planner, economic calendar and glossary.
 
 ## Design decisions
@@ -68,6 +70,9 @@ Browser                                           Next.js API routes (proxy)    
 | `src/lib/analysis.ts` | Long-term and swing verdicts, and the sourced research summary |
 | `src/lib/markets.ts` | Supported markets, exchanges and per-currency formatting |
 | `src/lib/indicators.ts` | SMA, EMA, RSI, MACD, ATR and trend classification |
+| `src/lib/marketData/` | Candle and timeframe types, the `CandleProvider` interface, exchange-time helpers, 1H → 4H grouping |
+| `src/lib/server/providers/` | Candle providers (Yahoo today); `index.ts` picks which one `/api/candles` uses |
+| `src/components/chart/` | Candlestick chart, timeframe picker and OHLCV readout |
 | `src/lib/server/news.ts` | Headline relevance scoring and duplicate-story merging |
 | `src/lib/server/snapshot.ts` | Saved-data fallback for the API routes |
 | `src/app/api/*` | Server routes that proxy and normalise Yahoo Finance |
@@ -77,7 +82,7 @@ Browser                                           Next.js API routes (proxy)    
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # unit tests (rules, indicators, news, portfolio history, categories)
+npm test           # unit tests (rules, indicators, news, portfolio history, categories, chart data)
 npm run build      # production build
 ```
 
@@ -88,6 +93,7 @@ No API keys or environment variables are required.
 ## Limitations
 
 - **Unofficial data source.** Yahoo Finance's endpoints are undocumented and can change or rate-limit without notice. Prices may be delayed, and the snapshot fallback only covers the showcase stocks in full.
+- **Chart history depends on the timeframe.** Yahoo provides 5 years of daily bars here, 1-hour bars for about two years (the 4H view is built from them), and 15- and 5-minute bars for only the last 60 days. Intraday bars cover regular trading hours only. If Yahoo fails, the daily chart falls back to saved data for the showcase stocks; intraday timeframes have no fallback and say so. Yahoo has no 4-hour interval, so 4H bars run 9:30–13:30 and 13:30–16:00 for US stocks (the last one is shorter). Yahoo's terms allow personal use only: a commercial version would need a licensed provider, which can be added as another `CandleProvider`.
 - **Hand-maintained economic calendar.** Release dates in `src/lib/economicEvents.ts` need updating from the official BLS, BEA and Federal Reserve calendars.
 - **Headline matching is approximate.** News relevance matches on the company name, so a listicle that mentions a company can count as news about it.
 - **Markets.** US and Singapore are supported in the screener; search also finds listings on other major exchanges (London, Hong Kong, Tokyo, Toronto, Australia and others), which work everywhere a ticker is accepted. Every watchlist item and position stores its exchange and currency. Portfolio totals convert non-USD holdings at today's exchange rate, so their cost basis is approximate.

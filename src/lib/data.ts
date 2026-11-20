@@ -6,6 +6,7 @@
 //   • records per-feed health for the data status panel
 
 import { dbClear, dbGet, dbKeys, dbSet } from "./db";
+import { CandleSeries, Timeframe } from "./marketData/types";
 import { ChartData, ChartRange, FinancialHistory, Fundamentals, Market, MarketIndex, NewsFeed, NewsItem, QuoteData, ScreenerRow, SectorPerf, Sourced } from "./types";
 
 interface CacheEntry<T> {
@@ -195,6 +196,24 @@ export function getChart(ticker: string, range: ChartRange, opts: { force?: bool
     async () => {
       const d = await getJson<ChartData & { source: string; asOf: string }>(
         `/api/chart?ticker=${encodeURIComponent(t)}&range=${range}`
+      );
+      const { source, asOf, ...value } = d;
+      return { value, source, asOf };
+    },
+    opts
+  );
+}
+
+/** OHLCV bars for the interactive chart. Intraday refreshes every minute, daily every 15. */
+export function getCandles(ticker: string, timeframe: Timeframe, opts: { force?: boolean } = {}) {
+  const t = ticker.trim().toUpperCase();
+  return cached<CandleSeries>(
+    "Price history",
+    `candles:${t}:${timeframe}`,
+    timeframe === "1d" ? 15 * MINUTE : MINUTE,
+    async () => {
+      const d = await getJson<CandleSeries & { source: string; asOf: string }>(
+        `/api/candles?ticker=${encodeURIComponent(t)}&timeframe=${timeframe}`
       );
       const { source, asOf, ...value } = d;
       return { value, source, asOf };
