@@ -5,6 +5,7 @@ import { dbGet, dbSet } from "./db";
 import { DEFAULT_WATCHLISTS, PORTFOLIO_PRESETS } from "./presets";
 import { DEFAULT_BENCHMARKS, normalizeBenchmarks } from "./ratings";
 import { PortfolioPosition, SavedScreen, Settings, WatchIntent, WatchTag, Watchlist, WatchlistDef, WatchlistItem } from "./types";
+import { ChartAnnotations, emptyAnnotations, isEmptyAnnotations, sanitizeAllAnnotations } from "./marketData/annotations";
 
 export const DEFAULT_SETTINGS: Settings = {
   baseCurrency: "USD",
@@ -196,6 +197,30 @@ export function saveScreens(screens: SavedScreen[]): Promise<void> {
   return dbSet("kv", "screens", screens);
 }
 
+// ── Chart drawings (levels, trendlines, notes), one entry per ticker ──────────
+
+const ANNOTATIONS_KEY = "chartAnnotations";
+/** Saves run one after another, so two quick edits can't overwrite each other */
+let annotationsWrite: Promise<void> = Promise.resolve();
+
+export async function loadAllChartAnnotations(): Promise<Record<string, ChartAnnotations>> {
+  return sanitizeAllAnnotations(await dbGet("kv", ANNOTATIONS_KEY));
+}
+
+export async function loadChartAnnotations(ticker: string): Promise<ChartAnnotations> {
+  return (await loadAllChartAnnotations())[ticker] ?? emptyAnnotations();
+}
+
+export function saveChartAnnotations(ticker: string, annotations: ChartAnnotations): Promise<void> {
+  annotationsWrite = annotationsWrite.catch(() => {}).then(async () => {
+    const all = await loadAllChartAnnotations();
+    if (isEmptyAnnotations(annotations)) delete all[ticker];
+    else all[ticker] = annotations;
+    await dbSet("kv", ANNOTATIONS_KEY, all);
+  });
+  return annotationsWrite;
+}
+
 // ── Settings (shared across components via a tiny subscription) ────────────
 
 let settingsCache: Settings | null = null;
@@ -242,6 +267,8 @@ export interface Backup {
   watchlists: Watchlist[];
   screens: SavedScreen[];
   settings: Settings;
+  /** Added after version 3 shipped, so older version-3 backups don't have it */
+  chartAnnotations?: Record<string, ChartAnnotations>;
 }
 
 /** Older backups: v1 stored named ticker lists, v2 one flat intent-tagged list */
@@ -255,7 +282,9 @@ interface OlderBackup {
 }
 
 export async function exportBackup(): Promise<Backup> {
-  const [portfolio, watchlists, screens, settings] = await Promise.all([loadPortfolio(), loadWatchlists(), loadScreens(), loadSettings()]);
+  const [portfolio, watchlists, screens, settings, chartAnnotations] = await Promise.all([
+    loadPortfolio(), loadWatchlists(), loadScreens(), loadSettings(), loadAllChartAnnotations(),
+  ]);
   return {
     app: "the-dip",
     version: 3,
@@ -264,6 +293,7 @@ export async function exportBackup(): Promise<Backup> {
     watchlists,
     screens,
     settings: { baseCurrency: settings.baseCurrency, profile: settings.profile, benchmarks: settings.benchmarks },
+    chartAnnotations,
   };
 }
 
@@ -289,5 +319,10 @@ export async function importBackup(raw: unknown): Promise<{ positions: number; w
   await saveWatchlists(lists);
   if (b.version === 3 && Array.isArray((b as Partial<Backup>).screens)) await saveScreens((b as Backup).screens);
   if (b.settings) await saveSettings(mergeSettings(b.settings));
+  const drawings = (b as Partial<Backup>).chartAnnotations;
+  if (b.version === 3 && drawings !== undefined) {
+    await annotationsWrite.catch(() => {});
+    await dbSet("kv", ANNOTATIONS_KEY, sanitizeAllAnnotations(drawings));
+  }
   return { positions: b.portfolio.length, watched: flattenLists(lists).length };
 }

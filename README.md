@@ -26,7 +26,9 @@ Built with Next.js 14, TypeScript, Tailwind CSS and Recharts. No accounts, no da
 
 **Interactive chart.** Every research page links to a full chart at `/stock/[ticker]/chart`: candlesticks with volume, zoom and scroll (mouse wheel, drag or pinch), and a crosshair readout of each bar's open, high, low, close, volume and change from the previous bar. Timeframes are 1D, 4H, 1H, 15m and 5m, with intraday bar times shown on the exchange's own clock (New York or Singapore). Built on TradingView's open-source [Lightweight Charts](https://github.com/tradingview/lightweight-charts) library.
 
-An **Indicators** menu switches on moving averages (SMA 20/50/200, EMA 9/21), VWAP, average volume, relative volume, RSI (14) and MACD (12, 26, 9), each with a plain-language explanation. Averages and VWAP are drawn over the price, RSI and MACD get their own panels below it, and the readout shows every value for the bar under the crosshair. Relative volume compares a daily bar with the previous 20 sessions, and an intraday bar with the same time of day over the previous 10 sessions, since volume is always heavy at the open. VWAP restarts each session, so it is offered on intraday timeframes only. All indicators are calculated in the app from the chart's own bars. Support/resistance and setup detection are planned next.
+An **Indicators** menu switches on moving averages (SMA 20/50/200, EMA 9/21), VWAP, average volume, relative volume, RSI (14) and MACD (12, 26, 9), each with a plain-language explanation. Averages and VWAP are drawn over the price, RSI and MACD get their own panels below it, and the readout shows every value for the bar under the crosshair. Relative volume compares a daily bar with the previous 20 sessions, and an intraday bar with the same time of day over the previous 10 sessions, since volume is always heavy at the open. VWAP restarts each session, so it is offered on intraday timeframes only. All indicators are calculated in the app from the chart's own bars.
+
+A panel beside the chart reads the **trend** two ways and calls it only when both agree. The first is how price sits against its 50- and 200-day averages (the same rule as the research page); the second is whether the last two swing highs and lows are rising or falling. Each read lists the prices and dates it used. **Support and resistance** are found from swing points: bars whose high or low is the most extreme within 5 bars either side. Swing points within half an average bar's range of each other form one level, and each one counts as a touch. Levels need at least two touches in the last 500 bars, and only the three nearest on each side of the price are drawn (as dashed lines), so the chart stays readable. A swing point is only confirmed 5 bars after it happens, so levels never rely on later bars. You can add your own **levels** (by clicking the chart or typing a price), **trendlines** and **notes**, then edit or delete them from the panel. Your levels appear as solid lines on every timeframe and get touch counts by the same rule. Trendlines and notes stay on the timeframe they were drawn on. Drawings are saved in the browser per ticker and included in backups. Setup detection is planned next.
 
 Also: portfolio tracker with sector allocation, investment-return calculator, retirement planner, economic calendar and glossary.
 
@@ -72,9 +74,9 @@ Browser                                           Next.js API routes (proxy)    
 | `src/lib/analysis.ts` | Long-term and swing verdicts, and the sourced research summary |
 | `src/lib/markets.ts` | Supported markets, exchanges and per-currency formatting |
 | `src/lib/indicators.ts` | SMA, EMA, RSI, MACD, ATR and trend classification |
-| `src/lib/marketData/` | Candle and timeframe types, the `CandleProvider` interface, exchange-time helpers, 1H → 4H grouping, data cleaning, chart indicators (VWAP, average and relative volume) |
+| `src/lib/marketData/` | Candle and timeframe types, the `CandleProvider` interface, exchange-time helpers, 1H → 4H grouping, data cleaning, chart indicators (VWAP, average and relative volume), swing points and support/resistance (`levels.ts`), trend reads (`trend.ts`), chart drawing types and validation (`annotations.ts`) |
 | `src/lib/server/providers/` | Candle providers (Yahoo today); `index.ts` picks which one `/api/candles` uses |
-| `src/components/chart/` | Candlestick chart, timeframe picker, OHLCV and indicator readouts, indicator menu and definitions |
+| `src/components/chart/` | Candlestick chart, timeframe picker, OHLCV and indicator readouts, indicator menu, drawing tools, and the trend, levels and drawings cards beside the chart |
 | `src/lib/server/news.ts` | Headline relevance scoring and duplicate-story merging |
 | `src/lib/server/snapshot.ts` | Saved-data fallback for the API routes |
 | `src/app/api/*` | Server routes that proxy and normalise Yahoo Finance |
@@ -84,7 +86,7 @@ Browser                                           Next.js API routes (proxy)    
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # unit tests (rules, indicators, news, portfolio history, categories, chart data and indicators)
+npm test           # unit tests (rules, indicators, news, portfolio history, categories, chart data, indicators, levels and trend)
 npm run build      # production build
 ```
 
@@ -96,6 +98,7 @@ No API keys or environment variables are required.
 
 - **Unofficial data source.** Yahoo Finance's endpoints are undocumented and can change or rate-limit without notice. Prices may be delayed, and the snapshot fallback only covers the showcase stocks in full.
 - **Chart history depends on the timeframe.** Yahoo provides 5 years of daily bars here, 1-hour bars for about two years (the 4H view is built from them), and 15- and 5-minute bars for only the last 60 days. Intraday bars cover regular trading hours only. If Yahoo fails, the daily chart falls back to saved data for the showcase stocks; intraday timeframes have no fallback and say so. Yahoo has no 4-hour interval, so 4H bars run 9:30–13:30 and 13:30–16:00 for US stocks (the last one is shorter). Yahoo's terms allow personal use only: a commercial version would need a licensed provider, which can be added as another `CandleProvider`.
+- **Support, resistance and trend use only the loaded bars.** On 15m and 5m charts that is at most 60 days, so those levels are short-term. The newest 5 bars can't form a swing point yet, so a fresh turn appears a few bars later, and a level can shift as new swing points are confirmed. Chart drawings live in this browser only, like the rest of your data; trendlines and notes on intraday charts disappear from view once their bars are older than Yahoo's intraday history.
 - **Hand-maintained economic calendar.** Release dates in `src/lib/economicEvents.ts` need updating from the official BLS, BEA and Federal Reserve calendars.
 - **Headline matching is approximate.** News relevance matches on the company name, so a listicle that mentions a company can count as news about it.
 - **Markets.** US and Singapore are supported in the screener; search also finds listings on other major exchanges (London, Hong Kong, Tokyo, Toronto, Australia and others), which work everywhere a ticker is accepted. Every watchlist item and position stores its exchange and currency. Portfolio totals convert non-USD holdings at today's exchange rate, so their cost basis is approximate.

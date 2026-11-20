@@ -5,9 +5,13 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getCandles, getQuote } from "@/lib/data";
-import { CandleSeries, Timeframe, isTimeframe, isValidTicker, timeframeInfo } from "@/lib/marketData/types";
+import { CandleSeries, TIMEFRAMES, Timeframe, isTimeframe, isValidTicker, timeframeInfo } from "@/lib/marketData/types";
 import { toChartData } from "@/lib/marketData/clean";
 import { IndicatorId, computeIndicators } from "@/lib/marketData/indicators";
+import { analyseLevels, touchesAt } from "@/lib/marketData/levels";
+import { chartTrend } from "@/lib/marketData/trend";
+import { AnchorPoint, ChartAnnotations, NOTE_MAX, barIndexAt, emptyAnnotations } from "@/lib/marketData/annotations";
+import { loadChartAnnotations, newId, saveChartAnnotations } from "@/lib/store";
 import { QuoteData, Sourced } from "@/lib/types";
 import { currencySymbol } from "@/lib/markets";
 import SourceTag from "@/components/SourceTag";
@@ -17,6 +21,11 @@ import OhlcvLegend from "@/components/chart/OhlcvLegend";
 import IndicatorMenu from "@/components/chart/IndicatorMenu";
 import IndicatorLegend from "@/components/chart/IndicatorLegend";
 import { DEFAULT_INDICATORS, PANEL_HEIGHT, isIndicatorId, panelCount } from "@/components/chart/indicatorDefs";
+import DrawTools, { drawHint } from "@/components/chart/DrawTools";
+import TrendCard from "@/components/chart/TrendCard";
+import LevelsCard, { LevelRow } from "@/components/chart/LevelsCard";
+import DrawingsCard, { NoteRow, TrendlineRow } from "@/components/chart/DrawingsCard";
+import { ChartLevel, ChartNoteMark, ChartPoint, ChartTrendline, DrawTool, formatBarTime } from "@/components/chart/drawing";
 
 const CHART_HEIGHT = "h-[340px] sm:h-[480px]";
 /** Height of the price panel; matches CHART_HEIGHT */
@@ -31,6 +40,7 @@ const CandlestickChart = dynamic(() => import("@/components/chart/CandlestickCha
 
 const TIMEFRAME_KEY = "chart_timeframe";
 const INDICATORS_KEY = "chart_indicators";
+const DETECTED_KEY = "chart_detected_levels";
 
 const ZONE_NAMES: Record<string, string> = { "America/New_York": "New York", "Asia/Singapore": "Singapore" };
 
@@ -46,25 +56,89 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   const [retry, setRetry] = useState(0);
   const [enabled, setEnabled] = useState<ReadonlySet<IndicatorId>>(() => new Set(DEFAULT_INDICATORS));
   const [phone, setPhone] = useState(false);
+  const [touch, setTouch] = useState(false);
+  const [showDetected, setShowDetected] = useState(true);
+  // The reader's drawings for this ticker, and which ticker they were loaded for
+  const [drawings, setDrawings] = useState<ChartAnnotations>(emptyAnnotations);
+  const drawingsFor = useRef<string | null>(null);
+  const [tool, setTool] = useState<DrawTool | null>(null);
+  /** First point of a trendline being drawn */
+  const [anchor, setAnchor] = useState<AnchorPoint | null>(null);
+  /** Bar a new note is being written for */
+  const [noteTime, setNoteTime] = useState<number | null>(null);
+  const [noteText, setNoteText] = useState("");
 
-  // Remember the last timeframe and indicators across visits
+  // Remember the last timeframe, indicators and detected-levels choice across visits
   useEffect(() => {
     try {
       const saved = localStorage.getItem(TIMEFRAME_KEY);
       if (isTimeframe(saved)) setTimeframe(saved);
       const ids: unknown = JSON.parse(localStorage.getItem(INDICATORS_KEY) ?? "null");
       if (Array.isArray(ids)) setEnabled(new Set(ids.filter(isIndicatorId)));
+      if (localStorage.getItem(DETECTED_KEY) === "off") setShowDetected(false);
     } catch {}
   }, []);
 
-  // The price panel is shorter on a phone (matches CHART_HEIGHT)
+  // The price panel is shorter on a phone (matches CHART_HEIGHT); touch screens say "tap"
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
     const update = () => setPhone(mq.matches);
     update();
+    setTouch(window.matchMedia("(pointer: coarse)").matches);
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    let current = true;
+    drawingsFor.current = null;
+    setDrawings(emptyAnnotations());
+    loadChartAnnotations(ticker).then((a) => {
+      if (!current) return;
+      setDrawings(a);
+      drawingsFor.current = ticker;
+    });
+    return () => { current = false; };
+  }, [ticker]);
+
+  // A half-finished drawing doesn't carry over to another chart
+  useEffect(() => {
+    setTool(null);
+    setAnchor(null);
+    setNoteTime(null);
+  }, [ticker, timeframe]);
+
+  // Esc puts the drawing tool away
+  useEffect(() => {
+    if (!tool && noteTime === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setTool(null);
+      setAnchor(null);
+      setNoteTime(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tool, noteTime]);
+
+  /** Changes and saves the drawings; ignored until this ticker's saved drawings have loaded */
+  function editDrawings(change: (d: ChartAnnotations) => ChartAnnotations) {
+    if (drawingsFor.current !== ticker) return;
+    const next = change(drawings);
+    setDrawings(next);
+    saveChartAnnotations(ticker, next).catch(() => {});
+  }
+
+  function chooseTool(next: DrawTool | null) {
+    setTool(next);
+    setAnchor(null);
+    if (next) setNoteTime(null);
+  }
+
+  function chooseShowDetected(on: boolean) {
+    setShowDetected(on);
+    try { localStorage.setItem(DETECTED_KEY, on ? "on" : "off"); } catch {}
+  }
 
   function chooseTimeframe(tf: Timeframe) {
     setTimeframe(tf);
@@ -147,6 +221,103 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   const name = s?.name ?? q?.name ?? null;
   const info = timeframeInfo(timeframe);
   const up = (q?.change ?? 0) >= 0;
+  const fmtPrice = (v: number) => `${sym}${v.toFixed(priceDigits)}`;
+  const lastClose = candles.length ? candles[candles.length - 1].close : 0;
+
+  // ── Support / resistance, trend and the reader's drawings for the bars on screen ──
+  const analysis = useMemo(() => (chartData ? analyseLevels(chartData.candles) : null), [chartData]);
+  const trend = useMemo(() => (chartData && analysis ? chartTrend(chartData.candles, analysis.pivots) : null), [chartData, analysis]);
+
+  const levelRows = useMemo<LevelRow[]>(() => {
+    if (!analysis) return [];
+    const rows: LevelRow[] = [];
+    if (showDetected) {
+      for (const role of ["support", "resistance"] as const) {
+        analysis[role].forEach((l, i) => rows.push({
+          id: `detected-${role}-${i}`, price: l.price, role, manual: false, label: "", touches: l.touches, lastIndex: l.lastIndex,
+        }));
+      }
+    }
+    for (const l of drawings.levels) {
+      const t = touchesAt(analysis, l.price);
+      rows.push({ id: l.id, price: l.price, role: l.price < lastClose ? "support" : "resistance", manual: true, label: l.label, ...t });
+    }
+    return rows;
+  }, [analysis, showDetected, drawings.levels, lastClose]);
+
+  const chartLevels = useMemo<ChartLevel[]>(() => levelRows.map((r) => ({
+    id: r.id, price: r.price, role: r.role, manual: r.manual,
+    title: r.manual ? (r.label ? r.label.slice(0, 16) : "Your level") : `${r.touches} touches`,
+  })), [levelRows]);
+
+  // Trendlines and notes belong to the timeframe they were drawn on
+  const barsTf = s?.timeframe ?? timeframe;
+  const slack = timeframeInfo(barsTf).seconds / 2;
+  const drawn = useMemo(() => {
+    const times = chartData?.times ?? [];
+    const at = (t: number) => barIndexAt(times, t, slack);
+    const lines: TrendlineRow[] = [];
+    const onChartLines: ChartTrendline[] = [];
+    for (const t of drawings.trendlines.filter((x) => x.timeframe === barsTf)) {
+      const ia = at(t.a.time), ib = at(t.b.time);
+      lines.push({ id: t.id, a: t.a, b: t.b, bars: ia === null || ib === null ? null : ib - ia });
+      if (ia !== null && ib !== null && ia !== ib) onChartLines.push({ id: t.id, a: { index: ia, price: t.a.price }, b: { index: ib, price: t.b.price } });
+    }
+    const notes: NoteRow[] = [];
+    const marks: ChartNoteMark[] = [];
+    for (const n of drawings.notes.filter((x) => x.timeframe === barsTf).sort((a, b) => a.time - b.time)) {
+      const i = at(n.time);
+      notes.push({ id: n.id, time: n.time, text: n.text, onChart: i !== null });
+      if (i !== null) marks.push({ id: n.id, index: i, text: n.text });
+    }
+    const elsewhere = TIMEFRAMES.filter((t) => t.value !== barsTf)
+      .map((t) => ({
+        label: t.label,
+        count: drawings.trendlines.filter((x) => x.timeframe === t.value).length + drawings.notes.filter((x) => x.timeframe === t.value).length,
+      }))
+      .filter((e) => e.count > 0);
+    return { lines, onChartLines, notes, marks, elsewhere };
+  }, [chartData, drawings.trendlines, drawings.notes, barsTf, slack]);
+
+  // Memoised so hovering (which re-renders the page) doesn't reset the trendline preview
+  const anchorPoint = useMemo<ChartPoint | null>(() => {
+    const i = anchor && chartData ? barIndexAt(chartData.times, anchor.time, slack) : null;
+    return anchor && i !== null ? { index: i, price: anchor.price } : null;
+  }, [anchor, chartData, slack]);
+
+  /** A click on the price panel with a drawing tool active */
+  function pick(p: ChartPoint) {
+    if (!chartData || !s) return;
+    const time = chartData.times[p.index];
+    const price = Number(p.price.toFixed(priceDigits));
+    if (time === undefined || !(price > 0)) return;
+    if (tool === "level") {
+      editDrawings((d) => ({ ...d, levels: [...d.levels, { id: newId(), price, label: "" }] }));
+      setTool(null);
+    } else if (tool === "trendline") {
+      if (!anchor) { setAnchor({ time, price }); return; }
+      if (anchor.time === time) return; // a line needs two different bars
+      const end = { time, price };
+      const [a, b] = anchor.time < time ? [anchor, end] : [end, anchor];
+      editDrawings((d) => ({ ...d, trendlines: [...d.trendlines, { id: newId(), timeframe: s.timeframe, a, b }] }));
+      setAnchor(null);
+      setTool(null);
+    } else if (tool === "note") {
+      setNoteTime(time);
+      setNoteText("");
+      setTool(null);
+    }
+  }
+
+  function saveNote() {
+    const text = noteText.trim();
+    if (noteTime === null || !text || !s) return;
+    editDrawings((d) => ({ ...d, notes: [...d.notes, { id: newId(), timeframe: s.timeframe, time: noteTime, text }] }));
+    setNoteTime(null);
+    setNoteText("");
+  }
+
+  const ready = !!(s && chartData && candles.length);
 
   return (
     <div className="max-w-[1280px] mx-auto">
@@ -186,15 +357,40 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
         </div>
       </div>
 
+      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] items-start">
       {/* ── Chart ── */}
-      <section className="mt-5 border border-[#E5E5E5] rounded-2xl p-3 sm:p-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+      <section className="min-w-0 border border-[#E5E5E5] rounded-2xl p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-x-3 gap-y-2 flex-wrap mb-2">
           <TimeframePicker value={timeframe} onChange={chooseTimeframe} />
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="flex items-center gap-3 ml-auto flex-wrap justify-end">
             {loading && series !== undefined && <span className="text-[12px] text-[#A3A3A3]">Loading {info.label} bars…</span>}
+            {ready && <DrawTools tool={tool} onChange={chooseTool} />}
             <IndicatorMenu enabled={enabled} intraday={info.intraday} onToggle={toggleIndicator} />
           </div>
         </div>
+
+        {tool && (
+          <p className="mb-2 text-[12px] text-[#0A0A0A] bg-[#F5F5F5] rounded-lg px-3 py-1.5" role="status">
+            {drawHint(tool, !!anchor, touch)} <span className="text-[#525252]">{touch ? "Tap the tool again" : "Esc"} to cancel.</span>
+          </p>
+        )}
+        {noteTime !== null && (
+          <form
+            className="mb-2 flex items-center gap-2 flex-wrap bg-[#F5F5F5] rounded-lg px-3 py-2"
+            onSubmit={(e) => { e.preventDefault(); saveNote(); }}
+          >
+            <label htmlFor="new-note" className="text-[12px] font-semibold text-[#0A0A0A] shrink-0">
+              Note for {formatBarTime(noteTime, timeframeInfo(barsTf).intraday)}
+            </label>
+            <input
+              id="new-note" autoFocus maxLength={NOTE_MAX} value={noteText} onChange={(e) => setNoteText(e.target.value)}
+              placeholder="What do you see here?"
+              className="flex-1 min-w-[160px] px-2 py-1 text-[13px] bg-white border border-[#E5E5E5] rounded-lg focus:outline-none focus:border-[#2D8CFF]"
+            />
+            <button type="submit" disabled={!noteText.trim()} className="px-3 py-1 text-[12px] font-semibold bg-[#2D8CFF] text-white rounded-full disabled:opacity-40">Save</button>
+            <button type="button" onClick={() => setNoteTime(null)} className="text-[12px] font-semibold text-[#2D8CFF] hover:underline">Cancel</button>
+          </form>
+        )}
 
         {series === undefined ? (
           <Skeleton />
@@ -227,6 +423,12 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
                 label={`${timeframeInfo(s.timeframe).label} candlestick chart of ${s.ticker} with volume`}
                 onHover={setHover}
                 height={chartHeight}
+                levels={chartLevels}
+                trendlines={drawn.onChartLines}
+                notes={drawn.marks}
+                anchor={anchorPoint}
+                drawing={tool !== null}
+                onPick={pick}
               />
             </div>
             <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-3 text-[11px] text-[#A3A3A3]">
@@ -240,6 +442,39 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
           </>
         )}
       </section>
+
+      {/* ── Beside the chart (below it on narrower screens) ── */}
+      {ready && s && chartData && analysis && trend && (
+        <aside className="space-y-4 min-w-0" aria-label="Chart analysis">
+          <TrendCard trend={trend} times={chartData.times} intraday={barsIntraday} timeframeLabel={timeframeInfo(s.timeframe).label} price={fmtPrice} />
+          <LevelsCard
+            rows={levelRows}
+            showDetected={showDetected}
+            onShowDetected={chooseShowDetected}
+            lastClose={lastClose}
+            digits={priceDigits}
+            price={fmtPrice}
+            times={chartData.times}
+            intraday={barsIntraday}
+            barsLooked={candles.length - analysis.from}
+            onAdd={(price, label) => editDrawings((d) => ({ ...d, levels: [...d.levels, { id: newId(), price, label }] }))}
+            onUpdate={(id, price, label) => editDrawings((d) => ({ ...d, levels: d.levels.map((l) => (l.id === id ? { ...l, price, label } : l)) }))}
+            onRemove={(id) => editDrawings((d) => ({ ...d, levels: d.levels.filter((l) => l.id !== id) }))}
+          />
+          <DrawingsCard
+            timeframeLabel={timeframeInfo(s.timeframe).label}
+            trendlines={drawn.lines}
+            notes={drawn.notes}
+            elsewhere={drawn.elsewhere}
+            intraday={barsIntraday}
+            price={fmtPrice}
+            onRemoveTrendline={(id) => editDrawings((d) => ({ ...d, trendlines: d.trendlines.filter((t) => t.id !== id) }))}
+            onUpdateNote={(id, text) => editDrawings((d) => ({ ...d, notes: d.notes.map((n) => (n.id === id ? { ...n, text } : n)) }))}
+            onRemoveNote={(id) => editDrawings((d) => ({ ...d, notes: d.notes.filter((n) => n.id !== id) }))}
+          />
+        </aside>
+      )}
+      </div>
     </div>
   );
 }
