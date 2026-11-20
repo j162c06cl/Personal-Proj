@@ -47,3 +47,18 @@ export function wallClockAsUtc(unixSec: number, timeZone: string): number {
   const { y, mo, d, h, mi, s } = localParts(unixSec, timeZone);
   return Date.UTC(y, mo - 1, d, h, mi, s) / 1000;
 }
+
+/** Regular-session close, in seconds after local midnight (half days aren't known) */
+const SESSION_CLOSE: Record<string, number> = { "America/New_York": 16 * 3600, "Asia/Singapore": 17 * 3600 };
+
+/**
+ * Whether the newest bar is still trading, so its close and volume can still change.
+ * Daily bars carry midnight UTC of their trading date; intraday bars their opening time.
+ */
+export function barStillForming(barTime: number, barSeconds: number, intraday: boolean, timeZone: string, nowSec: number): boolean {
+  const close = SESSION_CLOSE[timeZone] ?? 16 * 3600;
+  const today = tradingDate(nowSec, timeZone);
+  const sessionOpen = wallClockAsUtc(nowSec, timeZone) % 86_400 < close;
+  if (intraday) return nowSec < barTime + barSeconds && !(tradingDate(barTime, timeZone) === today && !sessionOpen);
+  return new Date(barTime * 1000).toISOString().slice(0, 10) === today && sessionOpen;
+}

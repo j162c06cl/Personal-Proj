@@ -35,6 +35,8 @@ export interface Level {
   touches: number;
   firstIndex: number;
   lastIndex: number;
+  /** Bars of the swing points that formed it, oldest first */
+  pivots: number[];
 }
 
 export interface LevelAnalysis {
@@ -110,6 +112,7 @@ export function analyseLevels(candles: Candle[]): LevelAnalysis {
       touches: g.length,
       firstIndex: Math.min(...g.map((p) => p.index)),
       lastIndex: Math.max(...g.map((p) => p.index)),
+      pivots: g.map((p) => p.index).sort((a, b) => a - b),
     }));
 
   const close = candles[n - 1].close;
