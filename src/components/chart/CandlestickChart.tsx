@@ -1,17 +1,19 @@
 "use client";
 
 // Interactive candlestick + volume chart built on TradingView Lightweight Charts, with
-// indicator lines over the price and optional RSI / MACD panels below it.
+// indicator lines over the price, optional RSI / MACD panels below it, support and resistance
+// lines, and the reader's own levels, trendlines and notes.
 // Touches the DOM on creation, so pages load it with next/dynamic and ssr: false.
 
 import { useEffect, useRef, useState } from "react";
 import {
-  CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart,
-  IChartApi, ISeriesApi, LogicalRange, MouseEventParams, SeriesType, Time, UTCTimestamp,
+  CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart, createSeriesMarkers,
+  IChartApi, IPriceLine, ISeriesApi, ISeriesMarkersPluginApi, LogicalRange, MouseEventParams, SeriesType, Time, UTCTimestamp,
 } from "lightweight-charts";
 import { ChartData } from "@/lib/marketData/clean";
 import { IndicatorValues, Series } from "@/lib/marketData/indicators";
 import { MACD_SIGNAL_COLOR, PANEL_HEIGHT, indicatorDef } from "./indicatorDefs";
+import { ChartLevel, ChartNoteMark, ChartPoint, ChartTrendline, DRAW_COLOR, NOTE_COLOR } from "./drawing";
 
 /** Bars shown when a series first loads; the rest is a scroll or zoom away */
 const INITIAL_BARS = 130;
@@ -39,6 +41,10 @@ function withAlpha(hex: string, alpha: number) {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
+/** Drawings don't stretch the price scale: a line drawn far off doesn't squash the candles */
+const NO_AUTOSCALE = { autoscaleInfoProvider: () => null } as const;
+const shorten = (text: string, max = 24) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
+
 export default function CandlestickChart({
   data,
   indicators,
@@ -47,6 +53,12 @@ export default function CandlestickChart({
   label,
   onHover,
   height,
+  levels,
+  trendlines,
+  notes,
+  anchor,
+  drawing,
+  onPick,
 }: {
   data: ChartData;
   /** Indicator values aligned with data.candles; only the switched-on ones are present */
@@ -61,6 +73,15 @@ export default function CandlestickChart({
   onHover: (index: number | null) => void;
   /** Total height in pixels, including PANEL_HEIGHT for each RSI / MACD panel */
   height: number;
+  /** Horizontal lines: detected support / resistance and the reader's own levels */
+  levels: ChartLevel[];
+  trendlines: ChartTrendline[];
+  notes: ChartNoteMark[];
+  /** First point of a trendline being drawn; a preview follows the pointer from it */
+  anchor: ChartPoint | null;
+  /** A drawing tool is active: clicks on the price panel go to onPick */
+  drawing: boolean;
+  onPick: (point: ChartPoint) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
@@ -74,6 +95,17 @@ export default function CandlestickChart({
   const barCount = useRef(0);
   const hoverRef = useRef(onHover);
   hoverRef.current = onHover;
+  const pickRef = useRef(onPick);
+  pickRef.current = onPick;
+  const drawingRef = useRef(drawing);
+  drawingRef.current = drawing;
+  const anchorRef = useRef(anchor);
+  anchorRef.current = anchor;
+  const timesRef = useRef<number[]>([]);
+  const priceLines = useRef<IPriceLine[]>([]);
+  const lineSeries = useRef<ISeriesApi<"Line">[]>([]);
+  const draft = useRef<ISeriesApi<"Line"> | null>(null);
+  const markers = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const [awayFromLatest, setAwayFromLatest] = useState(false);
   const panels = (indicators.rsi ? 1 : 0) + (indicators.macd ? 1 : 0);
 
@@ -116,10 +148,53 @@ export default function CandlestickChart({
       priceScaleId: "volume", priceFormat: { type: "volume" }, lastValueVisible: false, priceLineVisible: false,
     });
     c.priceScale("volume").applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+    markers.current = createSeriesMarkers(candles.current, []);
 
+    /** Bar and price under the pointer on the price panel */
+    const pointAt = (p: MouseEventParams<Time>): ChartPoint | null => {
+      if (!p.point || p.logical === undefined || (p.paneIndex ?? 0) !== 0 || !barCount.current) return null;
+      const price = candles.current?.coordinateToPrice(p.point.y);
+      if (price === null || price === undefined || !(price > 0)) return null;
+      return { index: Math.min(Math.max(Math.round(p.logical), 0), barCount.current - 1), price };
+    };
+    // Changing a series' data makes the library report the crosshair again, so the preview is
+    // only redrawn when its end moves, and never from inside its own redraw
+    let previewEnd = "";
+    let redrawing = false;
     const onMove = (p: MouseEventParams<Time>) => {
       hoverRef.current(p.time === undefined || p.logical === undefined ? null : Math.round(p.logical));
+      // While a trendline is being drawn, a dashed preview runs from its first point to the pointer
+      const from = anchorRef.current;
+      const to = from && pointAt(p);
+      if (!from || !to || !draft.current || redrawing) return;
+      const end = `${from.index}:${from.price}>${to.index}:${to.price}`;
+      if (end === previewEnd) return;
+      previewEnd = end;
+      redrawing = true;
+      try { setLine(draft.current, from, to); } finally { redrawing = false; }
     };
+    // Drawing clicks are read from pointer events rather than the library's click event, which
+    // drops a second click made within half a second of the first (quickly drawn trendlines).
+    // A press that moves more than a few pixels is a drag to scroll, not a click.
+    const el = container.current;
+    let press: { id: number; x: number; y: number } | null = null;
+    const onDown = (e: PointerEvent) => { press = { id: e.pointerId, x: e.clientX, y: e.clientY }; };
+    const onUp = (e: PointerEvent) => {
+      const start = press;
+      press = null;
+      if (!drawingRef.current || !start || start.id !== e.pointerId || !barCount.current) return;
+      if (Math.abs(e.clientX - start.x) + Math.abs(e.clientY - start.y) > 6) return;
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if (y < 0 || y > c.panes()[0].getHeight()) return; // only the price panel
+      const logical = c.timeScale().coordinateToLogical(x);
+      const price = candles.current?.coordinateToPrice(y);
+      if (logical === null || price === null || price === undefined || !(price > 0)) return;
+      pickRef.current({ index: Math.min(Math.max(Math.round(logical), 0), barCount.current - 1), price });
+    };
+    el.addEventListener("pointerdown", onDown, true);
+    el.addEventListener("pointerup", onUp, true);
     // The "Latest" button appears once the newest bar has scrolled out of view
     const onRange = (r: LogicalRange | null) => setAwayFromLatest(!!r && !showsLatest(r, barCount.current));
     c.subscribeCrosshairMove(onMove);
@@ -129,10 +204,15 @@ export default function CandlestickChart({
 
     return () => {
       c.unsubscribeCrosshairMove(onMove);
+      el.removeEventListener("pointerdown", onDown, true);
+      el.removeEventListener("pointerup", onUp, true);
       c.timeScale().unsubscribeVisibleLogicalRangeChange(onRange);
       c.remove();
-      chart.current = candles.current = volume.current = null;
+      chart.current = candles.current = volume.current = draft.current = null;
+      markers.current = null;
       series.clear();
+      priceLines.current = [];
+      lineSeries.current = [];
       panelSet.current = paneLayout.current = "";
       shownKey.current = null;
     };
@@ -167,6 +247,7 @@ export default function CandlestickChart({
         : { time: t(i), value: k.volume, color: withAlpha(k.close >= k.open ? up : down, 0.35) }
     ));
     barCount.current = n;
+    timesRef.current = data.times;
     shownKey.current = viewKey;
 
     if (!refresh) showLatest();
@@ -256,6 +337,74 @@ export default function CandlestickChart({
     }
   }, [indicators, data, height]);
 
+  // Support / resistance and the reader's levels, as horizontal lines across the price panel.
+  // Detected levels are dashed and thin; the reader's own are solid.
+  useEffect(() => {
+    const s = candles.current;
+    if (!s) return;
+    priceLines.current.forEach((l) => s.removePriceLine(l));
+    const { up, down } = colors.current;
+    priceLines.current = levels.map((l) => {
+      const color = l.role === "support" ? up : down;
+      return s.createPriceLine({
+        price: l.price,
+        color: l.manual ? color : withAlpha(color, 0.75),
+        lineWidth: l.manual ? 2 : 1,
+        lineStyle: l.manual ? LineStyle.Solid : LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: l.title,
+      });
+    });
+  }, [levels, data]);
+
+  // Trendlines, each a two-point line between the bars it was drawn on
+  useEffect(() => {
+    const c = chart.current;
+    if (!c) return;
+    lineSeries.current.forEach((s) => c.removeSeries(s));
+    lineSeries.current = trendlines.map((t) => {
+      const s = c.addSeries(LineSeries, {
+        color: colorOf(DRAW_COLOR), lineWidth: 2, lastValueVisible: false, priceLineVisible: false,
+        crosshairMarkerVisible: false, pointMarkersVisible: true, pointMarkersRadius: 3, ...NO_AUTOSCALE,
+      });
+      setLine(s, t.a, t.b);
+      return s;
+    });
+  }, [trendlines, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Preview while a trendline is being drawn
+  useEffect(() => {
+    const c = chart.current;
+    if (!c) return;
+    if (anchor && !draft.current) {
+      draft.current = c.addSeries(LineSeries, {
+        color: colorOf(DRAW_COLOR), lineWidth: 2, lineStyle: LineStyle.Dashed, lastValueVisible: false,
+        priceLineVisible: false, crosshairMarkerVisible: false, pointMarkersVisible: true, ...NO_AUTOSCALE,
+      });
+    } else if (!anchor && draft.current) {
+      c.removeSeries(draft.current);
+      draft.current = null;
+    }
+    if (anchor && draft.current) setLine(draft.current, anchor, anchor);
+  }, [anchor, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Notes, as markers above their bars
+  useEffect(() => {
+    const color = colorOf(NOTE_COLOR);
+    markers.current?.setMarkers(
+      [...notes]
+        .sort((a, b) => a.index - b.index)
+        .map((n) => ({ id: n.id, time: data.times[n.index] as UTCTimestamp, position: "aboveBar", shape: "circle", color, text: shorten(n.text) }))
+    );
+  }, [notes, data]);
+
+  /** Points a line from one bar to another; the library needs them in time order */
+  function setLine(s: ISeriesApi<"Line">, a: ChartPoint, b: ChartPoint) {
+    const t = (i: number) => timesRef.current[i] as UTCTimestamp;
+    const [p, q] = a.index <= b.index ? [a, b] : [b, a];
+    s.setData(p.index === q.index ? [{ time: t(p.index), value: p.price }] : [{ time: t(p.index), value: p.price }, { time: t(q.index), value: q.price }]);
+  }
+
   function showLatest() {
     const n = barCount.current;
     chart.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - INITIAL_BARS), to: n + 3 });
@@ -263,7 +412,7 @@ export default function CandlestickChart({
 
   return (
     <div className="relative w-full" style={{ height }}>
-      <div ref={container} role="img" aria-label={label} className="absolute inset-0" />
+      <div ref={container} role="img" aria-label={label} className="absolute inset-0" style={drawing ? { cursor: "crosshair" } : undefined} />
       {awayFromLatest && (
         <button
           onClick={showLatest}
