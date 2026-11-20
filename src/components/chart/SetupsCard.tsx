@@ -1,26 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { SETUP_INFO, SETUP_RULES, SetupCheck, SetupSummary, SetupType } from "@/lib/marketData/setups";
+import {
+  Detection, SETUP_INFO, SetupCheck, SetupConfig, SetupSummary, SetupType, changedRules,
+} from "@/lib/marketData/setups";
 import { LEVEL_RULES } from "@/lib/marketData/levels";
+import type { Candle } from "@/lib/marketData/types";
 import PanelCard, { HowItWorks } from "./PanelCard";
+import SetupRulesPanel from "./SetupRulesPanel";
 import { formatBarTime } from "./drawing";
 
-/** Which check of which setup is drawn on the chart */
+/** What a setup row is looking at: the latest bar, or a past detection (by its first bar) */
+export type SetupTarget = "latest" | number;
+
+/** Which setup is drawn on the chart */
 export interface SetupSelection {
   type: SetupType;
-  which: "last" | "latest";
+  target: SetupTarget;
 }
 
-/** The check a row shows: the recent detection if there is one, otherwise the latest bar */
-export function shownCheck(s: SetupSummary): { check: SetupCheck; which: "last" | "latest" } {
-  return s.recent && s.last ? { check: s.last, which: "last" } : { check: s.latest, which: "latest" };
+/** The check and detection a target refers to (falls back to the latest bar if it's gone) */
+export function resolveTarget(s: SetupSummary, target: SetupTarget): { check: SetupCheck; detection: Detection | null } {
+  if (target !== "latest") {
+    const d = s.detections.find((x) => x.start === target);
+    if (d) return { check: d.check, detection: d };
+  }
+  return { check: s.latest, detection: null };
 }
+
+/** What a row shows by default: the recent detection if there is one, otherwise the latest bar */
+export const defaultTarget = (s: SetupSummary): SetupTarget => (s.recent ? s.recent.start : "latest");
 
 function Checklist({ check }: { check: SetupCheck }) {
   const groups = [
-    { title: "Core rules (all needed)", items: check.conditions.filter((c) => c.core) },
-    { title: "Confirmations", items: check.conditions.filter((c) => !c.core) },
+    { title: `Core rules: ${check.coreMet} of ${check.coreTotal} met (all needed)`, items: check.conditions.filter((c) => c.core) },
+    { title: `Confirmations: ${check.confirmationsMet} of ${check.confirmationsTotal} met`, items: check.conditions.filter((c) => !c.core) },
   ];
   return (
     <div className="space-y-2">
@@ -45,63 +59,111 @@ function Checklist({ check }: { check: SetupCheck }) {
   );
 }
 
-/** The five rule-based setups, each with its checklist, score and invalidation level */
+/** Short score for the collapsed row */
+const score = (c: SetupCheck) => `Core ${c.coreMet}/${c.coreTotal} · Conf ${c.confirmationsMet}/${c.confirmationsTotal}`;
+
 export default function SetupsCard({
   summaries,
+  candles,
+  volRatio,
   times,
   intraday,
   timeframeLabel,
-  barCount,
+  latestForming,
+  price,
+  config,
+  onConfigChange,
   selected,
   onSelect,
+  onFocusBar,
 }: {
   summaries: SetupSummary[];
+  candles: Candle[];
+  /** Each bar's volume ÷ usual volume, as the rules measure it */
+  volRatio: (number | null)[];
   times: readonly number[];
   intraday: boolean;
   timeframeLabel: string;
-  barCount: number;
+  /** The newest bar is still trading, so results on it can change */
+  latestForming: boolean;
+  price: (v: number) => string;
+  config: SetupConfig;
+  onConfigChange: (c: SetupConfig) => void;
   selected: SetupSelection | null;
   onSelect: (s: SetupSelection | null) => void;
+  onFocusBar: (index: number) => void;
 }) {
   const [open, setOpen] = useState<SetupType | null>(null);
+  const [views, setViews] = useState<Partial<Record<SetupType, SetupTarget>>>({});
+  const [inspecting, setInspecting] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const barCount = candles.length;
+  const lastBar = barCount - 1;
   const when = (i: number) => formatBarTime(times[i], intraday);
+  const span = (d: Detection) => (d.start === d.end ? when(d.start) : `${when(d.start)} – ${when(d.end)}`);
   const ago = (i: number) => {
-    const n = barCount - 1 - i;
+    const n = lastBar - i;
     return n === 0 ? "latest bar" : `${n} bar${n === 1 ? "" : "s"} ago`;
   };
+  const customised = changedRules(config).length;
+
+  function statusText(s: SetupSummary, d: Detection): { text: string; tone: string } {
+    if (d.status.kind === "invalidated") {
+      const verb = s.type === "goldenCross" ? "Reversed" : "Invalidated";
+      return { text: `${verb} ${when(d.status.index)}: ${d.status.text}`, tone: "text-[#F04E23]" };
+    }
+    if (d.end === lastBar) return { text: "Met on the latest bar", tone: "text-[#00B341]" };
+    return { text: s.type === "goldenCross" ? "Still in place (no death cross since)" : "Still valid (invalidation level not hit since)", tone: "text-[#00B341]" };
+  }
+
+  function choose(type: SetupType, target: SetupTarget) {
+    setViews((v) => ({ ...v, [type]: target }));
+    // A setup already on the chart follows what's being looked at
+    if (selected?.type === type) onSelect({ type, target });
+  }
 
   return (
-    <PanelCard title="Setups" aside={`${timeframeLabel} bars`}>
+    <PanelCard title="Setups" aside={customised ? `${timeframeLabel} bars · custom rules` : `${timeframeLabel} bars`}>
+      {customised > 0 && (
+        <p className="text-[11px] text-[#7C3AED] bg-[#F3EEFF] rounded-lg px-2.5 py-1.5 mb-2">
+          Using your own rules ({customised} changed from the defaults).
+        </p>
+      )}
       <ul className="divide-y divide-[#F0F0F0] -mt-1">
         {summaries.map((s) => {
           const info = SETUP_INFO[s.type];
-          const { check, which } = shownCheck(s);
+          const target = views[s.type] ?? defaultTarget(s);
+          const { check, detection } = resolveTarget(s, target);
           const isOpen = open === s.type;
           const onChart = selected?.type === s.type;
-          const start = s.lastStart ?? s.last?.index ?? null;
+          const headline = s.recent ? s.recent.check : s.latest;
+          const recentStatus = s.recent ? statusText(s, s.recent) : null;
+          const last = s.detections[s.detections.length - 1];
+          const provisional = latestForming && check.index === lastBar;
           return (
             <li key={s.type} className="py-2.5">
-              <button
-                onClick={() => setOpen(isOpen ? null : s.type)}
-                aria-expanded={isOpen}
-                className="w-full flex items-start gap-2 text-left"
-              >
-                <span className={`mt-1.5 shrink-0 w-2 h-2 rounded-full ${s.recent ? "bg-[#7C3AED]" : "bg-[#D4D4D4]"}`} aria-hidden />
+              <button onClick={() => setOpen(isOpen ? null : s.type)} aria-expanded={isOpen} className="w-full flex items-start gap-2 text-left">
+                <span className={`mt-1.5 shrink-0 w-2 h-2 rounded-full ${s.recent ? (s.recent.status.kind === "valid" ? "bg-[#7C3AED]" : "bg-[#A3A3A3]") : "bg-[#E5E5E5]"}`} aria-hidden />
                 <span className="flex-1 min-w-0">
                   <span className="flex items-baseline justify-between gap-2">
-                    <span className="text-[13px] font-semibold text-[#0A0A0A]">{info.name}</span>
-                    <span className="text-[12px] tabular-nums text-[#525252]" title="Rules met out of rules checked">
-                      {check.met}/{check.total} criteria
+                    <span className="text-[13px] font-semibold text-[#0A0A0A]">
+                      {info.name}
+                      {s.recent?.check.stage && (
+                        <span className={`ml-1.5 px-1.5 py-px rounded text-[10px] font-semibold align-middle ${s.recent.check.stage === "confirmed" ? "bg-[#F3EEFF] text-[#7C3AED]" : "bg-[#F5F5F5] text-[#525252]"}`}>
+                          {s.recent.check.stage === "confirmed" ? "Confirmed" : "Forming"}
+                        </span>
+                      )}
                     </span>
+                    <span className="text-[11px] tabular-nums text-[#525252] shrink-0" title="Core rules met · confirmations met">{score(headline)}</span>
                   </span>
                   <span className="block text-[11px] text-[#525252] mt-0.5">
-                    {s.recent && start !== null ? (
-                      <span className="font-semibold text-[#7C3AED]">Detected {when(start)} · {ago(start)}</span>
-                    ) : (
+                    {s.recent ? (
                       <>
-                        Not detected now
-                        {start !== null ? ` · last ${when(start)} (${ago(start)})` : ` · none in the last ${s.scanned} bars`}
+                        <span className="font-semibold text-[#7C3AED]">Detected {span(s.recent)} · {ago(s.recent.end)}</span>
+                        {recentStatus && <span className={`block ${recentStatus.tone}`}>{recentStatus.text}</span>}
                       </>
+                    ) : (
+                      <>Not detected now{last ? ` · last ${when(last.start)} (${ago(last.end)})` : ` · none in the last ${s.scanned} bars`}</>
                     )}
                   </span>
                 </span>
@@ -111,39 +173,98 @@ export default function SetupsCard({
               {isOpen && (
                 <div className="mt-2 ml-4 space-y-2.5">
                   <p className="text-[12px] text-[#525252]">{info.summary}</p>
-                  <p className="text-[11px] font-semibold text-[#0A0A0A]">
-                    {which === "last" ? `When detected (${when(check.index)})` : `On the latest bar (${when(check.index)})`}:{" "}
-                    {check.met} of {check.total} rules met{which === "latest" && !check.detected ? ", not all core rules" : ""}
-                  </p>
+
+                  <label className="block text-[11px] font-semibold text-[#0A0A0A]">
+                    Looking at
+                    <select
+                      value={String(target)}
+                      onChange={(e) => choose(s.type, e.target.value === "latest" ? "latest" : Number(e.target.value))}
+                      className="mt-1 block w-full px-2 py-1.5 text-[12px] font-normal bg-white border border-[#E5E5E5] rounded-lg focus:outline-none focus:border-[#2D8CFF]"
+                    >
+                      <option value="latest">The latest bar ({when(lastBar)})</option>
+                      {[...s.detections].reverse().map((d) => (
+                        <option key={d.start} value={d.start}>
+                          Detected {span(d)}{d.check.stage ? ` · ${d.check.stage}` : ""} · {d.status.kind === "valid" ? "still valid" : s.type === "goldenCross" ? "reversed" : "invalidated"}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="block mt-1 font-normal text-[#A3A3A3]">
+                      {s.detections.length} detection{s.detections.length === 1 ? "" : "s"} in the last {s.scanned} bars.
+                    </span>
+                  </label>
+
+                  <div className="text-[12px]">
+                    <p className="font-semibold text-[#0A0A0A]">
+                      {detection
+                        ? detection.start === detection.end
+                          ? `Rules on ${when(check.index)}, the bar it was detected`
+                          : `Rules on ${when(check.index)}, the last bar of this detection (detected on every bar ${span(detection)})`
+                        : `Rules on the latest bar, ${when(check.index)}`}
+                    </p>
+                    <p className="text-[#525252]">
+                      {check.detected
+                        ? check.stage === "forming" ? "Detected as forming: all core rules met, no close above the flag yet."
+                          : "Detected: all core rules met."
+                        : `Not detected: ${check.coreTotal - check.coreMet} core rule${check.coreTotal - check.coreMet === 1 ? "" : "s"} not met.`}
+                    </p>
+                    {provisional && (
+                      <p className="mt-1 text-[#B45309]">This bar is still trading, so its close and volume, and these results, can still change.</p>
+                    )}
+                    {detection && (
+                      <p className={`mt-1 ${statusText(s, detection).tone}`}>
+                        {detection.status.kind === "valid"
+                          ? detection.end === lastBar ? "Detected on the latest bar." : `Since then: still valid. ${check.invalidation.text.replace(/\.$/, "")} hasn't happened.`
+                          : `Since then: ${statusText(s, detection).text}.`}
+                      </p>
+                    )}
+                  </div>
+
                   <Checklist check={check} />
                   <p className="text-[12px] text-[#525252]">
                     <span className="font-semibold text-[#0A0A0A]">Invalidated by:</span> {check.invalidation.text}
                   </p>
-                  {s.occurrences > 0 && (
-                    <p className="text-[11px] text-[#A3A3A3]">
-                      Detected {s.occurrences} {s.occurrences === 1 ? "time" : "times"} in the last {s.scanned} bars.
-                    </p>
-                  )}
+
                   <div className="flex gap-3 flex-wrap">
                     <button
-                      onClick={() => onSelect(onChart && selected?.which === which ? null : { type: s.type, which })}
+                      onClick={() => onSelect(onChart ? null : { type: s.type, target })}
                       className="text-[12px] font-semibold text-[#2D8CFF] hover:underline"
                     >
-                      {onChart && selected?.which === which ? "Hide from chart" : "Show on chart"}
+                      {onChart ? "Hide from chart" : "Show on chart"}
                     </button>
-                    {which === "latest" && s.last && (
-                      <button
-                        onClick={() => onSelect(onChart && selected?.which === "last" ? null : { type: s.type, which: "last" })}
-                        className="text-[12px] font-semibold text-[#2D8CFF] hover:underline"
-                      >
-                        {onChart && selected?.which === "last" ? "Hide last detection" : "Show last detection"}
-                      </button>
-                    )}
+                    <button onClick={() => setInspecting(!inspecting)} aria-expanded={inspecting} className="text-[12px] font-semibold text-[#2D8CFF] hover:underline">
+                      {inspecting ? "Hide candles" : `Inspect candles (${check.evidence.length})`}
+                    </button>
                   </div>
-                  {onChart && selected?.which === "last" && which === "latest" && s.last && (
-                    <div className="border-t border-[#F0F0F0] pt-2">
-                      <p className="text-[11px] font-semibold text-[#0A0A0A] mb-1">Last detection ({when(s.last.index)}): {s.last.met} of {s.last.total} rules met</p>
-                      <Checklist check={s.last} />
+
+                  {inspecting && (
+                    <div>
+                      <p className="text-[11px] text-[#525252] mb-1">
+                        Every bar these results depend on. Select one to see it on the chart.
+                      </p>
+                      <ol className="border border-[#F0F0F0] rounded-lg divide-y divide-[#F0F0F0] max-h-[320px] overflow-y-auto">
+                        {check.evidence.map((e) => {
+                          const b = candles[e.index];
+                          const r = volRatio[e.index];
+                          if (!b) return null;
+                          return (
+                            <li key={e.index}>
+                              <button
+                                onClick={() => { onSelect({ type: s.type, target }); onFocusBar(e.index); }}
+                                className="w-full text-left px-2 py-1.5 hover:bg-[#F7F7F7] focus:bg-[#F7F7F7] focus:outline-none"
+                              >
+                                <span className="flex items-baseline justify-between gap-2 text-[12px]">
+                                  <span className="font-semibold text-[#0A0A0A]">{e.role}</span>
+                                  <span className="text-[11px] text-[#525252] shrink-0">{when(e.index)}</span>
+                                </span>
+                                <span className="block text-[11px] text-[#525252] tabular-nums">
+                                  O {price(b.open)} H {price(b.high)} L {price(b.low)} C {price(b.close)}
+                                  {r !== null && <> · Vol {r.toFixed(1)}× usual</>}
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ol>
                     </div>
                   )}
                 </div>
@@ -158,24 +279,33 @@ export default function SetupsCard({
         hasn&apos;t been tested yet.
       </p>
 
-      <HowItWorks summary="How setups are scored">
+      <div className="mt-3">
+        <button onClick={() => setRulesOpen(!rulesOpen)} aria-expanded={rulesOpen} className="text-[12px] font-semibold text-[#2D8CFF] hover:underline">
+          {rulesOpen ? "Hide rules" : "Adjust rules"}
+        </button>
+        {rulesOpen && <SetupRulesPanel config={config} onChange={onConfigChange} />}
+      </div>
+
+      <HowItWorks summary="How setups are judged">
         <p>
           Each setup is a fixed list of rules. <b>Core rules</b> must all pass for the setup to count as detected;{" "}
-          <b>confirmations</b> add evidence. The score is how many rules passed. There are no weights and no hidden factors.
+          <b>confirmations</b> add evidence. Both are shown as counts. There are no weights and no hidden factors.
         </p>
         <p>
           Rules only look at bars up to the one being judged. Support and resistance come from earlier bars, and a swing
-          point needs {LEVEL_RULES.pivotBars} later bars to be confirmed.
+          point needs {LEVEL_RULES.pivotBars} later bars to be confirmed. Whether a setup was invalidated afterwards is
+          reported separately and never changes the detection.
         </p>
         <p>
           Distances are in average bar ranges (the mean high-to-low range, gaps included, of the previous{" "}
-          {SETUP_RULES.rangeBars} bars), so the rules work on any timeframe. &ldquo;Heavier volume&rdquo; means at least{" "}
-          {SETUP_RULES.volumeSurge}× the average of the previous {SETUP_RULES.volumeBars} bars.
+          {config.general.rangeBars} bars), so the rules work on any timeframe. Volume is compared with the previous{" "}
+          {config.general.volumeBars} bars on daily charts, and with the same time of day in earlier sessions on intraday
+          charts, because volume is always heavy at the open.
         </p>
         <p>
-          A setup counts as recent if it was detected in the last {SETUP_RULES.recentBars.breakout} bars (
-          {SETUP_RULES.recentBars.goldenCross} for a golden cross). The last {SETUP_RULES.scanBars} bars are searched for
-          earlier ones; golden crosses are searched across the whole history.
+          Consecutive bars that all meet the rules count as one detection. A detection is recent if it ended in the last{" "}
+          {config.breakout.recentBars} bars ({config.goldenCross.recentBars} for a golden cross). The last{" "}
+          {config.general.scanBars} bars are searched; golden crosses across the whole history.
         </p>
       </HowItWorks>
     </PanelCard>

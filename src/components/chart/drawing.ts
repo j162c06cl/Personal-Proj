@@ -36,6 +36,17 @@ export interface ChartSetupMark {
   id: string;
   index: number;
   text: string;
+  /** "setup": arrow under the bar; "touch": small dot on an earlier bar that formed its level */
+  kind: "setup" | "touch";
+  /** Drawn grey, for a setup that has since been invalidated */
+  muted?: boolean;
+}
+
+/** A bar to bring into view and put the crosshair on */
+export interface ChartFocus {
+  index: number;
+  /** Changes on every request, so asking for the same bar twice still scrolls */
+  key: number;
 }
 
 /** A setup picked to show on the chart: its bars are shaded and its key prices drawn */

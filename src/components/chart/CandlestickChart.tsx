@@ -14,7 +14,7 @@ import { ChartData } from "@/lib/marketData/clean";
 import { IndicatorValues, Series } from "@/lib/marketData/indicators";
 import { MACD_SIGNAL_COLOR, PANEL_HEIGHT, indicatorDef } from "./indicatorDefs";
 import {
-  ChartHighlight, ChartLevel, ChartNoteMark, ChartPoint, ChartSetupMark, ChartTrendline, DRAW_COLOR, NOTE_COLOR, SETUP_COLOR,
+  ChartFocus, ChartHighlight, ChartLevel, ChartNoteMark, ChartPoint, ChartSetupMark, ChartTrendline, DRAW_COLOR, NOTE_COLOR, SETUP_COLOR,
 } from "./drawing";
 
 /** Bars shown when a series first loads; the rest is a scroll or zoom away */
@@ -63,6 +63,7 @@ export default function CandlestickChart({
   onPick,
   setupMarks,
   highlight,
+  focus,
 }: {
   data: ChartData;
   /** Indicator values aligned with data.candles; only the switched-on ones are present */
@@ -90,6 +91,8 @@ export default function CandlestickChart({
   setupMarks: ChartSetupMark[];
   /** The setup picked to show: shaded bars plus its key prices */
   highlight: ChartHighlight | null;
+  /** A bar to scroll to and put the crosshair on */
+  focus: ChartFocus | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
@@ -410,15 +413,22 @@ export default function CandlestickChart({
     if (anchor && draft.current) setLine(draft.current, anchor, anchor);
   }, [anchor, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Notes as dots above their bars, recent setups as arrows below theirs
+  // Notes as dots above their bars, setups as arrows below theirs, and small dots on the earlier
+  // bars that formed a picked setup's level
   useEffect(() => {
     const noteColor = colorOf(NOTE_COLOR);
     const setupColor = colorOf(SETUP_COLOR);
+    const mutedColor = cssVar("--text-tertiary", "#A3A3A3");
     const t = (i: number) => data.times[i] as UTCTimestamp;
     markers.current?.setMarkers(
       [
         ...notes.map((n) => ({ order: n.index, marker: { id: n.id, time: t(n.index), position: "aboveBar" as const, shape: "circle" as const, color: noteColor, text: shorten(n.text) } })),
-        ...setupMarks.map((m) => ({ order: m.index, marker: { id: m.id, time: t(m.index), position: "belowBar" as const, shape: "arrowUp" as const, color: setupColor, text: m.text } })),
+        ...setupMarks.map((m) => ({
+          order: m.index,
+          marker: m.kind === "touch"
+            ? { id: m.id, time: t(m.index), position: "aboveBar" as const, shape: "circle" as const, color: setupColor, size: 0.6, text: m.text }
+            : { id: m.id, time: t(m.index), position: "belowBar" as const, shape: "arrowUp" as const, color: m.muted ? mutedColor : setupColor, text: m.text },
+        })),
       ]
         .filter((m) => m.order >= 0 && m.order < data.times.length)
         .sort((a, b) => a.order - b.order)
@@ -461,6 +471,19 @@ export default function CandlestickChart({
       }
     }
   }, [highlight, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A bar picked from a setup's candle list: bring it into view and put the crosshair on it
+  useEffect(() => {
+    const c = chart.current, s = candles.current;
+    if (!c || !s || !focus || focus.index < 0 || focus.index >= data.times.length) return;
+    const view = c.timeScale().getVisibleLogicalRange();
+    if (view && (focus.index < view.from + 2 || focus.index > view.to - 2)) {
+      const width = view.to - view.from;
+      c.timeScale().setVisibleLogicalRange({ from: focus.index - width / 2, to: focus.index + width / 2 });
+    }
+    c.setCrosshairPosition(data.candles[focus.index].close, data.times[focus.index] as UTCTimestamp, s);
+    hoverRef.current(focus.index);
+  }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Points a line from one bar to another; the library needs them in time order */
   function setLine(s: ISeriesApi<"Line">, a: ChartPoint, b: ChartPoint) {

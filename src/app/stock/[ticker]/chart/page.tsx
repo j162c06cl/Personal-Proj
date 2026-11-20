@@ -10,7 +10,8 @@ import { toChartData } from "@/lib/marketData/clean";
 import { IndicatorId, computeIndicators } from "@/lib/marketData/indicators";
 import { analyseLevels, touchesAt } from "@/lib/marketData/levels";
 import { chartTrend } from "@/lib/marketData/trend";
-import { SETUP_INFO, scanSetups } from "@/lib/marketData/setups";
+import { DEFAULT_SETUP_CONFIG, SETUP_INFO, SetupConfig, sanitizeSetupConfig, scanSetups, volumeRatios } from "@/lib/marketData/setups";
+import { barStillForming } from "@/lib/marketData/time";
 import { AnchorPoint, ChartAnnotations, NOTE_MAX, barIndexAt, emptyAnnotations } from "@/lib/marketData/annotations";
 import { loadChartAnnotations, newId, saveChartAnnotations } from "@/lib/store";
 import { QuoteData, Sourced } from "@/lib/types";
@@ -26,9 +27,9 @@ import DrawTools, { drawHint } from "@/components/chart/DrawTools";
 import TrendCard from "@/components/chart/TrendCard";
 import LevelsCard, { LevelRow } from "@/components/chart/LevelsCard";
 import DrawingsCard, { NoteRow, TrendlineRow } from "@/components/chart/DrawingsCard";
-import SetupsCard, { SetupSelection } from "@/components/chart/SetupsCard";
+import SetupsCard, { SetupSelection, resolveTarget } from "@/components/chart/SetupsCard";
 import {
-  ChartHighlight, ChartLevel, ChartNoteMark, ChartPoint, ChartSetupMark, ChartTrendline, DrawTool, formatBarTime,
+  ChartFocus, ChartHighlight, ChartLevel, ChartNoteMark, ChartPoint, ChartSetupMark, ChartTrendline, DrawTool, formatBarTime,
 } from "@/components/chart/drawing";
 
 const CHART_HEIGHT = "h-[340px] sm:h-[480px]";
@@ -45,6 +46,7 @@ const CandlestickChart = dynamic(() => import("@/components/chart/CandlestickCha
 const TIMEFRAME_KEY = "chart_timeframe";
 const INDICATORS_KEY = "chart_indicators";
 const DETECTED_KEY = "chart_detected_levels";
+const SETUP_RULES_KEY = "chart_setup_rules";
 
 const ZONE_NAMES: Record<string, string> = { "America/New_York": "New York", "Asia/Singapore": "Singapore" };
 
@@ -73,6 +75,10 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   const [noteText, setNoteText] = useState("");
   /** Setup picked to show on the chart */
   const [selectedSetup, setSelectedSetup] = useState<SetupSelection | null>(null);
+  /** Bar picked from a setup's candle list */
+  const [focusBar, setFocusBar] = useState<ChartFocus | null>(null);
+  /** The reader's setup rules (defaults unless changed) */
+  const [setupRules, setSetupRules] = useState<SetupConfig>(DEFAULT_SETUP_CONFIG);
 
   // Remember the last timeframe, indicators and detected-levels choice across visits
   useEffect(() => {
@@ -82,6 +88,8 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
       const ids: unknown = JSON.parse(localStorage.getItem(INDICATORS_KEY) ?? "null");
       if (Array.isArray(ids)) setEnabled(new Set(ids.filter(isIndicatorId)));
       if (localStorage.getItem(DETECTED_KEY) === "off") setShowDetected(false);
+      const rules = localStorage.getItem(SETUP_RULES_KEY);
+      if (rules) setSetupRules(sanitizeSetupConfig(JSON.parse(rules)));
     } catch {}
   }, []);
 
@@ -113,6 +121,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     setAnchor(null);
     setNoteTime(null);
     setSelectedSetup(null);
+    setFocusBar(null);
   }, [ticker, timeframe]);
 
   // Esc puts the drawing tool away
@@ -140,6 +149,11 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     setTool(next);
     setAnchor(null);
     if (next) setNoteTime(null);
+  }
+
+  function chooseSetupRules(next: SetupConfig) {
+    setSetupRules(next);
+    try { localStorage.setItem(SETUP_RULES_KEY, JSON.stringify(next)); } catch {}
   }
 
   function chooseShowDetected(on: boolean) {
@@ -287,24 +301,46 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   }, [chartData, drawings.trendlines, drawings.notes, barsTf, slack]);
 
   // ── Setups: judged on every recent bar, using only the bars up to each one ──
-  const setups = useMemo(
-    () => (chartData ? scanSetups(chartData.candles, (v) => `${sym}${v.toFixed(priceDigits)}`) : []),
-    [chartData, sym, priceDigits]
+  const setupOpts = useMemo(
+    () => ({ config: setupRules, intraday: barsIntraday, timeZone: s?.timeZone }),
+    [setupRules, barsIntraday, s?.timeZone]
   );
+  const setups = useMemo(
+    () => (chartData ? scanSetups(chartData.candles, (v) => `${sym}${v.toFixed(priceDigits)}`, setupOpts) : []),
+    [chartData, sym, priceDigits, setupOpts]
+  );
+  const volRatio = useMemo(() => (chartData ? volumeRatios(chartData.candles, setupOpts) : []), [chartData, setupOpts]);
+  // Whether the newest bar is still trading (re-checked with each refresh of the bars)
+  const latestForming = useMemo(() => {
+    if (!chartData?.candles.length || !s) return false;
+    const last = chartData.candles[chartData.candles.length - 1];
+    return barStillForming(last.time, timeframeInfo(s.timeframe).seconds, barsIntraday, s.timeZone, Date.now() / 1000);
+  }, [chartData, s, barsIntraday]);
 
-  // Arrows under recent setups (and under an older one picked to show)
-  const setupMarks = useMemo<ChartSetupMark[]>(() => setups.flatMap((s) => {
-    const show = s.recent || (selectedSetup?.type === s.type && selectedSetup.which === "last");
-    return show && s.last ? [{ id: `setup-${s.type}`, index: s.lastStart ?? s.last.index, text: SETUP_INFO[s.type].short }] : [];
-  }), [setups, selectedSetup]);
+  // Arrows under recent setups (grey once invalidated) and under the one picked to show, plus
+  // dots on the earlier bars that formed its support or resistance level
+  const setupMarks = useMemo<ChartSetupMark[]>(() => {
+    const marks: ChartSetupMark[] = [];
+    for (const sm of setups) {
+      const picked = selectedSetup?.type === sm.type ? resolveTarget(sm, selectedSetup.target) : null;
+      const d = picked?.detection ?? (picked ? null : sm.recent);
+      if (d) marks.push({ id: `setup-${sm.type}`, index: d.start, text: SETUP_INFO[sm.type].short, kind: "setup", muted: d.status.kind !== "valid" });
+      if (picked) {
+        for (const e of picked.check.evidence) {
+          if (e.role.startsWith("Turned at")) marks.push({ id: `touch-${sm.type}-${e.index}`, index: e.index, text: "", kind: "touch" });
+        }
+      }
+    }
+    return marks;
+  }, [setups, selectedSetup]);
 
   const highlight = useMemo<ChartHighlight | null>(() => {
-    const s = selectedSetup && setups.find((x) => x.type === selectedSetup.type);
-    const check = s ? (selectedSetup!.which === "last" ? s.last : s.latest) : null;
-    if (!s || !check) return null;
+    const sm = selectedSetup && setups.find((x) => x.type === selectedSetup.type);
+    if (!sm || !selectedSetup) return null;
+    const { check, detection } = resolveTarget(sm, selectedSetup.target);
     return {
-      key: `${s.type}:${selectedSetup!.which}:${check.index}`,
-      from: selectedSetup!.which === "last" ? Math.min(check.range[0], s.lastStart ?? check.range[0]) : check.range[0],
+      key: `${sm.type}:${detection ? detection.start : "latest"}:${check.index}`,
+      from: Math.min(check.range[0], detection?.start ?? check.range[0]),
       to: check.range[1],
       lines: [
         ...check.levels.map((l) => ({ price: l.price, label: l.label, kind: "level" as const })),
@@ -465,6 +501,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
                 onPick={pick}
                 setupMarks={setupMarks}
                 highlight={highlight}
+                focus={focusBar}
               />
             </div>
             <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-3 text-[11px] text-[#A3A3A3]">
@@ -485,12 +522,18 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
           <TrendCard trend={trend} times={chartData.times} intraday={barsIntraday} timeframeLabel={timeframeInfo(s.timeframe).label} price={fmtPrice} />
           <SetupsCard
             summaries={setups}
+            candles={chartData.candles}
+            volRatio={volRatio}
             times={chartData.times}
             intraday={barsIntraday}
             timeframeLabel={timeframeInfo(s.timeframe).label}
-            barCount={candles.length}
+            latestForming={latestForming}
+            price={fmtPrice}
+            config={setupRules}
+            onConfigChange={chooseSetupRules}
             selected={selectedSetup}
             onSelect={setSelectedSetup}
+            onFocusBar={(index) => setFocusBar({ index, key: Date.now() })}
           />
           <LevelsCard
             rows={levelRows}
