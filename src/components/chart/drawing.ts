@@ -31,7 +31,24 @@ export interface ChartNoteMark {
   text: string;
 }
 
+/** An arrow under a bar where a setup was detected */
+export interface ChartSetupMark {
+  id: string;
+  index: number;
+  text: string;
+}
+
+/** A setup picked to show on the chart: its bars are shaded and its key prices drawn */
+export interface ChartHighlight {
+  /** Changes when a different setup is picked, so the chart scrolls to it once */
+  key: string;
+  from: number;
+  to: number;
+  lines: { price: number; label: string; kind: "level" | "invalidation" }[];
+}
+
 export const DRAW_COLOR: [string, string] = ["--draw", "#0A0A0A"];
+export const SETUP_COLOR: [string, string] = ["--setup", "#7C3AED"];
 export const NOTE_COLOR: [string, string] = ["--draw-note", "#2D8CFF"];
 
 /** A bar's time as shown on the chart: dates for daily bars, date and time for intraday */

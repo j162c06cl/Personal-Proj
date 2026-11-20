@@ -13,7 +13,9 @@ import {
 import { ChartData } from "@/lib/marketData/clean";
 import { IndicatorValues, Series } from "@/lib/marketData/indicators";
 import { MACD_SIGNAL_COLOR, PANEL_HEIGHT, indicatorDef } from "./indicatorDefs";
-import { ChartLevel, ChartNoteMark, ChartPoint, ChartTrendline, DRAW_COLOR, NOTE_COLOR } from "./drawing";
+import {
+  ChartHighlight, ChartLevel, ChartNoteMark, ChartPoint, ChartSetupMark, ChartTrendline, DRAW_COLOR, NOTE_COLOR, SETUP_COLOR,
+} from "./drawing";
 
 /** Bars shown when a series first loads; the rest is a scroll or zoom away */
 const INITIAL_BARS = 130;
@@ -59,6 +61,8 @@ export default function CandlestickChart({
   anchor,
   drawing,
   onPick,
+  setupMarks,
+  highlight,
 }: {
   data: ChartData;
   /** Indicator values aligned with data.candles; only the switched-on ones are present */
@@ -82,6 +86,10 @@ export default function CandlestickChart({
   /** A drawing tool is active: clicks on the price panel go to onPick */
   drawing: boolean;
   onPick: (point: ChartPoint) => void;
+  /** Recent setups, as labelled arrows under their bars */
+  setupMarks: ChartSetupMark[];
+  /** The setup picked to show: shaded bars plus its key prices */
+  highlight: ChartHighlight | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
@@ -106,6 +114,9 @@ export default function CandlestickChart({
   const lineSeries = useRef<ISeriesApi<"Line">[]>([]);
   const draft = useRef<ISeriesApi<"Line"> | null>(null);
   const markers = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const shade = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const highlightLines = useRef<IPriceLine[]>([]);
+  const focusedKey = useRef<string | null>(null);
   const [awayFromLatest, setAwayFromLatest] = useState(false);
   const panels = (indicators.rsi ? 1 : 0) + (indicators.macd ? 1 : 0);
 
@@ -139,6 +150,14 @@ export default function CandlestickChart({
       // history (a new listing) isn't stretched into a few giant candles.
       timeScale: { borderVisible: false, rightOffset: 4, fixLeftEdge: true, fixRightEdge: true, maxBarSpacing: 40 },
     });
+
+    // Shading behind a picked setup's bars: full-height columns on their own hidden scale,
+    // added before the candles so it's drawn underneath them
+    shade.current = c.addSeries(HistogramSeries, {
+      priceScaleId: "shade", lastValueVisible: false, priceLineVisible: false,
+      autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 1 } }),
+    });
+    c.priceScale("shade").applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false });
 
     candles.current = c.addSeries(CandlestickSeries, {
       upColor: up, downColor: down, borderUpColor: up, borderDownColor: down, wickUpColor: up, wickDownColor: down,
@@ -212,6 +231,9 @@ export default function CandlestickChart({
       markers.current = null;
       series.clear();
       priceLines.current = [];
+      highlightLines.current = [];
+      shade.current = null;
+      focusedKey.current = null;
       lineSeries.current = [];
       panelSet.current = paneLayout.current = "";
       shownKey.current = null;
@@ -388,15 +410,57 @@ export default function CandlestickChart({
     if (anchor && draft.current) setLine(draft.current, anchor, anchor);
   }, [anchor, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Notes, as markers above their bars
+  // Notes as dots above their bars, recent setups as arrows below theirs
   useEffect(() => {
-    const color = colorOf(NOTE_COLOR);
+    const noteColor = colorOf(NOTE_COLOR);
+    const setupColor = colorOf(SETUP_COLOR);
+    const t = (i: number) => data.times[i] as UTCTimestamp;
     markers.current?.setMarkers(
-      [...notes]
-        .sort((a, b) => a.index - b.index)
-        .map((n) => ({ id: n.id, time: data.times[n.index] as UTCTimestamp, position: "aboveBar", shape: "circle", color, text: shorten(n.text) }))
+      [
+        ...notes.map((n) => ({ order: n.index, marker: { id: n.id, time: t(n.index), position: "aboveBar" as const, shape: "circle" as const, color: noteColor, text: shorten(n.text) } })),
+        ...setupMarks.map((m) => ({ order: m.index, marker: { id: m.id, time: t(m.index), position: "belowBar" as const, shape: "arrowUp" as const, color: setupColor, text: m.text } })),
+      ]
+        .filter((m) => m.order >= 0 && m.order < data.times.length)
+        .sort((a, b) => a.order - b.order)
+        .map((m) => m.marker)
     );
-  }, [notes, data]);
+  }, [notes, setupMarks, data]);
+
+  // A picked setup: shade its bars, draw its key prices, and bring it into view once
+  useEffect(() => {
+    const c = chart.current, s = candles.current, sh = shade.current;
+    if (!c || !s || !sh) return;
+    highlightLines.current.forEach((l) => s.removePriceLine(l));
+    highlightLines.current = [];
+    const n = data.times.length;
+    if (!highlight || highlight.from > n - 1) {
+      sh.setData([]);
+      focusedKey.current = null;
+      return;
+    }
+    const from = Math.max(0, highlight.from), to = Math.min(n - 1, highlight.to);
+    const fill = withAlpha(colorOf(SETUP_COLOR), 0.1);
+    sh.setData(Array.from({ length: to - from + 1 }, (_, k) => ({ time: data.times[from + k] as UTCTimestamp, value: 1, color: fill })));
+    const setupColor = colorOf(SETUP_COLOR), { down } = colors.current;
+    highlightLines.current = highlight.lines.map((l) => s.createPriceLine({
+      price: l.price,
+      color: l.kind === "invalidation" ? down : setupColor,
+      lineWidth: 1,
+      lineStyle: l.kind === "invalidation" ? LineStyle.Dotted : LineStyle.Solid,
+      axisLabelVisible: true,
+      title: l.label,
+    }));
+    if (focusedKey.current !== highlight.key) {
+      focusedKey.current = highlight.key;
+      const view = c.timeScale().getVisibleLogicalRange();
+      if (view && (from < view.from || to > view.to)) {
+        // Keep the zoom, and centre the setup's bars
+        const width = Math.max(view.to - view.from, to - from + 20);
+        const mid = (from + to) / 2;
+        c.timeScale().setVisibleLogicalRange({ from: mid - width / 2, to: mid + width / 2 });
+      }
+    }
+  }, [highlight, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Points a line from one bar to another; the library needs them in time order */
   function setLine(s: ISeriesApi<"Line">, a: ChartPoint, b: ChartPoint) {
