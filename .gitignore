@@ -3,3 +3,6 @@ node_modules/
 .next/
 next-env.d.ts
 .env.local
+*.tsbuildinfo
+# local screenshot helpers
+ss-*.cjs
