@@ -98,7 +98,11 @@ export default function SettingsPage() {
     a.download = `the-dip-backup-${data.exportedAt.slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-    setBackupMsg({ ok: true, text: `Exported ${data.portfolio.length} positions, ${data.watchlists.length} watchlists and ${data.screens.length} saved screens.` });
+    const charts = Object.keys(data.chartAnnotations ?? {}).length;
+    setBackupMsg({
+      ok: true,
+      text: `Exported ${data.portfolio.length} positions, ${data.watchlists.length} watchlists, ${data.screens.length} saved screens and drawings on ${charts} ${charts === 1 ? "chart" : "charts"}.`,
+    });
   }
 
   async function handleImport(file: File) {
@@ -195,7 +199,7 @@ export default function SettingsPage() {
               onChange={(e) => e.target.files?.[0] && handleImport(e.target.files[0])}
             />
           </div>
-          <p className="text-[12px] text-[#A3A3A3]">Backups include portfolio, watchlists, saved screens, currency and profile. Importing replaces your current data.</p>
+          <p className="text-[12px] text-[#A3A3A3]">Backups include portfolio, watchlists, saved screens, chart drawings, currency and profile. Importing replaces your current data.</p>
           {backupMsg && (
             <p className={`text-[13px] font-medium ${backupMsg.ok ? "text-[#00B341]" : "text-[#F04E23]"}`}>{backupMsg.text}</p>
           )}
