@@ -27,8 +27,8 @@ export function watchedIn(lists: Watchlist[] | null, ticker: string): { lists: W
 }
 
 /**
- * "Watch" button with a popover to choose the list, strategy and status, and record why the
- * stock is being added. Shows which lists already hold the stock.
+ * "Watch" button with a popover to choose the list and jot a note. Shows which lists already
+ * hold the stock.
  */
 export default function WatchButton({
   ticker,
@@ -55,7 +55,7 @@ export default function WatchButton({
   const [listId, setListId] = useState<string>("");
   const [newName, setNewName] = useState("");
   const [intent, setIntent] = useState<WatchIntent>(defaultIntent);
-  const [tag, setTag] = useState<WatchTag>("researching");
+  const [tag, setTag] = useState<WatchTag>("watching");
   const [note, setNote] = useState(defaultNote);
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -71,7 +71,7 @@ export default function WatchButton({
     if (!open || !all) return;
     const existing = all.find((l) => l.id === listId)?.items.find((i) => i.ticker === ticker);
     setIntent(existing?.intent ?? defaultIntent);
-    setTag(existing?.tag ?? (defaultIntent === "swing" && defaultNote ? "setup-ready" : "researching"));
+    setTag(existing?.tag ?? "watching");
     setNote(existing?.note || defaultNote);
   }, [open, listId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -140,44 +140,14 @@ export default function WatchButton({
             />
           )}
 
-          <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-1.5 mt-1">Strategy</p>
-          <div className="flex gap-1 mb-3">
-            {INTENTS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                title={o.hint}
-                onClick={() => setIntent(o.value)}
-                className={`flex-1 px-2 py-1.5 rounded-full text-[12px] font-semibold border ${intent === o.value ? "bg-[#2D8CFF] text-white border-[#2D8CFF]" : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#A3A3A3]"}`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-
-          <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-1.5">Status</p>
-          <div className="grid grid-cols-2 gap-1 mb-3">
-            {TAGS.map((t) => (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setTag(t.value)}
-                className={`px-2 py-1 rounded-lg text-[12px] font-semibold border ${tag === t.value ? t.cls + " ring-2 ring-[#2D8CFF]/30" : "bg-white text-[#737373] border-[#E5E5E5] hover:border-[#A3A3A3]"}`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-1.5">Reason added</p>
+          <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-1.5 mt-1">Note <span className="normal-case tracking-normal font-normal text-[#A3A3A3]">· optional</span></p>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            rows={3}
+            rows={2}
             placeholder="What caught your eye? e.g. pulled back to its 50-day average"
             className="w-full px-3 py-2 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#2D8CFF] resize-none"
           />
-          <p className="text-[11px] text-[#A3A3A3] mt-1">Add a thesis, target and invalidation level on the Watchlist page.</p>
           <div className="flex justify-end gap-2 mt-3">
             <button onClick={() => setOpen(false)} className="px-3 py-1.5 text-[13px] text-[#525252] border border-[#E5E5E5] rounded-xl hover:border-[#2D8CFF]">Cancel</button>
             <button onClick={save} disabled={saving || !all} className="px-3 py-1.5 text-[13px] bg-[#2D8CFF] text-white rounded-full font-semibold hover:bg-[#1A73E0] disabled:opacity-50">
