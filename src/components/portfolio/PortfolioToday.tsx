@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getFundamentals, getNews, QuoteMap } from "@/lib/data";
-import { ECONOMIC_EVENTS } from "@/lib/economicEvents";
+import { ECONOMIC_EVENTS, calendarNotice, localToday } from "@/lib/economicEvents";
 import { Fundamentals, NewsItem, PortfolioPosition, Sourced } from "@/lib/types";
 import { useMoney } from "@/hooks/useSettings";
 import TickerLink from "@/components/TickerLink";
@@ -193,6 +193,9 @@ export function PortfolioDay({ positions, quotes }: { positions: PortfolioPositi
       .sort((a, b) => Math.abs(b.pct!) - Math.abs(a.pct!));
   }, [positions, quotes, tickers]);
 
+  // The release list is kept by hand, so say when it doesn't reach the end of the window
+  const calendarWarning = calendarNotice(localToday(), LOOKAHEAD_DAYS);
+
   // ── upcoming events for holdings + next macro releases ──
   const upcoming = useMemo((): UpcomingItem[] | null => {
     if (!funds) return null;
@@ -277,6 +280,7 @@ export function PortfolioDay({ positions, quotes }: { positions: PortfolioPositi
 
       {/* Upcoming */}
       <Card title="Coming up" subtitle={`Next ${LOOKAHEAD_DAYS} days: your holdings and major US releases`}>
+        {calendarWarning && <p className="text-[11px] text-[#B45309] mb-3">{calendarWarning}</p>}
         {upcoming === null ? <Skeleton rows={4} /> : !upcoming.length ? (
           <Empty>Nothing scheduled in the next {LOOKAHEAD_DAYS} days.</Empty>
         ) : (

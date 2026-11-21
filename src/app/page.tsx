@@ -8,13 +8,15 @@ import SourceTag from "@/components/SourceTag";
 import TickerLink from "@/components/TickerLink";
 import { timeAgo } from "@/components/research/NewsList";
 import { getMarket, getQuotes, getTrending, MarketSnapshot, QuoteMap, TrendingFeed } from "@/lib/data";
-import { ECONOMIC_EVENTS } from "@/lib/economicEvents";
+import { ECONOMIC_EVENTS, calendarNotice, localToday } from "@/lib/economicEvents";
 import { useSettings } from "@/hooks/useSettings";
 import { Sourced } from "@/lib/types";
 
 type IndexData = MarketSnapshot["indices"][number];
 
 const UPCOMING_COUNT = 2;
+/** Warn when the hand-maintained release list ends within this many days */
+const CALENDAR_WARN_DAYS = 30;
 
 function fmtIndex(price: number | null, format: string): string {
   if (price === null) return "—";
@@ -95,6 +97,7 @@ export default function DashboardPage() {
 
   const indices = market?.value.indices ?? [];
   const upcoming = ECONOMIC_EVENTS.filter((e) => getDays(e.date) >= 0).slice(0, UPCOMING_COUNT);
+  const calendarWarning = calendarNotice(localToday(), CALENDAR_WARN_DAYS);
   const open = usMarketOpen();
 
   const watchedSectors = useMemo(() => {
@@ -236,8 +239,9 @@ export default function DashboardPage() {
               title="Upcoming events"
               right={<Link href="/calendar" className="text-[12px] font-semibold text-[#2D8CFF] hover:text-[#1A73E0]">View all →</Link>}
             >
+              {calendarWarning && <p className="text-[11px] text-[#B45309] mb-3">{calendarWarning}</p>}
               {!upcoming.length ? (
-                <p className="text-[13px] text-[#A3A3A3]">No scheduled releases. See the calendar for more.</p>
+                !calendarWarning && <p className="text-[13px] text-[#A3A3A3]">No scheduled releases. See the calendar for more.</p>
               ) : (
                 <div className="space-y-3">
                   {upcoming.map((e) => {

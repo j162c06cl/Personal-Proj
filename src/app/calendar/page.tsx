@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ECONOMIC_EVENTS as EVENTS, EconomicEvent } from "@/lib/economicEvents";
+import { ECONOMIC_EVENTS as EVENTS, EconomicEvent, calendarNotice } from "@/lib/economicEvents";
 
 type CalEvent = EconomicEvent;
 type Filter = "all" | "high";
@@ -141,6 +141,7 @@ export default function CalendarPage() {
   }, [selectedDate, filter, today]);
 
   const selectedDays = selectedDate ? daysUntil(selectedDate, today) : null;
+  const calendarWarning = calendarNotice(todayStr, 30);
 
   return (
     <div>
@@ -148,7 +149,7 @@ export default function CalendarPage() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
           <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Economic Calendar</h1>
-          <p className="text-[14px] text-[#525252] mt-1">Upcoming US economic data releases and Federal Reserve decisions</p>
+          <p className="text-[14px] text-[#525252] mt-1">Upcoming US economic data releases and Federal Reserve decisions, from the official BLS, BEA, Census and Federal Reserve schedules</p>
         </div>
         <div className="flex gap-2">
           {(["all", "high"] as Filter[]).map((f) => (
@@ -163,6 +164,11 @@ export default function CalendarPage() {
           ))}
         </div>
       </div>
+
+      {/* The list is kept by hand: say when it's about to run out */}
+      {calendarWarning && (
+        <p className="mb-5 px-4 py-3 bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl text-[13px] text-[#B45309]">{calendarWarning}</p>
+      )}
 
       {/* Next release banner */}
       {nextEvent && !selectedDate && (
