@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UA } from "@/lib/server/yahoo";
+import { MAX_NAME_LENGTH, readTicker } from "@/lib/apiLimits";
 import { companyKeywords, dedupeNews, RawNews, relevanceOf } from "@/lib/server/news";
 import { forceSnapshot, snapshotNews } from "@/lib/server/snapshot";
 
@@ -18,9 +19,10 @@ async function search(q: string): Promise<RawNews[]> {
 const MIN_ITEMS = 4;
 
 export async function GET(request: NextRequest) {
-  const ticker = request.nextUrl.searchParams.get("ticker")?.trim().toUpperCase();
+  const ticker = readTicker(request.nextUrl.searchParams.get("ticker"));
   const name = request.nextUrl.searchParams.get("name");
-  if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
+  if (!ticker) return NextResponse.json({ error: "A valid ticker is required" }, { status: 400 });
+  if (name && name.length > MAX_NAME_LENGTH) return NextResponse.json({ error: `The company name can be at most ${MAX_NAME_LENGTH} characters.` }, { status: 400 });
 
   const fallback = () => {
     const saved = snapshotNews(ticker);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UA } from "@/lib/server/yahoo";
+import { readTicker } from "@/lib/apiLimits";
 import type { FinancialYear } from "@/lib/types";
 
 // Reported annual financials (income statement, cash flow, balance sheet) from Yahoo's
@@ -27,8 +28,8 @@ const EMPTY: Omit<FinancialYear, "date"> = {
 interface Point { asOfDate: string; currencyCode?: string; reportedValue?: { raw?: number } }
 
 export async function GET(request: NextRequest) {
-  const ticker = request.nextUrl.searchParams.get("ticker")?.trim().toUpperCase();
-  if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
+  const ticker = readTicker(request.nextUrl.searchParams.get("ticker"));
+  if (!ticker) return NextResponse.json({ error: "A valid ticker is required" }, { status: 400 });
 
   const now = Math.floor(Date.now() / 1000);
   const from = now - 8 * 365 * 86_400;

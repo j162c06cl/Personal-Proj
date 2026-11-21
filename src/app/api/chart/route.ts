@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UA } from "@/lib/server/yahoo";
+import { readTicker } from "@/lib/apiLimits";
 import { forceSnapshot, snapshotChart } from "@/lib/server/snapshot";
 
 // Price history (OHLCV) for the research page chart and technical indicators.
@@ -51,9 +52,9 @@ async function liveChart(ticker: string, range: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const ticker = request.nextUrl.searchParams.get("ticker")?.trim().toUpperCase();
+  const ticker = readTicker(request.nextUrl.searchParams.get("ticker"));
   const range = request.nextUrl.searchParams.get("range") ?? "1y";
-  if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
+  if (!ticker) return NextResponse.json({ error: "A valid ticker is required" }, { status: 400 });
   if (!RANGES[range]) return NextResponse.json({ error: "unsupported range" }, { status: 400 });
 
   const data = (forceSnapshot ? null : await liveChart(ticker, range)) ?? snapshotChart(ticker, range);

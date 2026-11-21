@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UA, getYahooAuth, raw, resetYahooAuth } from "@/lib/server/yahoo";
+import { readTicker } from "@/lib/apiLimits";
 import { forceSnapshot, snapshotFundamentals } from "@/lib/server/snapshot";
 
 // Company fundamentals, analyst targets and upcoming events from Yahoo quoteSummary.
@@ -34,8 +35,8 @@ function utcDate(sec: number | null): string | null {
 }
 
 export async function GET(request: NextRequest) {
-  const ticker = request.nextUrl.searchParams.get("ticker")?.trim().toUpperCase();
-  if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
+  const ticker = readTicker(request.nextUrl.searchParams.get("ticker"));
+  if (!ticker) return NextResponse.json({ error: "A valid ticker is required" }, { status: 400 });
 
   // Live data unavailable (or snapshot mode): fall back to the saved snapshot if this ticker has one
   const fallback = () => {
