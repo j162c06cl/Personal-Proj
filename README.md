@@ -2,7 +2,7 @@
 
 A personal stock research app that puts your own portfolio first, explains every number it shows, and runs entirely on free data.
 
-Built with Next.js 14, TypeScript, Tailwind CSS and Recharts. No accounts, no database, no paid APIs.
+Built with Next.js 16, React 19, TypeScript, Tailwind CSS and Recharts. No accounts, no database, no paid APIs.
 
 ![Dashboard: Market Overview](docs/screenshots/dashboard.png)
 
