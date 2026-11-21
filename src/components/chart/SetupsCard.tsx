@@ -76,6 +76,7 @@ export default function SetupsCard({
   selected,
   onSelect,
   onFocusBar,
+  onPlan,
 }: {
   summaries: SetupSummary[];
   candles: Candle[];
@@ -92,6 +93,8 @@ export default function SetupsCard({
   selected: SetupSelection | null;
   onSelect: (s: SetupSelection | null) => void;
   onFocusBar: (index: number) => void;
+  /** Start a trade plan from a detected setup */
+  onPlan: (type: SetupType, check: SetupCheck, detection: Detection | null) => void;
 }) {
   const [open, setOpen] = useState<SetupType | null>(null);
   const [views, setViews] = useState<Partial<Record<SetupType, SetupTarget>>>({});
@@ -234,6 +237,11 @@ export default function SetupsCard({
                     <button onClick={() => setInspecting(!inspecting)} aria-expanded={inspecting} className="text-[12px] font-semibold text-[#2D8CFF] hover:underline">
                       {inspecting ? "Hide candles" : `Inspect candles (${check.evidence.length})`}
                     </button>
+                    {check.detected && (
+                      <button onClick={() => onPlan(s.type, check, detection)} className="text-[12px] font-semibold text-[#2D8CFF] hover:underline">
+                        Plan a trade
+                      </button>
+                    )}
                   </div>
 
                   {inspecting && (

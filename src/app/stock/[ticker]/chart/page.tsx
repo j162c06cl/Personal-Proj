@@ -10,10 +10,14 @@ import { toChartData } from "@/lib/marketData/clean";
 import { IndicatorId, computeIndicators } from "@/lib/marketData/indicators";
 import { analyseLevels, touchesAt } from "@/lib/marketData/levels";
 import { chartTrend } from "@/lib/marketData/trend";
-import { DEFAULT_SETUP_CONFIG, SETUP_INFO, SetupConfig, sanitizeSetupConfig, scanSetups, volumeRatios } from "@/lib/marketData/setups";
+import {
+  DEFAULT_SETUP_CONFIG, Detection, SETUP_INFO, SetupCheck, SetupConfig, SetupType, sanitizeSetupConfig, scanSetups, volumeRatios,
+} from "@/lib/marketData/setups";
 import { barStillForming } from "@/lib/marketData/time";
 import { AnchorPoint, ChartAnnotations, NOTE_MAX, barIndexAt, emptyAnnotations } from "@/lib/marketData/annotations";
-import { loadChartAnnotations, newId, saveChartAnnotations } from "@/lib/store";
+import { loadChartAnnotations, loadTradePlans, newId, saveChartAnnotations, saveTickerPlans } from "@/lib/store";
+import { TradePlan, inferDirection, planFromSetup, planMetrics } from "@/lib/tradePlan";
+import TradePlanCard, { PlanDraft, draftNumbers } from "@/components/chart/TradePlanCard";
 import { QuoteData, Sourced } from "@/lib/types";
 import { currencySymbol } from "@/lib/markets";
 import SourceTag from "@/components/SourceTag";
@@ -29,7 +33,7 @@ import LevelsCard, { LevelRow } from "@/components/chart/LevelsCard";
 import DrawingsCard, { NoteRow, TrendlineRow } from "@/components/chart/DrawingsCard";
 import SetupsCard, { SetupSelection, resolveTarget } from "@/components/chart/SetupsCard";
 import {
-  ChartFocus, ChartHighlight, ChartLevel, ChartNoteMark, ChartPoint, ChartSetupMark, ChartTrendline, DrawTool, formatBarTime,
+  ChartFocus, ChartHighlight, ChartLevel, ChartNoteMark, ChartPlan, ChartPoint, ChartSetupMark, ChartTrendline, DrawTool, formatBarTime,
 } from "@/components/chart/drawing";
 
 const CHART_HEIGHT = "h-[340px] sm:h-[480px]";
@@ -70,6 +74,14 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   const [tool, setTool] = useState<DrawTool | null>(null);
   /** First point of a trendline being drawn */
   const [anchor, setAnchor] = useState<AnchorPoint | null>(null);
+  /** Points placed so far with the Plan tool: entry, then stop (the target completes it) */
+  const [planClicks, setPlanClicks] = useState<{ entry?: number; stop?: number; startTime?: number }>({});
+  /** This ticker's saved trade plans, which ticker they were loaded for, and the one being written */
+  const [plans, setPlans] = useState<TradePlan[]>([]);
+  const plansFor = useRef<string | null>(null);
+  const [planDraft, setPlanDraft] = useState<PlanDraft | null>(null);
+  /** Saved plan shown on the chart */
+  const [shownPlanId, setShownPlanId] = useState<string | null>(null);
   /** Bar a new note is being written for */
   const [noteTime, setNoteTime] = useState<number | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -115,10 +127,26 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     return () => { current = false; };
   }, [ticker]);
 
+  // This ticker's saved trade plans; a plan being written belongs to the ticker it was started on
+  useEffect(() => {
+    let current = true;
+    plansFor.current = null;
+    setPlans([]);
+    setPlanDraft(null);
+    setShownPlanId(null);
+    loadTradePlans().then((all) => {
+      if (!current) return;
+      setPlans(all.filter((p) => p.ticker === ticker));
+      plansFor.current = ticker;
+    });
+    return () => { current = false; };
+  }, [ticker]);
+
   // A half-finished drawing or a picked setup doesn't carry over to another chart
   useEffect(() => {
     setTool(null);
     setAnchor(null);
+    setPlanClicks({});
     setNoteTime(null);
     setSelectedSetup(null);
     setFocusBar(null);
@@ -131,6 +159,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
       if (e.key !== "Escape") return;
       setTool(null);
       setAnchor(null);
+      setPlanClicks({});
       setNoteTime(null);
     };
     window.addEventListener("keydown", onKey);
@@ -148,7 +177,15 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   function chooseTool(next: DrawTool | null) {
     setTool(next);
     setAnchor(null);
+    setPlanClicks({});
     if (next) setNoteTime(null);
+  }
+
+  /** Replaces this ticker's saved plans; ignored until they have loaded */
+  function savePlans(next: TradePlan[]) {
+    if (plansFor.current !== ticker) return;
+    setPlans(next);
+    saveTickerPlans(ticker, next).catch(() => {});
   }
 
   function chooseSetupRules(next: SetupConfig) {
@@ -376,8 +413,129 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
       setNoteTime(time);
       setNoteText("");
       setTool(null);
+    } else if (tool === "plan") {
+      // Entry, then stop, then target; the zones start at the bar the entry was placed on
+      if (planClicks.entry === undefined) { setPlanClicks({ entry: price, startTime: chartData.candles[p.index].time }); return; }
+      if (planClicks.stop === undefined) { if (price !== planClicks.entry) setPlanClicks({ ...planClicks, stop: price }); return; }
+      if (price === planClicks.entry) return;
+      const { entry, stop } = planClicks;
+      setPlanDraft({
+        id: null, direction: inferDirection(entry, stop, price),
+        entry: String(entry), stop: String(stop), target: String(price), shares: "", note: "",
+        startTime: planClicks.startTime ?? chartData.candles[p.index].time, source: null, why: [],
+      });
+      setShownPlanId(null);
+      setPlanClicks({});
+      setTool(null);
+      revealPlanCard();
     }
   }
+
+  // ── Trade plans ──
+  const round = (v: number) => Number(v.toFixed(priceDigits));
+  const money = (v: number) => `${sym}${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  /** On a phone the plan card sits below the chart; bring it into view */
+  function revealPlanCard() {
+    requestAnimationFrame(() => document.getElementById("trade-plan")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+  }
+
+  function newPlan() {
+    if (!chartData?.candles.length) return;
+    const n = chartData.candles.length;
+    setPlanDraft({
+      id: null, direction: "long", entry: String(round(lastClose)), stop: "", target: "", shares: "", note: "",
+      startTime: chartData.candles[Math.max(0, n - 21)].time, source: null, why: ["Entry: the latest close. Add your stop and target."],
+    });
+    setShownPlanId(null);
+  }
+
+  function planSetup(type: SetupType, check: SetupCheck, detection: Detection | null) {
+    if (!chartData || !analysis) return;
+    const start = detection?.start ?? check.index;
+    const r = planFromSetup({
+      lastClose,
+      invalidation: check.invalidation.price,
+      resistanceAbove: [...analysis.resistance.map((l) => l.price), ...drawings.levels.map((l) => l.price)],
+      round,
+    });
+    setPlanDraft({
+      id: null, direction: "long",
+      entry: String(r.entry), stop: r.stop === null ? "" : String(r.stop), target: r.target === null ? "" : String(r.target),
+      shares: "", note: "", startTime: chartData.candles[start].time,
+      source: { setup: type, detected: formatBarTime(chartData.times[start], barsIntraday) }, why: r.why,
+    });
+    setShownPlanId(null);
+    revealPlanCard();
+  }
+
+  function savePlan() {
+    if (!planDraft || !s) return;
+    const nums = draftNumbers(planDraft);
+    if (planMetrics(nums).problems.length) return;
+    const now = new Date().toISOString();
+    const existing = planDraft.id ? plans.find((p) => p.id === planDraft.id) : undefined;
+    const plan: TradePlan = {
+      id: existing?.id ?? newId(),
+      ticker,
+      currency: s.currency ?? null,
+      direction: nums.direction,
+      entry: nums.entry!, stop: nums.stop!, target: nums.target!,
+      shares: nums.shares && nums.shares > 0 ? nums.shares : null,
+      note: planDraft.note.trim(),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      startTime: planDraft.startTime,
+      source: planDraft.source,
+    };
+    savePlans(existing ? plans.map((p) => (p.id === plan.id ? plan : p)) : [...plans, plan]);
+    setPlanDraft(null);
+    setShownPlanId(plan.id);
+  }
+
+  function editPlan(p: TradePlan) {
+    setPlanDraft({
+      id: p.id, direction: p.direction, entry: String(p.entry), stop: String(p.stop), target: String(p.target),
+      shares: p.shares === null ? "" : String(p.shares), note: p.note, startTime: p.startTime, source: p.source, why: [],
+    });
+    setShownPlanId(null);
+  }
+
+  function deletePlan(id: string) {
+    savePlans(plans.filter((p) => p.id !== id));
+    if (shownPlanId === id) setShownPlanId(null);
+    if (planDraft?.id === id) setPlanDraft(null);
+  }
+
+  // What the chart shows: the plan being written, else the plan tool's first clicks, else a saved plan
+  const chartPlan = useMemo<ChartPlan | null>(() => {
+    if (!chartData?.candles.length) return null;
+    const saved = shownPlanId ? plans.find((p) => p.id === shownPlanId) : undefined;
+    const src = planDraft
+      ? { ...draftNumbers(planDraft), startTime: planDraft.startTime }
+      : tool === "plan" && planClicks.entry !== undefined
+        ? { direction: "long" as const, entry: planClicks.entry, stop: planClicks.stop ?? null, target: null, startTime: planClicks.startTime ?? 0 }
+        : saved ?? null;
+    const ok = (v: number | null | undefined): v is number => typeof v === "number" && Number.isFinite(v) && v > 0;
+    if (!src || !ok(src.entry)) return null;
+    const entry = src.entry;
+    const stop = ok(src.stop) ? src.stop : null, target = ok(src.target) ? src.target : null;
+    const direction = stop !== null && target !== null ? inferDirection(entry, stop, target) : src.direction;
+    const pct = (v: number) => `${v >= entry ? "+" : "−"}${(Math.abs(v - entry) / entry * 100).toFixed(1)}%`;
+    const rr = stop !== null && target !== null && stop !== entry ? Math.abs(target - entry) / Math.abs(entry - stop) : null;
+    // The zones start at the last bar at or before the plan's start
+    const times = chartData.candles;
+    let fromIndex = 0;
+    for (let i = times.length - 1; i >= 0; i--) if (times[i].time <= src.startTime) { fromIndex = i; break; }
+    return {
+      direction, entry, stop, target, fromIndex,
+      titles: {
+        entry: `${direction === "long" ? "Long" : "Short"} entry`,
+        stop: stop !== null ? `Stop ${pct(stop)}` : "Stop",
+        target: target !== null ? `Target ${pct(target)}${rr !== null ? ` · ${rr.toFixed(1)}R` : ""}` : "Target",
+      },
+    };
+  }, [chartData, planDraft, tool, planClicks, shownPlanId, plans]);
 
   function saveNote() {
     const text = noteText.trim();
@@ -441,7 +599,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
 
         {tool && (
           <p className="mb-2 text-[12px] text-[#0A0A0A] bg-[#F5F5F5] rounded-lg px-3 py-1.5" role="status">
-            {drawHint(tool, !!anchor, touch)} <span className="text-[#525252]">{touch ? "Tap the tool again" : "Esc"} to cancel.</span>
+            {drawHint(tool, tool === "plan" ? (planClicks.entry === undefined ? 0 : planClicks.stop === undefined ? 1 : 2) : anchor ? 1 : 0, touch)} <span className="text-[#525252]">{touch ? "Tap the tool again" : "Esc"} to cancel.</span>
           </p>
         )}
         {noteTime !== null && (
@@ -502,6 +660,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
                 setupMarks={setupMarks}
                 highlight={highlight}
                 focus={focusBar}
+                plan={chartPlan}
               />
             </div>
             <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-3 text-[11px] text-[#A3A3A3]">
@@ -534,7 +693,25 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
             selected={selectedSetup}
             onSelect={setSelectedSetup}
             onFocusBar={(index) => setFocusBar({ index, key: Date.now() })}
+            onPlan={planSetup}
           />
+          <div id="trade-plan" className="scroll-mt-4">
+            <TradePlanCard
+              ticker={ticker}
+              plans={plans}
+              draft={planDraft}
+              onDraftChange={setPlanDraft}
+              onSave={savePlan}
+              onNew={newPlan}
+              onEdit={editPlan}
+              onDelete={deletePlan}
+              shownId={shownPlanId}
+              onShow={setShownPlanId}
+              latest={lastClose}
+              price={fmtPrice}
+              money={money}
+            />
+          </div>
           <LevelsCard
             rows={levelRows}
             showDetected={showDetected}

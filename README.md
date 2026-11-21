@@ -32,6 +32,8 @@ A panel beside the chart reads the **trend** two ways and calls it only when bot
 
 **Setups.** The panel checks five swing-trading setups: **breakout**, **pullback**, **bull flag**, **support bounce** and **golden cross**. Each is a fixed checklist. *Core rules* must all pass for the setup to count as detected; *confirmations* add evidence. Scores are plain counts shown separately (for example "Core 4/4 · Conf 2/4"), with no weights or AI confidence. Every rule shows ✓ or ✗ with the numbers behind it, and each setup names the price that would invalidate it by its own rules (for example "a close back below $110.50, the level it broke"). Each detection also says what has happened since: still valid, or invalidated on a given date (a golden cross: reversed by a death cross); bull flags are marked *forming* until price closes above the flag, then *confirmed*. A detection on a bar that is still trading is marked provisional. A setup detected in the last 10 bars (20 for a golden cross) is shown with its date and marked with an arrow on the chart; the **Looking at** picker switches between the latest bar and every detection in the past 250 bars. **Show on chart** shades the setup's bars, draws its key price and invalidation line, dots the earlier bars that formed its support or resistance level, and scrolls back to it if needed. **Inspect candles** lists every bar the result depends on, with its role (pole start, flag top, test of support, breakout bar, earlier touches of the level…), prices and volume against usual; selecting one moves the chart's crosshair to it. Every threshold can be changed under **Adjust rules** (saved in this browser, with a reset to the defaults), and the panel says when custom rules are in use. Rules only use bars up to the one being judged, so a setup never relies on later prices. Distances are measured in average bar ranges, and intraday volume is compared with the same time of day in earlier sessions, so the same rules apply on daily and intraday charts. These are descriptions of price patterns, not buy signals, and how often they work hasn't been tested yet; historical testing is planned next.
 
+**Trade plans.** Plan a hypothetical trade three ways: the **Plan** tool (click the entry, then the stop, then the target), **Plan a trade** on a detected setup (entry at the latest close, stop at the setup's invalidation level, target at the nearest resistance above or else twice the risk, each with a note saying where it came from), or **New plan** to type the prices. Long and short plans are supported, and a stop or target on the wrong side of the entry is explained rather than accepted. As you type, the panel works out risk and reward per share, the risk-to-reward ratio, the % distance from the entry to the stop and to the target, and how far the entry is from the latest price; with a share count (or **Size** for a risk budget, which picks whole shares that keep the loss within it) it adds the potential loss, potential profit and position value. It also states the break-even win rate the ratio implies, as arithmetic rather than a forecast. On the chart the entry, stop and target are drawn as lines with their percentages and R multiple, the reward zone shaded green and the risk zone red, and the price scale widens to fit them. Plans are saved per ticker in this browser with an optional note, can be shown, edited and deleted, and are included in backups. They place no orders.
+
 Also: portfolio tracker with sector allocation, investment-return calculator, retirement planner, economic calendar and glossary.
 
 ## Design decisions
@@ -76,9 +78,10 @@ Browser                                           Next.js API routes (proxy)    
 | `src/lib/analysis.ts` | Long-term and swing verdicts, and the sourced research summary |
 | `src/lib/markets.ts` | Supported markets, exchanges and per-currency formatting |
 | `src/lib/indicators.ts` | SMA, EMA, RSI, MACD, ATR and trend classification |
+| `src/lib/tradePlan.ts` | Trade plan maths (risk, reward, ratio, sizing), validation, plans from setups |
 | `src/lib/marketData/` | Candle and timeframe types, the `CandleProvider` interface, exchange-time helpers, 1H → 4H grouping, data cleaning, chart indicators (VWAP, average and relative volume), swing points and support/resistance (`levels.ts`), trend reads (`trend.ts`), chart drawing types and validation (`annotations.ts`), setup rules and scanning (`setups.ts`) |
 | `src/lib/server/providers/` | Candle providers (Yahoo today); `index.ts` picks which one `/api/candles` uses |
-| `src/components/chart/` | Candlestick chart, timeframe picker, OHLCV and indicator readouts, indicator menu, drawing tools, and the trend, setups, levels and drawings cards beside the chart |
+| `src/components/chart/` | Candlestick chart, timeframe picker, OHLCV and indicator readouts, indicator menu, drawing tools, and the trend, setups, trade plan, levels and drawings cards beside the chart |
 | `src/lib/server/news.ts` | Headline relevance scoring and duplicate-story merging |
 | `src/lib/server/snapshot.ts` | Saved-data fallback for the API routes |
 | `src/app/api/*` | Server routes that proxy and normalise Yahoo Finance |
@@ -88,7 +91,7 @@ Browser                                           Next.js API routes (proxy)    
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-npm test           # unit tests (rules, indicators, news, portfolio history, categories, chart data, indicators, levels, trend and setups)
+npm test           # unit tests (rules, indicators, news, portfolio history, categories, chart data, indicators, levels, trend, setups and trade plans)
 npm run build      # production build
 ```
 
@@ -106,4 +109,5 @@ No API keys or environment variables are required.
 - **Headline matching is approximate.** News relevance matches on the company name, so a listicle that mentions a company can count as news about it.
 - **Markets.** US and Singapore are supported in the screener; search also finds listings on other major exchanges (London, Hong Kong, Tokyo, Toronto, Australia and others), which work everywhere a ticker is accepted. Every watchlist item and position stores its exchange and currency. Portfolio totals convert non-USD holdings at today's exchange rate, so their cost basis is approximate.
 - **Screener coverage.** When Yahoo's market-wide screener doesn't respond, the screener checks a built-in list of about 135 large US companies (or about 40 large SGX listings). Filters that need fundamentals or price history (ROE, RSI…) are looked up for the 60 largest candidates.
+- **Trade plan numbers are simplified.** They leave out commissions, slippage, gaps through the stop, fractional shares and currency conversion, and plans aren't yet checked against what price did afterwards.
 - **Not investment advice.** Indicators and screener rules describe price history; they don't predict it.

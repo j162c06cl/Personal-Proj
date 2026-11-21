@@ -1,7 +1,19 @@
 // Shapes the chart draws for levels and the reader's drawings, already resolved to bar
 // indexes for the bars on screen, plus the drawing tools.
 
-export type DrawTool = "level" | "trendline" | "note";
+export type DrawTool = "level" | "trendline" | "note" | "plan";
+
+/** A trade plan on the chart: entry, stop and target lines, with shaded risk and reward zones */
+export interface ChartPlan {
+  direction: "long" | "short";
+  entry: number;
+  stop: number | null;
+  target: number | null;
+  /** First bar of the shaded zones */
+  fromIndex: number;
+  /** Text beside each line's price label */
+  titles: { entry: string; stop: string; target: string };
+}
 
 export interface ChartPoint {
   /** Index into the chart's bars */
