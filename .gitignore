@@ -1,8 +1,13 @@
 .claude/
 node_modules/
 .next/
+.next-e2e/
 next-env.d.ts
 .env.local
 *.tsbuildinfo
 # local screenshot helpers
 ss-*.cjs
+# browser test output
+/test-results/
+/playwright-report/
+/blob-report/
