@@ -6,6 +6,7 @@ import { DEFAULT_WATCHLISTS, PORTFOLIO_PRESETS } from "./presets";
 import { DEFAULT_BENCHMARKS, normalizeBenchmarks } from "./ratings";
 import { PortfolioPosition, SavedScreen, Settings, WatchIntent, WatchTag, Watchlist, WatchlistDef, WatchlistItem } from "./types";
 import { ChartAnnotations, emptyAnnotations, isEmptyAnnotations, sanitizeAllAnnotations } from "./marketData/annotations";
+import { TradePlan, sanitizePlans } from "./tradePlan";
 
 export const DEFAULT_SETTINGS: Settings = {
   baseCurrency: "USD",
@@ -221,6 +222,24 @@ export function saveChartAnnotations(ticker: string, annotations: ChartAnnotatio
   return annotationsWrite;
 }
 
+// ── Trade plans (all tickers in one list) ──────────────────────────────────
+
+const PLANS_KEY = "tradePlans";
+let plansWrite: Promise<void> = Promise.resolve();
+
+export async function loadTradePlans(): Promise<TradePlan[]> {
+  return sanitizePlans(await dbGet("kv", PLANS_KEY));
+}
+
+/** Replaces one ticker's plans, leaving every other ticker's alone */
+export function saveTickerPlans(ticker: string, plans: TradePlan[]): Promise<void> {
+  plansWrite = plansWrite.catch(() => {}).then(async () => {
+    const others = (await loadTradePlans()).filter((p) => p.ticker !== ticker);
+    await dbSet("kv", PLANS_KEY, [...others, ...plans.filter((p) => p.ticker === ticker)]);
+  });
+  return plansWrite;
+}
+
 // ── Settings (shared across components via a tiny subscription) ────────────
 
 let settingsCache: Settings | null = null;
@@ -269,6 +288,8 @@ export interface Backup {
   settings: Settings;
   /** Added after version 3 shipped, so older version-3 backups don't have it */
   chartAnnotations?: Record<string, ChartAnnotations>;
+  /** Also added later; absent from earlier version-3 backups */
+  tradePlans?: TradePlan[];
 }
 
 /** Older backups: v1 stored named ticker lists, v2 one flat intent-tagged list */
@@ -282,8 +303,8 @@ interface OlderBackup {
 }
 
 export async function exportBackup(): Promise<Backup> {
-  const [portfolio, watchlists, screens, settings, chartAnnotations] = await Promise.all([
-    loadPortfolio(), loadWatchlists(), loadScreens(), loadSettings(), loadAllChartAnnotations(),
+  const [portfolio, watchlists, screens, settings, chartAnnotations, tradePlans] = await Promise.all([
+    loadPortfolio(), loadWatchlists(), loadScreens(), loadSettings(), loadAllChartAnnotations(), loadTradePlans(),
   ]);
   return {
     app: "the-dip",
@@ -294,6 +315,7 @@ export async function exportBackup(): Promise<Backup> {
     screens,
     settings: { baseCurrency: settings.baseCurrency, profile: settings.profile, benchmarks: settings.benchmarks },
     chartAnnotations,
+    tradePlans,
   };
 }
 
@@ -323,6 +345,11 @@ export async function importBackup(raw: unknown): Promise<{ positions: number; w
   if (b.version === 3 && drawings !== undefined) {
     await annotationsWrite.catch(() => {});
     await dbSet("kv", ANNOTATIONS_KEY, sanitizeAllAnnotations(drawings));
+  }
+  const plans = (b as Partial<Backup>).tradePlans;
+  if (b.version === 3 && plans !== undefined) {
+    await plansWrite.catch(() => {});
+    await dbSet("kv", PLANS_KEY, sanitizePlans(plans));
   }
   return { positions: b.portfolio.length, watched: flattenLists(lists).length };
 }
