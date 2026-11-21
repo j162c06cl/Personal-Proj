@@ -5,6 +5,7 @@
 //   • tags every value with its source and timestamp (Sourced<T>)
 //   • records per-feed health for the data status panel
 
+import { MAX_QUOTE_TICKERS } from "./apiLimits";
 import { dbClear, dbGet, dbKeys, dbSet } from "./db";
 import { CandleSeries, Timeframe } from "./marketData/types";
 import { ChartData, ChartRange, FinancialHistory, Fundamentals, Market, MarketIndex, NewsFeed, NewsItem, QuoteData, ScreenerRow, SectorPerf, Sourced } from "./types";
@@ -107,7 +108,7 @@ async function getJson<T>(url: string): Promise<T> {
 
 export type QuoteMap = Record<string, Sourced<QuoteData>>;
 
-/** Quotes for many tickers. Fresh ones come from cache; the rest are fetched in batches of 20. */
+/** Quotes for many tickers. Fresh ones come from cache; the rest are fetched in batches of MAX_QUOTE_TICKERS (20), the most /api/quote takes. */
 export async function getQuotes(
   tickers: string[],
   opts: { maxAgeMs?: number; force?: boolean } = {}
@@ -130,7 +131,7 @@ export async function getQuotes(
   );
 
   const batches: string[][] = [];
-  for (let i = 0; i < toFetch.length; i += 20) batches.push(toFetch.slice(i, i + 20));
+  for (let i = 0; i < toFetch.length; i += MAX_QUOTE_TICKERS) batches.push(toFetch.slice(i, i + MAX_QUOTE_TICKERS));
 
   await Promise.all(
     batches.map(async (batch) => {

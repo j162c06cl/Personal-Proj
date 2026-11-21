@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UA, getYahooAuth } from "@/lib/server/yahoo";
 import { forceSnapshot, snapshotQuote } from "@/lib/server/snapshot";
+import { readTickerList } from "@/lib/apiLimits";
+import { isValidTicker } from "@/lib/marketData/types";
 
 const V7_FIELDS = [
   "shortName", "longName", "regularMarketPrice", "regularMarketChange",
@@ -144,24 +146,26 @@ function toResult(t: string, data: ReturnType<typeof extractV7> | Awaited<Return
 }
 
 export async function GET(request: NextRequest) {
-  const ticker = request.nextUrl.searchParams.get("ticker");
-  if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
-
-  const tickers = ticker.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
+  const list = readTickerList(request.nextUrl.searchParams.get("ticker"));
+  if ("error" in list) return NextResponse.json({ error: list.error }, { status: 400 });
+  const { tickers } = list;
+  // A badly formed ticker is answered "Not found" without asking any provider
+  const valid = tickers.filter(isValidTicker);
 
   if (forceSnapshot) {
-    const saved = tickers.map((t) => snapshotQuote(t) ?? toResult(t, null));
+    const saved = tickers.map((t) => (isValidTicker(t) && snapshotQuote(t)) || toResult(t, null));
     return NextResponse.json(tickers.length === 1 ? saved[0] : saved);
   }
 
   // Get Yahoo auth (crumb + cookie) once for the whole batch
-  const auth = await getYahooAuth();
+  const auth = valid.length ? await getYahooAuth() : null;
 
-  // Batch all tickers via v7 (authenticated)
-  const v7Map = auth ? await yahooV7Batch(tickers, auth) : null;
+  // Batch the valid tickers via v7 (authenticated)
+  const v7Map = auth ? await yahooV7Batch(valid, auth) : null;
 
   const results = await Promise.all(
     tickers.map(async (t) => {
+      if (!isValidTicker(t)) return toResult(t, null);
       const v7 = v7Map?.[t];
       if (v7 && v7.price !== null) return toResult(t, v7);
       // Fallbacks for any ticker v7 missed, ending with the saved snapshot

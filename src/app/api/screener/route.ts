@@ -102,7 +102,9 @@ const cache = new Map<Market, { at: number; body: unknown }>();
 const TTL = 5 * 60_000;
 
 export async function GET(request: NextRequest) {
-  const market: Market = request.nextUrl.searchParams.get("market") === "SG" ? "SG" : "US";
+  const asked = request.nextUrl.searchParams.get("market") ?? "US";
+  const market = MARKETS.find((m) => m.id === asked)?.id;
+  if (!market) return NextResponse.json({ results: [], error: "Unknown market." }, { status: 400 });
   const hit = cache.get(market);
   if (hit && Date.now() - hit.at < TTL && !request.nextUrl.searchParams.get("force")) return NextResponse.json(hit.body);
 

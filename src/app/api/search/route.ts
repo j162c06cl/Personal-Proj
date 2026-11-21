@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SEARCHABLE_EXCHANGES } from "@/lib/markets";
+import { MAX_SEARCH_LENGTH } from "@/lib/apiLimits";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
@@ -10,6 +11,7 @@ const ALLOWED_EXCHANGES = SEARCHABLE_EXCHANGES;
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim();
   if (!q || q.length < 1) return NextResponse.json({ results: [] });
+  if (q.length > MAX_SEARCH_LENGTH) return NextResponse.json({ results: [], error: `Search text can be at most ${MAX_SEARCH_LENGTH} characters.` }, { status: 400 });
 
   try {
     const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0&enableFuzzyQuery=false&enableCb=false`;

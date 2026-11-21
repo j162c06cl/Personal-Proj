@@ -97,6 +97,7 @@ Browser                                           Next.js API routes (proxy)    
 | `src/lib/server/news.ts` | Headline relevance scoring and duplicate-story merging |
 | `src/lib/server/snapshot.ts` | Saved-data fallback for the API routes |
 | `src/app/api/*` | Server routes that proxy and normalise Yahoo Finance |
+| `src/lib/apiLimits.ts` | What the API routes accept. A malformed ticker, more than 20 tickers in one quote request, search text over 50 characters, a company name over 200 or an unknown market gets a 400 before any provider is asked |
 
 ## Running it
 
