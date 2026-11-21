@@ -7,14 +7,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart, createSeriesMarkers,
+  BaselineSeries, CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart, createSeriesMarkers,
   IChartApi, IPriceLine, ISeriesApi, ISeriesMarkersPluginApi, LogicalRange, MouseEventParams, SeriesType, Time, UTCTimestamp,
 } from "lightweight-charts";
 import { ChartData } from "@/lib/marketData/clean";
 import { IndicatorValues, Series } from "@/lib/marketData/indicators";
 import { MACD_SIGNAL_COLOR, PANEL_HEIGHT, indicatorDef } from "./indicatorDefs";
 import {
-  ChartFocus, ChartHighlight, ChartLevel, ChartNoteMark, ChartPoint, ChartSetupMark, ChartTrendline, DRAW_COLOR, NOTE_COLOR, SETUP_COLOR,
+  ChartFocus, ChartHighlight, ChartLevel, ChartNoteMark, ChartPlan, ChartPoint, ChartSetupMark, ChartTrendline, DRAW_COLOR, NOTE_COLOR, SETUP_COLOR,
 } from "./drawing";
 
 /** Bars shown when a series first loads; the rest is a scroll or zoom away */
@@ -64,6 +64,7 @@ export default function CandlestickChart({
   setupMarks,
   highlight,
   focus,
+  plan,
 }: {
   data: ChartData;
   /** Indicator values aligned with data.candles; only the switched-on ones are present */
@@ -93,6 +94,8 @@ export default function CandlestickChart({
   highlight: ChartHighlight | null;
   /** A bar to scroll to and put the crosshair on */
   focus: ChartFocus | null;
+  /** A trade plan being drawn, edited or shown */
+  plan: ChartPlan | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
@@ -120,6 +123,8 @@ export default function CandlestickChart({
   const shade = useRef<ISeriesApi<"Histogram"> | null>(null);
   const highlightLines = useRef<IPriceLine[]>([]);
   const focusedKey = useRef<string | null>(null);
+  const planLines = useRef<IPriceLine[]>([]);
+  const planZones = useRef<ISeriesApi<"Baseline">[]>([]);
   const [awayFromLatest, setAwayFromLatest] = useState(false);
   const panels = (indicators.rsi ? 1 : 0) + (indicators.macd ? 1 : 0);
 
@@ -237,6 +242,8 @@ export default function CandlestickChart({
       highlightLines.current = [];
       shade.current = null;
       focusedKey.current = null;
+      planLines.current = [];
+      planZones.current = [];
       lineSeries.current = [];
       panelSet.current = paneLayout.current = "";
       shownKey.current = null;
@@ -471,6 +478,48 @@ export default function CandlestickChart({
       }
     }
   }, [highlight, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A trade plan: entry, stop and target lines, with the reward zone shaded green and the risk
+  // zone red from the bar the plan was made on. Each zone is a baseline series held at the stop
+  // or target price, filled to the entry.
+  useEffect(() => {
+    const c = chart.current, s = candles.current;
+    if (!c || !s) return;
+    planLines.current.forEach((l) => s.removePriceLine(l));
+    planLines.current = [];
+    planZones.current.forEach((z) => c.removeSeries(z));
+    planZones.current = [];
+    if (!plan) return;
+    const { up, down } = colors.current;
+    const entryColor = colorOf(NOTE_COLOR);
+    const line = (price: number, color: string, title: string, width: 1 | 2) =>
+      s.createPriceLine({ price, color, lineWidth: width, lineStyle: LineStyle.Solid, axisLabelVisible: true, title });
+    planLines.current.push(line(plan.entry, entryColor, plan.titles.entry, 2));
+    if (plan.stop !== null) planLines.current.push(line(plan.stop, down, plan.titles.stop, 1));
+    if (plan.target !== null) planLines.current.push(line(plan.target, up, plan.titles.target, 1));
+
+    const n = data.times.length;
+    const from = Math.min(Math.max(0, plan.fromIndex), n - 1);
+    // Unlike other drawings, a plan widens the price scale so its entry, stop and target all show
+    const prices = [plan.entry, plan.stop, plan.target].filter((v): v is number => v !== null);
+    const planRange = { priceRange: { minValue: Math.min(...prices), maxValue: Math.max(...prices) } };
+    const zone = (price: number, color: string) => {
+      const fill = withAlpha(color, 0.12);
+      const z = c.addSeries(BaselineSeries, {
+        baseValue: { type: "price", price: plan.entry },
+        topFillColor1: fill, topFillColor2: fill, bottomFillColor1: fill, bottomFillColor2: fill,
+        topLineColor: "transparent", bottomLineColor: "transparent", lineWidth: 1,
+        lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
+        autoscaleInfoProvider: () => planRange,
+      });
+      z.setData(Array.from({ length: n - from }, (_, k) => ({ time: data.times[from + k] as UTCTimestamp, value: price })));
+      planZones.current.push(z);
+    };
+    if (n > 0) {
+      if (plan.target !== null) zone(plan.target, up);
+      if (plan.stop !== null) zone(plan.stop, down);
+    }
+  }, [plan, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A bar picked from a setup's candle list: bring it into view and put the crosshair on it
   useEffect(() => {

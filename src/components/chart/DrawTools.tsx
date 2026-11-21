@@ -6,6 +6,7 @@ const TOOLS: { id: DrawTool; label: string; title: string }[] = [
   { id: "level", label: "Level", title: "Mark your own support or resistance level" },
   { id: "trendline", label: "Trendline", title: "Draw a line between two bars" },
   { id: "note", label: "Note", title: "Attach a note to a bar" },
+  { id: "plan", label: "Plan", title: "Plan a trade: click the entry, then the stop, then the target" },
 ];
 
 /** Drawing tool buttons. One tool is active at a time; pressing it again puts it away. */
@@ -29,12 +30,13 @@ export default function DrawTools({ tool, onChange }: { tool: DrawTool | null; o
   );
 }
 
-/** What to do next with the active tool */
-export function drawHint(tool: DrawTool, anchorSet: boolean, touch: boolean) {
+/** What to do next with the active tool; `step` counts the points already placed */
+export function drawHint(tool: DrawTool, step: number, touch: boolean) {
   const click = touch ? "Tap" : "Click";
   switch (tool) {
     case "level": return `${click} the chart at the price for your level.`;
-    case "trendline": return anchorSet ? `${click} where the line ends.` : `${click} where the line starts.`;
+    case "trendline": return step ? `${click} where the line ends.` : `${click} where the line starts.`;
     case "note": return `${click} the bar to attach a note to.`;
+    case "plan": return [`Plan a trade, step 1 of 3: ${click.toLowerCase()} your entry price.`, `Step 2 of 3: ${click.toLowerCase()} your stop-loss.`, `Step 3 of 3: ${click.toLowerCase()} your target.`][Math.min(step, 2)];
   }
 }
