@@ -14,7 +14,7 @@ import {
   DEFAULT_SETUP_CONFIG, Detection, SETUP_INFO, SetupCheck, SetupConfig, SetupType, changedRules, sanitizeSetupConfig, scanSetups,
   volumeRatios,
 } from "@/lib/marketData/setups";
-import { DEFAULT_EVAL_CONFIG, EvalConfig, TradeRecord, evaluateSetups, sanitizeEvalConfig } from "@/lib/marketData/evaluation";
+import { BacktestConfig, DEFAULT_BACKTEST_CONFIG, runBacktest, sanitizeBacktestConfig } from "@/lib/marketData/backtest";
 import { barStillForming } from "@/lib/marketData/time";
 import { AnchorPoint, ChartAnnotations, NOTE_MAX, barIndexAt, emptyAnnotations } from "@/lib/marketData/annotations";
 import { loadChartAnnotations, loadTradePlans, newId, saveChartAnnotations, saveTickerPlans } from "@/lib/store";
@@ -34,7 +34,7 @@ import TrendCard from "@/components/chart/TrendCard";
 import LevelsCard, { LevelRow } from "@/components/chart/LevelsCard";
 import DrawingsCard, { NoteRow, TrendlineRow } from "@/components/chart/DrawingsCard";
 import SetupsCard, { SetupSelection, resolveTarget } from "@/components/chart/SetupsCard";
-import TrackRecordCard, { tradeKey } from "@/components/chart/TrackRecordCard";
+import BacktestCard, { ShownTrade, findShownTrade } from "@/components/chart/BacktestCard";
 import {
   ChartFocus, ChartHighlight, ChartLevel, ChartNoteMark, ChartPlan, ChartPoint, ChartSetupMark, ChartTrendline, DrawTool, formatBarTime,
 } from "@/components/chart/drawing";
@@ -54,7 +54,8 @@ const TIMEFRAME_KEY = "chart_timeframe";
 const INDICATORS_KEY = "chart_indicators";
 const DETECTED_KEY = "chart_detected_levels";
 const SETUP_RULES_KEY = "chart_setup_rules";
-const EVAL_RULES_KEY = "chart_eval_rules";
+/** Backtest settings (the name predates the backtest; older saved settings still load) */
+const BACKTEST_KEY = "chart_eval_rules";
 
 const ZONE_NAMES: Record<string, string> = { "America/New_York": "New York", "Asia/Singapore": "Singapore" };
 
@@ -95,9 +96,9 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   const [focusBar, setFocusBar] = useState<ChartFocus | null>(null);
   /** The reader's setup rules (defaults unless changed) */
   const [setupRules, setSetupRules] = useState<SetupConfig>(DEFAULT_SETUP_CONFIG);
-  /** The rules past setups are replayed with, and the past trade shown on the chart */
-  const [evalRules, setEvalRules] = useState<EvalConfig>(DEFAULT_EVAL_CONFIG);
-  const [shownTradeKey, setShownTradeKey] = useState<string | null>(null);
+  /** The backtest's settings, and the backtest trade shown on the chart */
+  const [btRules, setBtRules] = useState<BacktestConfig>(DEFAULT_BACKTEST_CONFIG);
+  const [shownTradeRef, setShownTradeRef] = useState<ShownTrade | null>(null);
 
   // Remember the last timeframe, indicators and detected-levels choice across visits
   useEffect(() => {
@@ -109,8 +110,8 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
       if (localStorage.getItem(DETECTED_KEY) === "off") setShowDetected(false);
       const rules = localStorage.getItem(SETUP_RULES_KEY);
       if (rules) setSetupRules(sanitizeSetupConfig(JSON.parse(rules)));
-      const evalSaved = localStorage.getItem(EVAL_RULES_KEY);
-      if (evalSaved) setEvalRules(sanitizeEvalConfig(JSON.parse(evalSaved)));
+      const btSaved = localStorage.getItem(BACKTEST_KEY);
+      if (btSaved) setBtRules(sanitizeBacktestConfig(JSON.parse(btSaved)));
     } catch {}
   }, []);
 
@@ -159,7 +160,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     setNoteTime(null);
     setSelectedSetup(null);
     setFocusBar(null);
-    setShownTradeKey(null);
+    setShownTradeRef(null);
   }, [ticker, timeframe]);
 
   // Esc puts the drawing tool away
@@ -203,9 +204,9 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     try { localStorage.setItem(SETUP_RULES_KEY, JSON.stringify(next)); } catch {}
   }
 
-  function chooseEvalRules(next: EvalConfig) {
-    setEvalRules(next);
-    try { localStorage.setItem(EVAL_RULES_KEY, JSON.stringify(next)); } catch {}
+  function chooseBtRules(next: BacktestConfig) {
+    setBtRules(next);
+    try { localStorage.setItem(BACKTEST_KEY, JSON.stringify(next)); } catch {}
   }
 
   function chooseShowDetected(on: boolean) {
@@ -369,20 +370,17 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     return barStillForming(last.time, timeframeInfo(s.timeframe).seconds, barsIntraday, s.timeZone, Date.now() / 1000);
   }, [chartData, s, barsIntraday]);
 
-  // ── Track record: every past setup replayed as a trade, on finished bars only ──
-  const evaluation = useMemo(() => {
-    if (!chartData || chartData.candles.length < 3) return null;
+  // ── Backtest: every past setup traded through a simulated account, on finished bars only ──
+  const backtest = useMemo(() => {
+    if (!chartData) return null;
     const bars = latestForming ? chartData.candles.slice(0, -1) : chartData.candles;
-    return evaluateSetups(bars, (v) => `${sym}${v.toFixed(priceDigits)}`, { ...setupOpts, evalConfig: evalRules });
-  }, [chartData, latestForming, sym, priceDigits, setupOpts, evalRules]);
-  const shownTrade = useMemo(
-    () => (shownTradeKey && evaluation?.trades.find((t) => tradeKey(t) === shownTradeKey)) || null,
-    [shownTradeKey, evaluation]
-  );
+    return runBacktest(bars, (v) => `${sym}${v.toFixed(priceDigits)}`, { ...setupOpts, backtest: btRules });
+  }, [chartData, latestForming, sym, priceDigits, setupOpts, btRules]);
+  const shownTrade = useMemo(() => findShownTrade(backtest, shownTradeRef), [backtest, shownTradeRef]);
 
-  /** Shows a past trade on the chart (replacing a shown plan) and brings the chart into view */
-  function showTrade(t: TradeRecord | null) {
-    setShownTradeKey(t ? tradeKey(t) : null);
+  /** Shows a backtest trade on the chart (replacing a shown plan) and brings the chart into view */
+  function showTrade(t: ShownTrade | null) {
+    setShownTradeRef(t);
     if (!t) return;
     setShownPlanId(null);
     setFocusBar({ index: t.signal, key: Date.now() });
@@ -391,7 +389,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
 
   function showPlan(id: string | null) {
     setShownPlanId(id);
-    if (id) setShownTradeKey(null);
+    if (id) setShownTradeRef(null);
   }
 
   // Arrows under recent setups (grey once invalidated) and under the one picked to show, plus
@@ -560,7 +558,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
         titles: {
           entry: `${SETUP_INFO[t.type].short} entry`,
           stop: `Stop ${pct(t.stop)}`,
-          target: `Target ${pct(t.target)} · ${Number(evalRules.targetR.toFixed(2))}R`,
+          target: `Target ${pct(t.target)} · ${Number(btRules.targetR.toFixed(2))}R`,
         },
       };
     }
@@ -589,7 +587,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
         target: target !== null ? `Target ${pct(target)}${rr !== null ? ` · ${rr.toFixed(1)}R` : ""}` : "Target",
       },
     };
-  }, [chartData, planDraft, tool, planClicks, shownPlanId, plans, shownTrade, evalRules.targetR]);
+  }, [chartData, planDraft, tool, planClicks, shownPlanId, plans, shownTrade, btRules.targetR]);
 
   function saveNote() {
     const text = noteText.trim();
@@ -795,10 +793,10 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
       )}
       </div>
 
-      {/* ── Bottom: how past setups on this chart turned out ── */}
-      {ready && s && chartData && evaluation && (
-        <TrackRecordCard
-          evaluation={evaluation}
+      {/* ── Bottom: how past setups on this chart would have traded ── */}
+      {ready && s && chartData && backtest && (
+        <BacktestCard
+          backtest={backtest}
           ticker={ticker}
           timeframeLabel={timeframeInfo(s.timeframe).label}
           times={chartData.times}
@@ -806,9 +804,9 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
           latestForming={latestForming}
           rulesChanged={changedRules(setupRules).length}
           price={fmtPrice}
-          config={evalRules}
-          onConfigChange={chooseEvalRules}
-          shownKey={shownTrade ? tradeKey(shownTrade) : null}
+          money={money}
+          onConfigChange={chooseBtRules}
+          shown={shownTrade ? shownTradeRef : null}
           onShow={showTrade}
         />
       )}
