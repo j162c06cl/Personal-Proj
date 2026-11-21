@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getChart, getFinancials, getFundamentals, getNews, getQuote } from "@/lib/data";
 import { loadPortfolio, loadWatchlists } from "@/lib/store";
@@ -202,8 +202,9 @@ function Skeleton({ h = 120 }: { h?: number }) {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
-export default function StockResearchPage({ params }: { params: { ticker: string } }) {
-  const ticker = decodeURIComponent(params.ticker).toUpperCase();
+/** Next passes route params as a promise; use() reads it (the page suspends until it resolves) */
+export default function StockResearchPage({ params }: { params: Promise<{ ticker: string }> }) {
+  const ticker = decodeURIComponent(use(params).ticker).toUpperCase();
   const { settings } = useSettings();
   const money = useMoney();
 
