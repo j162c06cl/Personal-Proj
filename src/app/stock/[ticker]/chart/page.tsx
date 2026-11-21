@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -59,8 +59,9 @@ const BACKTEST_KEY = "chart_eval_rules";
 
 const ZONE_NAMES: Record<string, string> = { "America/New_York": "New York", "Asia/Singapore": "Singapore" };
 
-export default function ChartPage({ params }: { params: { ticker: string } }) {
-  const ticker = decodeURIComponent(params.ticker).toUpperCase();
+/** Next passes route params as a promise; use() reads it (the page suspends until it resolves) */
+export default function ChartPage({ params }: { params: Promise<{ ticker: string }> }) {
+  const ticker = decodeURIComponent(use(params).ticker).toUpperCase();
   const router = useRouter();
   const [timeframe, setTimeframe] = useState<Timeframe>("1d");
   const [series, setSeries] = useState<Sourced<CandleSeries> | null | undefined>(undefined);

@@ -285,7 +285,7 @@ export default function CandlestickChart({
     if (!refresh) showLatest();
     else if (wasAtLatest) c.timeScale().scrollToRealTime();
     else if (keptDates) c.timeScale().setVisibleRange(keptDates);
-  }, [data, viewKey, intraday]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, viewKey, intraday]);
 
   // Indicators
   useEffect(() => {
@@ -402,7 +402,7 @@ export default function CandlestickChart({
       setLine(s, t.a, t.b);
       return s;
     });
-  }, [trendlines, data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trendlines, data]);
 
   // Preview while a trendline is being drawn
   useEffect(() => {
@@ -418,7 +418,7 @@ export default function CandlestickChart({
       draft.current = null;
     }
     if (anchor && draft.current) setLine(draft.current, anchor, anchor);
-  }, [anchor, data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [anchor, data]);
 
   // Notes as dots above their bars, setups as arrows below theirs, and small dots on the earlier
   // bars that formed a picked setup's level
@@ -477,7 +477,7 @@ export default function CandlestickChart({
         c.timeScale().setVisibleLogicalRange({ from: mid - width / 2, to: mid + width / 2 });
       }
     }
-  }, [highlight, data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [highlight, data]);
 
   // A trade plan: entry, stop and target lines, with the reward zone shaded green and the risk
   // zone red from the bar the plan was made on. Each zone is a baseline series held at the stop
@@ -520,7 +520,7 @@ export default function CandlestickChart({
       if (plan.target !== null) zone(plan.target, up);
       if (plan.stop !== null) zone(plan.stop, down);
     }
-  }, [plan, data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [plan, data]);
 
   // A bar picked from a setup's candle list: bring it into view and put the crosshair on it
   useEffect(() => {

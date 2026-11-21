@@ -59,12 +59,14 @@ export function trackErrors(page: Page, into: string[] = [], label = "") {
  * data, and `errors` collects the page's errors for a final check.
  */
 export const test = base.extend<{ errors: string[] }>({
-  context: async ({ context }, use) => {
+  // (Playwright calls the second argument `use`; it's named `provide` here so the React
+  // hooks lint rule doesn't mistake it for React's use())
+  context: async ({ context }, provide) => {
     await serveRecordedCandles(context);
-    await use(context);
+    await provide(context);
   },
-  errors: async ({ page }, use) => {
-    await use(trackErrors(page));
+  errors: async ({ page }, provide) => {
+    await provide(trackErrors(page));
   },
 });
 export { expect };
