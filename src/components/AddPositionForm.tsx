@@ -6,6 +6,14 @@ import { getQuote } from "@/lib/data";
 import { defaultCurrency } from "@/lib/markets";
 import { SECTOR_COLORS } from "@/lib/presets";
 import TickerAutocomplete from "@/components/TickerAutocomplete";
+import SourceTag from "@/components/SourceTag";
+
+/** Where a fetched purchase price came from, shown under the field */
+interface FetchedPrice { forDate: string; actualDate: string; currency: string | null; source: string }
+
+function fmtDay(d: string) {
+  return new Date(d + "T00:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
 
 interface Props {
   initial?: PortfolioPosition;
@@ -28,6 +36,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
   const [listing, setListing] = useState<{ exchange?: string; currency?: string }>({ exchange: initial?.exchange, currency: initial?.currency });
   const [lookingUp, setLookingUp] = useState(false);
   const [fetchingPrice, setFetchingPrice] = useState(false);
+  const [fetched, setFetched] = useState<FetchedPrice | null>(null);
   const [error, setError] = useState("");
 
   void lookingUp;
@@ -61,11 +70,16 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
     if (!t || !purchaseDate) { setError("Enter a ticker and date first."); return; }
     setFetchingPrice(true);
     setError("");
+    setFetched(null);
     try {
-      const res = await fetch(`/api/historical?ticker=${t}&from=${purchaseDate}`);
+      const res = await fetch(`/api/historical?ticker=${encodeURIComponent(t)}&from=${encodeURIComponent(purchaseDate)}`);
       const data = await res.json();
-      if (data.error) { setError(data.error); }
-      else { setPurchasePrice(data.closingPrice.toFixed(2)); }
+      if (data.error || typeof data.closingPrice !== "number") { setError(data.error ?? "No price found for that date."); }
+      else {
+        // Keep the precision of low-priced listings (e.g. S$0.85) instead of rounding to cents
+        setPurchasePrice(String(Number(data.closingPrice.toFixed(data.closingPrice < 10 ? 4 : 2))));
+        setFetched({ forDate: purchaseDate, actualDate: data.actualDate, currency: data.currency, source: data.source });
+      }
     } catch {
       setError("Failed to fetch price.");
     }
@@ -75,6 +89,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
   // Record the listing's exchange and currency as soon as a ticker is picked
   async function pick(t: string, n: string) {
     setTicker(t);
+    setFetched(null);
     setName(n);
     setError("");
     const q = (await getQuote(t))?.value;
@@ -127,7 +142,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
             <label className="block text-[11px] font-semibold text-[#525252] mb-1.5 uppercase tracking-wider">Ticker Symbol</label>
             <TickerAutocomplete
               value={ticker}
-              onChange={setTicker}
+              onChange={(v) => { setTicker(v); setFetched(null); }}
               onSelect={(t, n) => { pick(t, n); }}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookupTicker(); } }}
               placeholder="e.g. AAPL"
@@ -162,7 +177,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
               type="date"
               max={maxDate}
               value={purchaseDate}
-              onChange={(e) => setPurchaseDate(e.target.value)}
+              onChange={(e) => { setPurchaseDate(e.target.value); setFetched(null); }}
               className={inputCls}
             />
           </div>
@@ -177,7 +192,7 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
                 step="any"
                 placeholder="e.g. 150.00"
                 value={purchasePrice}
-                onChange={(e) => setPurchasePrice(e.target.value)}
+                onChange={(e) => { setPurchasePrice(e.target.value); setFetched(null); }}
                 className={inputCls}
               />
               <button
@@ -189,7 +204,19 @@ export default function PositionForm({ initial, onSave, onCancel }: Props) {
                 {fetchingPrice ? "…" : "Fetch"}
               </button>
             </div>
-            <p className="text-[11px] text-[#525252] mt-1">Set a date first, then Fetch to auto-fill the historical price.</p>
+            {fetched ? (
+              <div className="mt-1 space-y-0.5">
+                <p className="text-[11px] text-[#525252]">
+                  Closing price on {fmtDay(fetched.actualDate)}
+                  {fetched.actualDate !== fetched.forDate && " (the next trading day)"}
+                  {fetched.currency && fetched.currency !== ccy && ` · in ${fetched.currency}`}
+                  . Adjusted for any later stock splits, so enter today&apos;s share count.
+                </p>
+                <SourceTag source={fetched.source} />
+              </div>
+            ) : (
+              <p className="text-[11px] text-[#525252] mt-1">Set a date first, then Fetch to fill in that day&apos;s closing price.</p>
+            )}
           </div>
 
           {/* Quantity */}
