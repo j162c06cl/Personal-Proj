@@ -70,7 +70,8 @@ export const newId = () => `${Date.now().toString(36)}${Math.random().toString(3
 export function normaliseItem(i: WatchlistItem): WatchlistItem {
   const tag: WatchTag = i.tag
     ?? (i.status === "researching" ? "researching" : i.status === "done" ? "watching" : i.intent === "research" ? "researching" : "watching");
-  const { status: _legacy, ...rest } = i; // eslint-disable-line @typescript-eslint/no-unused-vars
+  const rest: WatchlistItem = { ...i };
+  delete rest.status; // replaced by tag
   return { ...rest, tag, note: i.note ?? "" };
 }
 
