@@ -11,8 +11,10 @@ import { IndicatorId, computeIndicators } from "@/lib/marketData/indicators";
 import { analyseLevels, touchesAt } from "@/lib/marketData/levels";
 import { chartTrend } from "@/lib/marketData/trend";
 import {
-  DEFAULT_SETUP_CONFIG, Detection, SETUP_INFO, SetupCheck, SetupConfig, SetupType, sanitizeSetupConfig, scanSetups, volumeRatios,
+  DEFAULT_SETUP_CONFIG, Detection, SETUP_INFO, SetupCheck, SetupConfig, SetupType, changedRules, sanitizeSetupConfig, scanSetups,
+  volumeRatios,
 } from "@/lib/marketData/setups";
+import { DEFAULT_EVAL_CONFIG, EvalConfig, TradeRecord, evaluateSetups, sanitizeEvalConfig } from "@/lib/marketData/evaluation";
 import { barStillForming } from "@/lib/marketData/time";
 import { AnchorPoint, ChartAnnotations, NOTE_MAX, barIndexAt, emptyAnnotations } from "@/lib/marketData/annotations";
 import { loadChartAnnotations, loadTradePlans, newId, saveChartAnnotations, saveTickerPlans } from "@/lib/store";
@@ -32,6 +34,7 @@ import TrendCard from "@/components/chart/TrendCard";
 import LevelsCard, { LevelRow } from "@/components/chart/LevelsCard";
 import DrawingsCard, { NoteRow, TrendlineRow } from "@/components/chart/DrawingsCard";
 import SetupsCard, { SetupSelection, resolveTarget } from "@/components/chart/SetupsCard";
+import TrackRecordCard, { tradeKey } from "@/components/chart/TrackRecordCard";
 import {
   ChartFocus, ChartHighlight, ChartLevel, ChartNoteMark, ChartPlan, ChartPoint, ChartSetupMark, ChartTrendline, DrawTool, formatBarTime,
 } from "@/components/chart/drawing";
@@ -51,6 +54,7 @@ const TIMEFRAME_KEY = "chart_timeframe";
 const INDICATORS_KEY = "chart_indicators";
 const DETECTED_KEY = "chart_detected_levels";
 const SETUP_RULES_KEY = "chart_setup_rules";
+const EVAL_RULES_KEY = "chart_eval_rules";
 
 const ZONE_NAMES: Record<string, string> = { "America/New_York": "New York", "Asia/Singapore": "Singapore" };
 
@@ -91,6 +95,9 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   const [focusBar, setFocusBar] = useState<ChartFocus | null>(null);
   /** The reader's setup rules (defaults unless changed) */
   const [setupRules, setSetupRules] = useState<SetupConfig>(DEFAULT_SETUP_CONFIG);
+  /** The rules past setups are replayed with, and the past trade shown on the chart */
+  const [evalRules, setEvalRules] = useState<EvalConfig>(DEFAULT_EVAL_CONFIG);
+  const [shownTradeKey, setShownTradeKey] = useState<string | null>(null);
 
   // Remember the last timeframe, indicators and detected-levels choice across visits
   useEffect(() => {
@@ -102,6 +109,8 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
       if (localStorage.getItem(DETECTED_KEY) === "off") setShowDetected(false);
       const rules = localStorage.getItem(SETUP_RULES_KEY);
       if (rules) setSetupRules(sanitizeSetupConfig(JSON.parse(rules)));
+      const evalSaved = localStorage.getItem(EVAL_RULES_KEY);
+      if (evalSaved) setEvalRules(sanitizeEvalConfig(JSON.parse(evalSaved)));
     } catch {}
   }, []);
 
@@ -150,6 +159,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     setNoteTime(null);
     setSelectedSetup(null);
     setFocusBar(null);
+    setShownTradeKey(null);
   }, [ticker, timeframe]);
 
   // Esc puts the drawing tool away
@@ -191,6 +201,11 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
   function chooseSetupRules(next: SetupConfig) {
     setSetupRules(next);
     try { localStorage.setItem(SETUP_RULES_KEY, JSON.stringify(next)); } catch {}
+  }
+
+  function chooseEvalRules(next: EvalConfig) {
+    setEvalRules(next);
+    try { localStorage.setItem(EVAL_RULES_KEY, JSON.stringify(next)); } catch {}
   }
 
   function chooseShowDetected(on: boolean) {
@@ -354,10 +369,36 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     return barStillForming(last.time, timeframeInfo(s.timeframe).seconds, barsIntraday, s.timeZone, Date.now() / 1000);
   }, [chartData, s, barsIntraday]);
 
+  // ── Track record: every past setup replayed as a trade, on finished bars only ──
+  const evaluation = useMemo(() => {
+    if (!chartData || chartData.candles.length < 3) return null;
+    const bars = latestForming ? chartData.candles.slice(0, -1) : chartData.candles;
+    return evaluateSetups(bars, (v) => `${sym}${v.toFixed(priceDigits)}`, { ...setupOpts, evalConfig: evalRules });
+  }, [chartData, latestForming, sym, priceDigits, setupOpts, evalRules]);
+  const shownTrade = useMemo(
+    () => (shownTradeKey && evaluation?.trades.find((t) => tradeKey(t) === shownTradeKey)) || null,
+    [shownTradeKey, evaluation]
+  );
+
+  /** Shows a past trade on the chart (replacing a shown plan) and brings the chart into view */
+  function showTrade(t: TradeRecord | null) {
+    setShownTradeKey(t ? tradeKey(t) : null);
+    if (!t) return;
+    setShownPlanId(null);
+    setFocusBar({ index: t.signal, key: Date.now() });
+    requestAnimationFrame(() => document.getElementById("chart")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+  }
+
+  function showPlan(id: string | null) {
+    setShownPlanId(id);
+    if (id) setShownTradeKey(null);
+  }
+
   // Arrows under recent setups (grey once invalidated) and under the one picked to show, plus
   // dots on the earlier bars that formed its support or resistance level
   const setupMarks = useMemo<ChartSetupMark[]>(() => {
     const marks: ChartSetupMark[] = [];
+    if (shownTrade) marks.push({ id: "trade-signal", index: shownTrade.signal, text: SETUP_INFO[shownTrade.type].short, kind: "setup" });
     for (const sm of setups) {
       const picked = selectedSetup?.type === sm.type ? resolveTarget(sm, selectedSetup.target) : null;
       const d = picked?.detection ?? (picked ? null : sm.recent);
@@ -369,7 +410,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
       }
     }
     return marks;
-  }, [setups, selectedSetup]);
+  }, [setups, selectedSetup, shownTrade]);
 
   const highlight = useMemo<ChartHighlight | null>(() => {
     const sm = selectedSetup && setups.find((x) => x.type === selectedSetup.type);
@@ -507,9 +548,22 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
     if (planDraft?.id === id) setPlanDraft(null);
   }
 
-  // What the chart shows: the plan being written, else the plan tool's first clicks, else a saved plan
+  // What the chart shows: the plan being written, else the plan tool's first clicks, else a past
+  // trade from the track record, else a saved plan
   const chartPlan = useMemo<ChartPlan | null>(() => {
     if (!chartData?.candles.length) return null;
+    if (!planDraft && !(tool === "plan" && planClicks.entry !== undefined) && shownTrade) {
+      const t = shownTrade;
+      const pct = (v: number) => `${v >= t.entry ? "+" : "−"}${(Math.abs(v - t.entry) / t.entry * 100).toFixed(1)}%`;
+      return {
+        direction: "long", entry: t.entry, stop: t.stop, target: t.target, fromIndex: t.entryIndex, toIndex: t.exitIndex,
+        titles: {
+          entry: `${SETUP_INFO[t.type].short} entry`,
+          stop: `Stop ${pct(t.stop)}`,
+          target: `Target ${pct(t.target)} · ${Number(evalRules.targetR.toFixed(2))}R`,
+        },
+      };
+    }
     const saved = shownPlanId ? plans.find((p) => p.id === shownPlanId) : undefined;
     const src = planDraft
       ? { ...draftNumbers(planDraft), startTime: planDraft.startTime }
@@ -535,7 +589,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
         target: target !== null ? `Target ${pct(target)}${rr !== null ? ` · ${rr.toFixed(1)}R` : ""}` : "Target",
       },
     };
-  }, [chartData, planDraft, tool, planClicks, shownPlanId, plans]);
+  }, [chartData, planDraft, tool, planClicks, shownPlanId, plans, shownTrade, evalRules.targetR]);
 
   function saveNote() {
     const text = noteText.trim();
@@ -587,7 +641,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] items-start">
       {/* ── Chart ── */}
-      <section className="min-w-0 border border-[#E5E5E5] rounded-2xl p-3 sm:p-4">
+      <section id="chart" className="min-w-0 border border-[#E5E5E5] rounded-2xl p-3 sm:p-4 scroll-mt-4">
         <div className="flex items-center justify-between gap-x-3 gap-y-2 flex-wrap mb-2">
           <TimeframePicker value={timeframe} onChange={chooseTimeframe} />
           <div className="flex items-center gap-3 ml-auto flex-wrap justify-end">
@@ -706,7 +760,7 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
               onEdit={editPlan}
               onDelete={deletePlan}
               shownId={shownPlanId}
-              onShow={setShownPlanId}
+              onShow={showPlan}
               latest={lastClose}
               price={fmtPrice}
               money={money}
@@ -740,6 +794,24 @@ export default function ChartPage({ params }: { params: { ticker: string } }) {
         </aside>
       )}
       </div>
+
+      {/* ── Bottom: how past setups on this chart turned out ── */}
+      {ready && s && chartData && evaluation && (
+        <TrackRecordCard
+          evaluation={evaluation}
+          ticker={ticker}
+          timeframeLabel={timeframeInfo(s.timeframe).label}
+          times={chartData.times}
+          intraday={barsIntraday}
+          latestForming={latestForming}
+          rulesChanged={changedRules(setupRules).length}
+          price={fmtPrice}
+          config={evalRules}
+          onConfigChange={chooseEvalRules}
+          shownKey={shownTrade ? tradeKey(shownTrade) : null}
+          onShow={showTrade}
+        />
+      )}
     </div>
   );
 }

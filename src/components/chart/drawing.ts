@@ -11,6 +11,8 @@ export interface ChartPlan {
   target: number | null;
   /** First bar of the shaded zones */
   fromIndex: number;
+  /** Last bar of the shaded zones (default: the latest bar) */
+  toIndex?: number;
   /** Text beside each line's price label */
   titles: { entry: string; stop: string; target: string };
 }

@@ -500,6 +500,7 @@ export default function CandlestickChart({
 
     const n = data.times.length;
     const from = Math.min(Math.max(0, plan.fromIndex), n - 1);
+    const to = Math.min(Math.max(from, plan.toIndex ?? n - 1), n - 1);
     // Unlike other drawings, a plan widens the price scale so its entry, stop and target all show
     const prices = [plan.entry, plan.stop, plan.target].filter((v): v is number => v !== null);
     const planRange = { priceRange: { minValue: Math.min(...prices), maxValue: Math.max(...prices) } };
@@ -512,7 +513,7 @@ export default function CandlestickChart({
         lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
         autoscaleInfoProvider: () => planRange,
       });
-      z.setData(Array.from({ length: n - from }, (_, k) => ({ time: data.times[from + k] as UTCTimestamp, value: price })));
+      z.setData(Array.from({ length: to - from + 1 }, (_, k) => ({ time: data.times[from + k] as UTCTimestamp, value: price })));
       planZones.current.push(z);
     };
     if (n > 0) {
