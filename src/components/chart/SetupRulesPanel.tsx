@@ -5,7 +5,7 @@ import { DEFAULT_SETUP_CONFIG, ParamDef, SETUP_PARAMS, SetupConfig, changedRules
 
 /** A number field that only applies its value on Enter or when it loses focus, so typing "12"
  *  isn't clamped at "1" on the way */
-function NumberField({ def, value, onCommit }: { def: ParamDef; value: number; onCommit: (v: number) => void }) {
+export function NumberField({ def, value, onCommit }: { def: ParamDef; value: number; onCommit: (v: number) => void }) {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
   const commit = () => {
