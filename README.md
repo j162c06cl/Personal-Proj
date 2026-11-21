@@ -104,10 +104,14 @@ Browser                                           Next.js API routes (proxy)    
 npm install
 npm run dev        # http://localhost:3000
 npm test           # unit tests (rules, indicators, news, portfolio history, categories, economic calendar, purchase prices, chart data, indicators, levels, trend, setups, trade plans, trade replay and backtests)
+npm run typecheck  # TypeScript, no output files
+npm run lint       # ESLint with Next.js's recommended rules
 npm run build      # production build
 ```
 
 No API keys or environment variables are required.
+
+**Automatic checks.** Every pull request, and every push to `main`, runs the type check, lint, unit tests and production build on GitHub Actions ([.github/workflows/checks.yml](.github/workflows/checks.yml)). The result shows on the pull request.
 
 **Saved data for demos.** With the dev server running, `npm run snapshot` refreshes the saved data in `src/data/snapshot/` (quotes for every default ticker; full research data for nine showcase stocks). Set `DATA_MODE=snapshot` to serve only saved data, for example for a demo that must not depend on Yahoo.
 
