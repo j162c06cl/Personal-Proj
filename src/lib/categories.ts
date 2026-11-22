@@ -8,6 +8,29 @@ export const CATEGORY_ORDER = [
   "Financials", "Energy", "Industrials", "Materials", "Real Estate", "Utilities", "Other",
 ];
 
+/**
+ * A colour per group, for the watchlist's badges and sector tags: a pale background with darker
+ * text of the same hue. Plain green and red are left out, since they mean up and down.
+ */
+const CATEGORY_COLORS: Record<string, { bg: string; fg: string }> = {
+  "ETFs": { bg: "#EEF2F6", fg: "#334155" },
+  "Technology": { bg: "#EAF2FF", fg: "#1D4ED8" },
+  "Communication": { bg: "#F3EEFF", fg: "#6D28D9" },
+  "Consumer Disc.": { bg: "#FFF1E7", fg: "#C2410C" },
+  "Consumer Staples": { bg: "#E6F7F5", fg: "#0F766E" },
+  "Healthcare": { bg: "#FDEEF6", fg: "#BE185D" },
+  "Financials": { bg: "#EEF0FF", fg: "#4338CA" },
+  "Energy": { bg: "#FEF9E7", fg: "#A16207" },
+  "Industrials": { bg: "#F4F1EE", fg: "#57534E" },
+  "Materials": { bg: "#E6F6FB", fg: "#0E7490" },
+  "Real Estate": { bg: "#FAEEFC", fg: "#A21CAF" },
+  "Utilities": { bg: "#E8F4FD", fg: "#0369A1" },
+};
+const NEUTRAL = { bg: "#F0F0F0", fg: "#525252" };
+
+/** Badge and tag colours for a group; grey for "Other" or a stock not grouped yet */
+export const categoryColor = (category: string | null | undefined) => (category && CATEGORY_COLORS[category]) || NEUTRAL;
+
 const FUND_TYPES = new Set(["ETF", "MUTUALFUND"]);
 
 /**

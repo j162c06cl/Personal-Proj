@@ -8,7 +8,7 @@ import SourceTag from "@/components/SourceTag";
 import { Watchlist, WatchlistItem } from "@/lib/types";
 import { loadWatchlists, newId, newItem, saveWatchlists } from "@/lib/store";
 import { getChart, getFundamentals, getQuotes, QuoteMap } from "@/lib/data";
-import { categoryFrom, knownCategory } from "@/lib/categories";
+import { categoryColor, categoryFrom, knownCategory } from "@/lib/categories";
 import { closeOnOrBefore, rangeCovering } from "@/lib/portfolioHistory";
 import { formatPercent } from "@/lib/formatters";
 import { defaultCurrency, formatMoney } from "@/lib/markets";
@@ -32,17 +32,55 @@ const parseShow = (raw: string | null): Show => (raw === "since" ? "since" : "to
 // Moves that round to 0.00% read as flat, not as a red "-0.00%"
 const flat = (v: number) => Math.abs(v) < 0.005;
 
+// The price line widens with the screen: 72px on a phone, 140px on a tablet, 220px on a laptop
+const SPARK_SIZE = "w-[72px] sm:w-[140px] lg:w-[220px] h-7";
+
 function Sparkline({ closes }: { closes: number[] }) {
-  const w = 72, h = 28;
-  if (closes.length < 2) return <span className="inline-block" style={{ width: w, height: h }} />;
+  const w = 100, h = 28;
+  if (closes.length < 2) return <span className={`block ${SPARK_SIZE}`} />;
   const lo = Math.min(...closes), hi = Math.max(...closes);
   const pts = closes.map((c, i) => `${(i / (closes.length - 1)) * w},${hi === lo ? h / 2 : h - 3 - ((c - lo) / (hi - lo)) * (h - 6)}`).join(" ");
   const up = closes[closes.length - 1] >= closes[0];
   return (
-    <svg width={w} height={h} className="block" aria-hidden>
-      <polyline points={pts} fill="none" stroke={up ? "#00B341" : "#F04E23"} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className={`block ${SPARK_SIZE}`} aria-hidden>
+      <polyline points={pts} fill="none" stroke={up ? "#00B341" : "#F04E23"} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );
+}
+
+/** "since Oct 11" (with the year if it isn't this one), or null if added today */
+function sinceDate(addedAt: string): string | null {
+  const d = new Date(addedAt);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return null;
+  return `since ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}) })}`;
+}
+
+/** Under the price line: whichever move the pill isn't showing */
+function OtherMove({ show, today, since, addedAt }: { show: Show; today: number | null; since: number | null; addedAt: string }) {
+  const label = show === "today" ? sinceDate(addedAt) : "today";
+  const v = show === "today" ? since : today;
+  if (label === null) return <span className="hidden sm:block text-[11px] font-medium text-[#A3A3A3]">Added today</span>;
+  if (v === null) return null;
+  const tone = flat(v) ? "text-[#737373]" : v > 0 ? "text-[#007A2B]" : "text-[#B8360F]";
+  return <span className={`hidden sm:block text-[11px] font-medium tabular-nums ${tone}`}>{flat(v) ? "0.00%" : formatPercent(v)} {label}</span>;
+}
+
+/** A round badge with the ticker's first two characters, coloured by sector */
+function Badge({ ticker, category }: { ticker: string; category?: string }) {
+  const c = categoryColor(category);
+  return (
+    <span className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-[12px] font-bold tracking-tight" style={{ background: c.bg, color: c.fg }} aria-hidden>
+      {ticker.replace(/[^A-Z0-9]/gi, "").slice(0, 2)}
+    </span>
+  );
+}
+
+/** The stock's sector (or "ETFs") as a small tag in the same colour as its badge */
+function SectorTag({ category }: { category?: string }) {
+  if (!category) return null;
+  const c = categoryColor(category);
+  return <span className="hidden sm:inline-block shrink-0 text-[11px] font-semibold rounded-md px-1.5 py-0.5" style={{ background: c.bg, color: c.fg }}>{category}</span>;
 }
 
 /** The coloured change pill on the right of each row */
@@ -393,6 +431,7 @@ export default function WatchlistPage() {
             if (editing) {
               return (
                 <li key={r.item.ticker} className="flex items-start gap-3 py-3">
+                  <Badge ticker={r.item.ticker} category={r.item.category} />
                   <button
                     onClick={() => removeFromList(r.item.ticker)}
                     aria-label={`Remove ${r.item.ticker}`}
@@ -421,11 +460,18 @@ export default function WatchlistPage() {
             return (
               <li key={r.item.ticker}>
                 <Link href={`/stock/${encodeURIComponent(r.item.ticker)}`} className="flex items-center gap-3 py-3 hover:bg-[#FAFAFA] -mx-2 px-2 rounded-lg transition-colors">
+                  <Badge ticker={r.item.ticker} category={r.item.category} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[16px] font-semibold text-[#0A0A0A]">{r.item.ticker}</p>
+                    <p className="flex items-center gap-2 min-w-0">
+                      <span className="text-[16px] font-semibold text-[#0A0A0A]">{r.item.ticker}</span>
+                      <SectorTag category={r.item.category} />
+                    </p>
                     <p className="text-[13px] text-[#737373] truncate">{note || r.name || " "}</p>
                   </div>
-                  <Sparkline closes={r.spark} />
+                  <div className="shrink-0 flex flex-col items-center gap-0.5">
+                    <Sparkline closes={r.spark} />
+                    <OtherMove show={show} today={r.today} since={r.since} addedAt={r.item.addedAt} />
+                  </div>
                   <div className="text-right shrink-0">
                     <p className="text-[15px] font-semibold text-[#0A0A0A] tabular-nums mb-0.5">{formatMoney(r.price, r.currency)}</p>
                     <ChangePill v={value} />

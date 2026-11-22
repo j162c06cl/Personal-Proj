@@ -30,7 +30,14 @@ test("watchlist: the list fills the page, and a row opens the stock page", async
   const rows = page.locator("main ul li a");
   check("laptop: no panel beside the list", (await page.getByRole("complementary").count()) === 0);
   check("laptop: rows span the page", Math.round((await box(rows.first())).width) >= 1440 - 64, Math.round((await box(rows.first())).width));
-  const second = (await rows.nth(1).locator("p").first().innerText()).trim();
+  // Each row: a sector-coloured badge with the ticker's first letters, the ticker, and its sector tag
+  const first = rows.first();
+  const ticker = (await first.locator("p span").first().innerText()).trim();
+  const badge = (await first.locator("span[aria-hidden]").first().innerText()).trim();
+  check("laptop: rows start with a badge of the ticker's first letters", badge === ticker.replace(/[^A-Z0-9]/g, "").slice(0, 2), `${badge} for ${ticker}`);
+  check("laptop: rows show a sector tag", (await first.locator("p span").nth(1).innerText()).trim().length > 0);
+  check("laptop: rows say how long they've been watched", /Added today|since [A-Z][a-z]{2} \d+/.test(await first.innerText()));
+  const second = (await rows.nth(1).locator("p span").first().innerText()).trim();
   await rows.nth(1).click();
   await page.waitForURL(/\/stock\//);
   check("laptop: clicking a row opens the stock page", page.url().endsWith(`/stock/${second}`), page.url());
