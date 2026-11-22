@@ -84,7 +84,7 @@ describe("portfolio context", () => {
     { ticker: "KO", sector: "Consumer Defensive", industry: "Beverages - Non-Alcoholic", value: 5600 },
   ];
   const ctx = (over: Partial<Parameters<typeof contextReasons>[0]>) =>
-    contextReasons({ ticker: "AMD", sector: "Technology", industry: "Semiconductors", holdings, positions: [], watchlist: [], watchedSectors: [], ...over });
+    contextReasons({ ticker: "AMD", sector: "Technology", industry: "Semiconductors", holdings, positions: [], watchlist: [], ...over });
 
   it("flags concentration in an industry you already hold", () => {
     const [r] = ctx({});
@@ -117,9 +117,5 @@ describe("portfolio context", () => {
     expect(texts).toContain("On your watchlist (Swing)");
     // Exposure isn't repeated for something you already own
     expect(texts.some((t) => t.startsWith("Adds to"))).toBe(false);
-  });
-
-  it("highlights sectors from the investor profile", () => {
-    expect(ctx({ watchedSectors: ["Technology"] }).map((r) => r.text)).toContain("In a sector you watch (Technology)");
   });
 });

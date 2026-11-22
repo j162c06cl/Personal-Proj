@@ -8,7 +8,7 @@
 import { MAX_QUOTE_TICKERS } from "./apiLimits";
 import { dbClear, dbGet, dbKeys, dbSet } from "./db";
 import { CandleSeries, Timeframe } from "./marketData/types";
-import { ChartData, ChartRange, FinancialHistory, Fundamentals, Market, MarketIndex, NewsFeed, NewsItem, QuoteData, ScreenerRow, SectorPerf, Sourced } from "./types";
+import { ChartData, ChartRange, FinancialHistory, Fundamentals, Market, MarketIndex, NewsFeed, NewsItem, QuoteData, ScreenerRow, Sourced } from "./types";
 
 interface CacheEntry<T> {
   value: T;
@@ -169,7 +169,6 @@ export async function getQuote(ticker: string, opts: { maxAgeMs?: number; force?
 
 export interface MarketSnapshot {
   indices: (MarketIndex & { source?: string | null })[];
-  sectors: (SectorPerf & { source?: string | null })[];
 }
 
 export function getMarket(opts: { force?: boolean } = {}) {
@@ -179,8 +178,8 @@ export function getMarket(opts: { force?: boolean } = {}) {
     MINUTE,
     async () => {
       const d = await getJson<MarketSnapshot & { lastUpdated: string }>("/api/market");
-      const sources = Array.from(new Set([...d.indices, ...d.sectors].map((x) => x.source).filter(Boolean)));
-      return { value: { indices: d.indices, sectors: d.sectors }, source: sources.join(", ") || "Unknown", asOf: d.lastUpdated };
+      const sources = Array.from(new Set(d.indices.map((x) => x.source).filter(Boolean)));
+      return { value: { indices: d.indices }, source: sources.join(", ") || "Unknown", asOf: d.lastUpdated };
     },
     opts
   );

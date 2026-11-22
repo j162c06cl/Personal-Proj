@@ -25,7 +25,8 @@ export default function TickerPreview({
   onAdd: (meta: { category: string | null; price: number | null; exchange: string | null; currency: string | null }) => void;
   /** Name of the list the stock will be added to */
   listName?: string;
-  onClose: () => void;
+  /** Shows a close button when given */
+  onClose?: () => void;
 }) {
   const [quote, setQuote] = useState<Sourced<QuoteData> | null | undefined>(undefined);
   const [fund, setFund] = useState<Sourced<Fundamentals> | null | undefined>(undefined);
@@ -74,7 +75,7 @@ export default function TickerPreview({
           </div>
           <p className="text-[13px] text-[#525252] truncate">{q?.name || f?.name || (quote === undefined ? "Loading…" : "")}</p>
         </div>
-        <button onClick={onClose} className="text-[#A3A3A3] hover:text-[#0A0A0A] text-[20px] leading-none shrink-0" aria-label="Close preview">×</button>
+        {onClose && <button onClick={onClose} className="text-[#A3A3A3] hover:text-[#0A0A0A] text-[20px] leading-none shrink-0" aria-label="Close preview">×</button>}
       </div>
 
       {notFound ? (

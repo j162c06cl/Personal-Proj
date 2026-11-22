@@ -30,14 +30,6 @@ export interface MarketIndex {
   changePercent: number | null;
 }
 
-export interface SectorPerf {
-  symbol: string;
-  label: string;
-  price: number | null;
-  change: number | null;
-  changePercent: number | null;
-}
-
 export interface QuoteData {
   ticker: string;
   name: string;
@@ -184,7 +176,6 @@ export type ResearchMinutes = 5 | 15 | 30;
 export interface InvestorProfile {
   strategy: Strategy;
   researchMinutes: ResearchMinutes;
-  sectors: string[];
 }
 
 export interface Settings {

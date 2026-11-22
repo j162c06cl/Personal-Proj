@@ -30,8 +30,8 @@ interface Result {
 }
 
 const STRATEGIES: { id: ScreenStrategy; label: string; hint: string }[] = [
-  { id: "long-term", label: "Long-term", hint: "Years: growth, profits, balance sheet and value" },
-  { id: "swing", label: "Swing", hint: "Days to weeks: trend, momentum, volume and RSI" },
+  { id: "long-term", label: "Long-term investing", hint: "Stocks to hold for years, judged on growth, profits, balance sheet and value." },
+  { id: "swing", label: "Swing trading", hint: "Trades lasting days to weeks, judged on trend, momentum, volume and RSI." },
 ];
 
 const SORTS: Record<ScreenStrategy, { key: SortKey; label: string }[]> = {
@@ -82,29 +82,35 @@ function ChangePill({ v }: { v: number | null | undefined }) {
   );
 }
 
-/** A few key numbers for the strategy, as quiet text under each result */
-function keyStats(r: Result, strategy: ScreenStrategy): string[] {
+interface Stat { label: string; short: string; value: string | null }
+
+/** The key numbers for the strategy: columns on a laptop, a line of quiet text on a phone */
+function statColumns(r: Result, strategy: ScreenStrategy): Stat[] {
   const { row, extra } = r;
-  const out: string[] = [];
   if (strategy === "long-term") {
-    if (row.marketCap != null) out.push(`Cap ${formatBig(row.marketCap, row.currency)}`);
-    if (row.pe != null) out.push(`P/E ${row.pe.toFixed(1)}`);
-    if (row.divYield) out.push(`Div ${(row.divYield * 100).toFixed(1)}%`);
-    if (extra.roe != null) out.push(`ROE ${(extra.roe * 100).toFixed(0)}%`);
-  } else {
-    if (row.relVolume != null) out.push(`Vol ${row.relVolume.toFixed(1)}× avg`);
-    else if (row.volume != null) out.push(`Vol ${formatVolume(row.volume)}`);
-    if (extra.rsi14 != null) out.push(`RSI ${extra.rsi14.toFixed(0)}`);
-    if (extra.change1m != null) out.push(`1M ${formatPercent(extra.change1m)}`);
-    const d = daysUntil(row.earningsDate);
-    if (d !== null && d >= 0 && d <= 30) out.push(`Earnings ${d === 0 ? "today" : `in ${d}d`}`);
+    return [
+      { label: "Market cap", short: "Cap", value: row.marketCap != null ? formatBig(row.marketCap, row.currency) : null },
+      { label: "P/E", short: "P/E", value: row.pe != null ? row.pe.toFixed(1) : null },
+      { label: "Dividend", short: "Div", value: row.divYield ? `${(row.divYield * 100).toFixed(1)}%` : null },
+      { label: "ROE", short: "ROE", value: extra.roe != null ? `${(extra.roe * 100).toFixed(0)}%` : null },
+    ];
   }
-  return out;
+  const d = daysUntil(row.earningsDate);
+  return [
+    { label: "Volume", short: "Vol", value: row.relVolume != null ? `${row.relVolume.toFixed(1)}× avg` : row.volume != null ? formatVolume(row.volume) : null },
+    { label: "RSI", short: "RSI", value: extra.rsi14 != null ? extra.rsi14.toFixed(0) : null },
+    { label: "1 month", short: "1M", value: extra.change1m != null ? formatPercent(extra.change1m) : null },
+    { label: "Earnings", short: "Earnings", value: d !== null && d >= 0 && d <= 30 ? (d === 0 ? "today" : `in ${d}d`) : null },
+  ];
 }
+
+const statLine = (stats: Stat[]) => stats.filter((s) => s.value !== null).map((s) => `${s.short} ${s.value}`);
 
 export default function ScreenerPage() {
   const { settings } = useSettings();
-  const [strategy, setStrategy] = useState<ScreenStrategy>("long-term");
+  // Starts on the strategy from Settings until one is picked here
+  const [picked, setStrategy] = useState<ScreenStrategy | null>(null);
+  const strategy: ScreenStrategy = picked ?? (settings?.profile.strategy === "swing" ? "swing" : "long-term");
   const [market, setMarket] = useState<Market>("US");
   const [setupId, setSetupId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -126,11 +132,9 @@ export default function ScreenerPage() {
   const [bulkList, setBulkList] = useState("");
   const [bulkMsg, setBulkMsg] = useState<string | null>(null);
 
-  // Restore the last strategy and market
+  // Restore the last market
   useEffect(() => {
     try {
-      const s = localStorage.getItem("screener_strategy");
-      if (s === "swing" || s === "long-term") setStrategy(s);
       const m = localStorage.getItem("screener_market");
       if (m === "US" || m === "SG") setMarket(m);
     } catch {}
@@ -149,7 +153,7 @@ export default function ScreenerPage() {
     });
   }, []);
 
-  useEffect(() => { try { localStorage.setItem("screener_strategy", strategy); localStorage.setItem("screener_market", market); } catch {} }, [strategy, market]);
+  useEffect(() => { try { localStorage.setItem("screener_market", market); } catch {} }, [market]);
 
   const load = useCallback(async (force = false) => {
     setLoading(true);
@@ -398,8 +402,7 @@ export default function ScreenerPage() {
     holdings,
     positions,
     watchlist,
-    watchedSectors: settings?.profile.sectors ?? [],
-  }), [extra, holdings, positions, watchlist, settings]);
+  }), [extra, holdings, positions, watchlist]);
 
   async function addAllToList() {
     if (!bulkList || !displayed.length) return;
@@ -425,10 +428,14 @@ export default function ScreenerPage() {
   const pillOn = "bg-[#2D8CFF] text-white";
   const pillOff = "text-[#2D8CFF] hover:bg-[#EAF4FF]";
   const showLabel = strategy === "swing" || sk === "changePercent" ? "Today" : "1 year";
+  // Laptop columns: only the numbers known for at least one stock on screen. Some (ROE, RSI,
+  // 1-month change) are only looked up when an idea or filter needs them.
+  const visibleRows = displayed.slice(0, shown);
+  const shownCols = new Set(visibleRows.flatMap((r) => statColumns(r, strategy).filter((s) => s.value !== null).map((s) => s.label)));
   const ideas = [{ id: null as string | null, name: "All stocks", summary: `Every ${marketDef.label} stock in the screen. Narrow it down with filters.` }, ...setupsFor(strategy)];
 
   return (
-    <div className="max-w-5xl">
+    <div>
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3 mb-4">
         <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Screener</h1>
@@ -441,7 +448,7 @@ export default function ScreenerPage() {
       </div>
 
       {/* ── Strategy + market ── */}
-      <div className="flex items-center justify-between gap-2 mb-5">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex gap-1" role="group" aria-label="Strategy">
           {STRATEGIES.map((s) => (
             <button key={s.id} onClick={() => chooseStrategy(s.id)} aria-pressed={strategy === s.id} title={s.hint}
@@ -459,6 +466,7 @@ export default function ScreenerPage() {
           ))}
         </div>
       </div>
+      <p className="text-[13px] text-[#737373] mt-1.5 mb-5">{STRATEGIES.find((s) => s.id === strategy)?.hint}</p>
 
       {/* ── Ideas: the setups, then saved screens ── */}
       <p className="text-[18px] font-semibold text-[#0A0A0A] mb-2">Ideas</p>
@@ -545,9 +553,17 @@ export default function ScreenerPage() {
               {sorts.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </label>
-          <span className="font-semibold text-[#A3A3A3] w-[76px] text-center">{showLabel}</span>
+          <span className="font-semibold text-[#A3A3A3] w-[76px] text-center lg:hidden">{showLabel}</span>
         </span>
       </div>
+      {/* Laptop: column headings over the key numbers */}
+      {data && displayed.length > 0 && (
+        <div className="hidden lg:flex items-center gap-3 py-2 border-b border-[#F0F0F0] text-[11px] font-semibold uppercase tracking-wider text-[#A3A3A3]">
+          <span className="flex-1">Stock</span>
+          {statColumns(displayed[0], strategy).filter((s) => shownCols.has(s.label)).map((s) => <span key={s.label} className="w-28 text-right">{s.label}</span>)}
+          <span className="w-[120px] text-right">Price · {showLabel}</span>
+        </div>
+      )}
 
       {data === undefined || (loading && !data) ? (
         <p className="py-16 text-center text-[14px] text-[#737373]">Fetching {marketDef.label} stocks…</p>
@@ -572,10 +588,11 @@ export default function ScreenerPage() {
       ) : (
         <>
           <ul className="divide-y divide-[#F0F0F0]">
-            {displayed.slice(0, shown).map((r) => {
+            {visibleRows.map((r) => {
               const ctx = contextFor(r.row.ticker);
               const isOpen = expanded === r.row.ticker;
-              const stats = keyStats(r, strategy);
+              const cols = statColumns(r, strategy);
+              const stats = statLine(cols);
               const pill = showLabel === "Today" ? r.row.changePercent : r.row.change52w;
               const firstReason = r.reasons[0]?.text;
               const why = r.reasons.length + ctx.length;
@@ -591,17 +608,20 @@ export default function ScreenerPage() {
                       {firstReason ? (
                         <span className="block text-[13px] text-[#007A2B] truncate">✓ {firstReason}{why > 1 ? <span className="text-[#2D8CFF] font-semibold"> · +{why - 1} more</span> : null}</span>
                       ) : stats.length > 0 && (
-                        <span className="block text-[13px] text-[#737373] truncate">{stats.join(" · ")}</span>
+                        <span className="block text-[13px] text-[#737373] truncate lg:hidden">{stats.join(" · ")}</span>
                       )}
                     </span>
-                    <span className="text-right shrink-0">
+                    {cols.filter((s) => shownCols.has(s.label)).map((s) => (
+                      <span key={s.label} className="hidden lg:block w-28 text-right text-[14px] tabular-nums text-[#404040]">{s.value ?? <span className="text-[#C8C8C8]">—</span>}</span>
+                    ))}
+                    <span className="text-right shrink-0 lg:w-[120px]">
                       <span className="block text-[15px] font-semibold text-[#0A0A0A] tabular-nums mb-0.5">{formatMoney(r.row.price, r.row.currency)}</span>
                       <ChangePill v={pill} />
                     </span>
                   </button>
                   {isOpen && (
                     <div className="pb-4 -mt-1 space-y-3">
-                      {stats.length > 0 && <p className="text-[13px] text-[#525252]">{stats.join(" · ")}</p>}
+                      {stats.length > 0 && <p className="text-[13px] text-[#525252] lg:hidden">{stats.join(" · ")}</p>}
                       <div>
                         <p className="text-[12px] font-semibold text-[#525252] mb-1">{setup ? `Why it fits ${setup.name}` : r.reasons.length ? "Why it matched" : "Why it's here"}</p>
                         {r.reasons.length ? (
@@ -670,7 +690,7 @@ export default function ScreenerPage() {
             className="relative bg-white w-full sm:max-w-lg max-h-[85vh] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#F0F0F0]">
               <button onClick={() => setFilters({})} disabled={!activeFilters.length} className="text-[14px] font-semibold text-[#2D8CFF] disabled:text-[#C8C8C8]">Clear</button>
-              <p className="text-[16px] font-semibold text-[#0A0A0A]">{strategy === "swing" ? "Swing" : "Long-term"} filters</p>
+              <p className="text-[16px] font-semibold text-[#0A0A0A]">{strategy === "swing" ? "Swing trading" : "Long-term investing"} filters</p>
               <button onClick={() => setSheetOpen(false)} className="text-[14px] font-semibold text-[#2D8CFF]">Done</button>
             </div>
             <div className="overflow-y-auto px-5 py-4 space-y-5">

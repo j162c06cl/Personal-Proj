@@ -202,7 +202,7 @@ export default function BenchmarksPage() {
   const tabs = Object.keys(TAB_LABEL) as ScoredTab[];
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <div className="flex items-end justify-between mb-6">
         <div>
           <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Settings</h1>
@@ -236,7 +236,8 @@ export default function BenchmarksPage() {
         )}
       </div>
 
-      <div className="space-y-5" key={version}>
+      {/* Two columns on a laptop, each card kept whole */}
+      <div className="lg:columns-2 lg:gap-5 [&>*]:mb-5 [&>*]:break-inside-avoid" key={version}>
         <Card
           title="The Buy / Hold / Sell call"
           subtitle="Each tab scores (green − red) ÷ numbers rated, from −1 (all red) to +1 (all green). The tab scores are then averaged using these weights."

@@ -7,20 +7,15 @@ import { clearCache, FeedStatus, getDataStatus } from "@/lib/data";
 import { BaseCurrency, Settings, Strategy } from "@/lib/types";
 import SettingsTabs from "@/components/SettingsTabs";
 
-const SECTORS = [
-  "Technology", "Communication", "Consumer Disc.", "Consumer Staples", "Financials",
-  "Healthcare", "Energy", "Industrials", "Materials", "Real Estate", "Utilities",
-];
-
 const STRATEGIES: { value: Strategy; label: string; hint: string }[] = [
-  { value: "long-term", label: "Long-term", hint: "Hold for years; focus on fundamentals" },
-  { value: "swing",     label: "Swing",     hint: "Days to weeks; focus on momentum and setups" },
-  { value: "mixed",     label: "Mixed",     hint: "A core of long-term holdings plus some swing trades" },
+  { value: "long-term", label: "Long-term", hint: "Holding for years. Stock pages and the Screener judge stocks on the business: growth, profits, debt and value." },
+  { value: "swing",     label: "Swing",     hint: "Trades lasting days to weeks. Stock pages and the Screener judge stocks on the chart: trend, momentum and volume." },
+  { value: "mixed",     label: "Mixed",     hint: "Some of both. Stock pages and the Screener start on long-term; stocks you tag as swing in a watchlist are judged as swing trades." },
 ];
 
-function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function Card({ title, subtitle, children, className = "" }: { title: string; subtitle?: string; children: React.ReactNode; className?: string }) {
   return (
-    <section className="bg-white rounded-2xl border border-[#E5E5E5] p-6">
+    <section className={`bg-white rounded-2xl border border-[#E5E5E5] p-6 ${className}`}>
       <h2 className="text-[17px] font-bold text-[#0A0A0A]">{title}</h2>
       {subtitle && <p className="text-[13px] text-[#525252] mt-1">{subtitle}</p>}
       <div className="mt-5 space-y-5">{children}</div>
@@ -85,11 +80,6 @@ export default function SettingsPage() {
     update({ ...settings!, profile: { ...settings!.profile, [k]: v } });
   }
 
-  function toggleSector(s: string) {
-    const cur = settings!.profile.sectors;
-    setProfile("sectors", cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]);
-  }
-
   async function handleExport() {
     const data = await exportBackup();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -115,8 +105,11 @@ export default function SettingsPage() {
     if (fileRef.current) fileRef.current.value = "";
   }
 
+  const failing = (f: FeedStatus) => !!f.lastError && (!f.lastSuccess || f.lastError > f.lastSuccess);
+  const failCount = status?.feeds.filter(failing).length ?? 0;
+
   return (
-    <div className="max-w-3xl">
+    <div>
       <div className="flex items-end justify-between mb-6">
         <div>
           <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Settings</h1>
@@ -129,35 +122,14 @@ export default function SettingsPage() {
 
       <SettingsTabs />
 
-      <div className="space-y-5">
-        <Card title="Investor profile" subtitle="Used to personalise your dashboard, screener presets and research pages.">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        <Card title="Investor profile" subtitle="How stock pages and the Screener judge stocks. A stock's own watchlist tag (long-term or swing) still wins on its page.">
           <div>
             <Label>Strategy</Label>
             <Segmented options={STRATEGIES} value={settings.profile.strategy} onChange={(v) => setProfile("strategy", v)} />
-            <p className="text-[12px] text-[#A3A3A3] mt-2">
+            <p className="text-[13px] text-[#525252] mt-2">
               {STRATEGIES.find((s) => s.value === settings.profile.strategy)?.hint}
             </p>
-          </div>
-          <div>
-            <Label>Sectors to watch</Label>
-            <div className="flex flex-wrap gap-2">
-              {SECTORS.map((s) => {
-                const on = settings.profile.sectors.includes(s);
-                return (
-                  <button
-                    key={s}
-                    onClick={() => toggleSector(s)}
-                    className={`px-3 py-1.5 rounded-xl text-[13px] font-medium border transition-colors ${
-                      on
-                        ? "bg-[#2D8CFF] text-white border-[#2D8CFF]"
-                        : "bg-white text-[#525252] border-[#E5E5E5] hover:border-[#2D8CFF] hover:text-[#0A0A0A]"
-                    }`}
-                  >
-                    {on && "✓ "}{s}
-                  </button>
-                );
-              })}
-            </div>
           </div>
         </Card>
 
@@ -177,7 +149,7 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        <Card title="Backup" subtitle="Your portfolio and watchlists live only in this browser. Export a backup to keep them safe or move to another device.">
+        <Card title="Backup" subtitle="Your portfolio and watchlists live only in this browser. Export a backup to keep them safe or move to another device." className="lg:col-span-2">
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleExport}
@@ -205,50 +177,57 @@ export default function SettingsPage() {
           )}
         </Card>
 
-        <Card title="Data status" subtitle="Where the app's data is coming from and when each feed last worked.">
-          {status && status.feeds.length > 0 ? (
-            <div className="overflow-x-auto rounded-xl border border-[#E5E5E5]">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="bg-[#F7F7F8] border-b border-[#E5E5E5]">
-                    {["Feed", "Source", "Last success", "Last error"].map((h) => (
-                      <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-[#525252] uppercase tracking-wider">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F0F0F0]">
-                  {status.feeds.map((f) => {
-                    const failing = f.lastError && (!f.lastSuccess || f.lastError > f.lastSuccess);
-                    return (
-                      <tr key={f.feed}>
-                        <td className="px-4 py-2.5 font-semibold text-[#0A0A0A]">
-                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${failing ? "bg-[#F04E23]" : "bg-[#00B341]"}`} />
-                          {f.feed}
-                        </td>
-                        <td className="px-4 py-2.5 text-[#525252]">{f.source ?? "—"}</td>
-                        <td className="px-4 py-2.5 text-[#525252]">{timeAgo(f.lastSuccess)}</td>
-                        <td className="px-4 py-2.5 text-[#525252]" title={f.errorMessage ?? ""}>
-                          {f.lastError ? <span className={failing ? "text-[#F04E23]" : ""}>{timeAgo(f.lastError)}</span> : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        {/* Folded away: only needed when something isn't loading */}
+        <details className="group lg:col-span-2 bg-white rounded-2xl border border-[#E5E5E5]">
+          <summary className="flex items-center justify-between gap-3 p-6 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <span>
+              <span className="block text-[17px] font-bold text-[#0A0A0A]">Troubleshooting</span>
+              <span className="block text-[13px] text-[#525252] mt-1">
+                {!status || !status.feeds.length ? "Where the app's data comes from." : failCount
+                  ? <span className="text-[#F04E23] font-medium">{failCount} data feed{failCount > 1 ? "s are" : " is"} failing.</span>
+                  : `All ${status.feeds.length} data feeds are working.`}
+              </span>
+            </span>
+            <span className="text-[#A3A3A3] text-[14px] transition-transform group-open:rotate-90" aria-hidden>›</span>
+          </summary>
+          <div className="px-6 pb-6 space-y-5">
+            <p className="text-[13px] text-[#525252]">Where each feed&apos;s data comes from and when it last worked.</p>
+            {status && status.feeds.length > 0 ? (
+              <ul className="rounded-xl border border-[#E5E5E5] divide-y divide-[#F0F0F0] text-[13px]">
+                <li className="hidden sm:grid grid-cols-[1.2fr_1.5fr_1fr_1fr] gap-3 px-4 py-2.5 bg-[#F7F7F8] rounded-t-xl text-[11px] font-semibold text-[#525252] uppercase tracking-wider">
+                  <span>Feed</span><span>Source</span><span>Last success</span><span>Last error</span>
+                </li>
+                {status.feeds.map((f) => {
+                  const bad = failing(f);
+                  return (
+                    <li key={f.feed} className="grid grid-cols-[1fr_auto] sm:grid-cols-[1.2fr_1.5fr_1fr_1fr] gap-x-3 gap-y-0.5 px-4 py-2.5">
+                      <span className="font-semibold text-[#0A0A0A] flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${bad ? "bg-[#F04E23]" : "bg-[#00B341]"}`} aria-hidden />
+                        {f.feed}
+                      </span>
+                      <span className="text-[#525252] col-start-1 row-start-2 sm:col-start-auto sm:row-start-auto pl-4 sm:pl-0">{f.source ?? "—"}</span>
+                      <span className="text-[#525252] text-right sm:text-left col-start-2 row-start-1 sm:col-start-auto sm:row-start-auto">{timeAgo(f.lastSuccess)}</span>
+                      <span className={`text-right sm:text-left col-start-2 row-start-2 sm:col-start-auto sm:row-start-auto ${bad ? "text-[#F04E23]" : "text-[#A3A3A3] sm:text-[#525252]"}`} title={f.errorMessage ?? ""}>
+                        {f.lastError ? <><span className="sm:hidden">error </span>{timeAgo(f.lastError)}</> : <span className="hidden sm:inline">—</span>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-[13px] text-[#A3A3A3]">No data fetched yet. Visit the Dashboard or Portfolio to load some.</p>
+            )}
+            <div className="flex items-center gap-3">
+              <span className="text-[13px] text-[#525252]">{status?.cacheEntries ?? 0} cached items</span>
+              <button
+                onClick={async () => { await clearCache(); setStatus(await getDataStatus()); }}
+                className="text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#F04E23] hover:text-[#F04E23] px-3 py-1.5 rounded-xl transition-colors"
+              >
+                Clear cache
+              </button>
             </div>
-          ) : (
-            <p className="text-[13px] text-[#A3A3A3]">No data fetched yet. Visit the Dashboard or Portfolio to load some.</p>
-          )}
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] text-[#525252]">{status?.cacheEntries ?? 0} cached items</span>
-            <button
-              onClick={async () => { await clearCache(); setStatus(await getDataStatus()); }}
-              className="text-[13px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#F04E23] hover:text-[#F04E23] px-3 py-1.5 rounded-xl transition-colors"
-            >
-              Clear cache
-            </button>
           </div>
-        </Card>
+        </details>
       </div>
     </div>
   );
