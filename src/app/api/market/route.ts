@@ -14,19 +14,6 @@ const INDICES = [
   { symbol: "CL=F",    label: "Crude Oil",     stooq: null,     format: "currency" },
 ];
 
-const SECTORS = [
-  { symbol: "XLK",  label: "Technology" },
-  { symbol: "XLF",  label: "Financials" },
-  { symbol: "XLV",  label: "Healthcare" },
-  { symbol: "XLI",  label: "Industrials" },
-  { symbol: "XLY",  label: "Consumer Disc." },
-  { symbol: "XLP",  label: "Consumer Staples" },
-  { symbol: "XLE",  label: "Energy" },
-  { symbol: "XLU",  label: "Utilities" },
-  { symbol: "XLRE", label: "Real Estate" },
-  { symbol: "XLC",  label: "Communication" },
-  { symbol: "XLB",  label: "Materials" },
-];
 
 async function yahooChart(symbol: string) {
   try {
@@ -74,34 +61,21 @@ async function stooqFetch(sym: string) {
 export async function GET() {
   if (forceSnapshot && snapshotMarket()) return NextResponse.json(snapshotMarket());
 
-  const [indices, sectors] = await Promise.all([
-    Promise.all(
-      INDICES.map(async (idx) => {
-        let data = await yahooChart(idx.symbol);
-        if (!data && idx.stooq) data = await stooqFetch(idx.stooq);
-        return {
-          symbol: idx.symbol,
-          label: idx.label,
-          format: idx.format,
-          ...(data ?? { price: null, change: null, changePercent: null, source: null }),
-        };
-      })
-    ),
-    Promise.all(
-      SECTORS.map(async (sec) => {
-        let data = await yahooChart(sec.symbol);
-        if (!data) data = await stooqFetch(`${sec.symbol.toLowerCase()}.us`);
-        return {
-          symbol: sec.symbol,
-          label: sec.label,
-          ...(data ?? { price: null, change: null, changePercent: null, source: null }),
-        };
-      })
-    ),
-  ]);
+  const indices = await Promise.all(
+    INDICES.map(async (idx) => {
+      let data = await yahooChart(idx.symbol);
+      if (!data && idx.stooq) data = await stooqFetch(idx.stooq);
+      return {
+        symbol: idx.symbol,
+        label: idx.label,
+        format: idx.format,
+        ...(data ?? { price: null, change: null, changePercent: null, source: null }),
+      };
+    })
+  );
 
   // Every live source failed: serve the saved snapshot rather than an empty dashboard
   if (indices.every((x) => x.price === null) && snapshotMarket()) return NextResponse.json(snapshotMarket());
 
-  return NextResponse.json({ indices, sectors, lastUpdated: new Date().toISOString() });
+  return NextResponse.json({ indices, lastUpdated: new Date().toISOString() });
 }

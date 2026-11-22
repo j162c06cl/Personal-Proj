@@ -10,7 +10,7 @@ import { TradePlan, sanitizePlans } from "./tradePlan";
 
 export const DEFAULT_SETTINGS: Settings = {
   baseCurrency: "USD",
-  profile: { strategy: "long-term", researchMinutes: 15, sectors: [] },
+  profile: { strategy: "long-term", researchMinutes: 15 },
   benchmarks: DEFAULT_BENCHMARKS,
 };
 
@@ -250,7 +250,10 @@ const listeners = new Set<(s: Settings) => void>();
 function mergeSettings(partial: Partial<Settings> | undefined): Settings {
   return {
     baseCurrency: partial?.baseCurrency ?? DEFAULT_SETTINGS.baseCurrency,
-    profile: { ...DEFAULT_SETTINGS.profile, ...partial?.profile },
+    profile: {
+      strategy: partial?.profile?.strategy ?? DEFAULT_SETTINGS.profile.strategy,
+      researchMinutes: partial?.profile?.researchMinutes ?? DEFAULT_SETTINGS.profile.researchMinutes,
+    },
     benchmarks: normalizeBenchmarks(partial?.benchmarks),
   };
 }

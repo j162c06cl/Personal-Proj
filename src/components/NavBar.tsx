@@ -4,8 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-const ACCENT = "#2D8CFF";
-
 function Icon({ d, className = "w-[22px] h-[22px]" }: { d: string[]; className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -52,9 +50,8 @@ export default function NavBar() {
   return (
     <>
       <nav className="bg-white/95 backdrop-blur border-b border-[#F0F0F0] sticky top-0 z-50">
-        <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14 lg:h-16">
-          <Link href="/" className="font-bold text-[19px] tracking-tight text-[#0A0A0A] shrink-0 select-none flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: ACCENT }} aria-hidden />
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 lg:box-content flex items-center justify-between h-14 lg:h-16">
+          <Link href="/" className="font-bold text-[19px] tracking-tight text-[#0A0A0A] shrink-0 select-none">
             The Dip
           </Link>
 

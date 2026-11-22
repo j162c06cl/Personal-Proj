@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/formatters";
 import StockHeatmap from "@/components/StockHeatmap";
@@ -9,7 +9,6 @@ import TickerLink from "@/components/TickerLink";
 import { timeAgo } from "@/components/research/NewsList";
 import { getMarket, getQuotes, getTrending, MarketSnapshot, QuoteMap, TrendingFeed } from "@/lib/data";
 import { ECONOMIC_EVENTS, calendarNotice, localToday } from "@/lib/economicEvents";
-import { useSettings } from "@/hooks/useSettings";
 import { Sourced } from "@/lib/types";
 
 type IndexData = MarketSnapshot["indices"][number];
@@ -76,7 +75,6 @@ function Skeleton({ rows = 3 }: { rows?: number }) {
 }
 
 export default function DashboardPage() {
-  const { settings } = useSettings();
   const [market, setMarket] = useState<Sourced<MarketSnapshot> | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
@@ -99,11 +97,6 @@ export default function DashboardPage() {
   const upcoming = ECONOMIC_EVENTS.filter((e) => getDays(e.date) >= 0).slice(0, UPCOMING_COUNT);
   const calendarWarning = calendarNotice(localToday(), CALENDAR_WARN_DAYS);
   const open = usMarketOpen();
-
-  const watchedSectors = useMemo(() => {
-    const wanted = settings?.profile.sectors ?? [];
-    return (market?.value.sectors ?? []).filter((s) => wanted.includes(s.label));
-  }, [settings, market]);
 
   return (
     <div>
@@ -161,20 +154,8 @@ export default function DashboardPage() {
               <div className="flex gap-3 overflow-x-auto pb-1">
                 {indices.map((d) => <IndexCard key={d.symbol} d={d} />)}
               </div>
-              <div className="flex items-center gap-2 flex-wrap mt-2">
+              <div className="mt-2">
                 <SourceTag source={market.source} asOf={market.asOf} cached={market.cached} />
-                {watchedSectors.length > 0 && (
-                  <>
-                    <span className="text-[12px] font-semibold text-[#525252] ml-3">Sectors you watch:</span>
-                    {watchedSectors.map((s) => (
-                      <span key={s.symbol} className="text-[12px] bg-white border border-[#E5E5E5] rounded-xl px-2.5 py-0.5">
-                        <span className="text-[#0A0A0A] font-medium">{s.label}</span>{" "}
-                        <span className={`font-semibold tabular-nums ${tone(s.changePercent)}`}>{s.changePercent === null ? "—" : signed(s.changePercent)}</span>
-                      </span>
-                    ))}
-                    <Link href="/settings" className="text-[12px] text-[#2D8CFF] hover:underline">Edit</Link>
-                  </>
-                )}
               </div>
             </>
           )}

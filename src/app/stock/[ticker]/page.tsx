@@ -18,7 +18,7 @@ import {
   rateVolatility, signalOf, signalTone, DEFAULT_BENCHMARKS,
 } from "@/lib/ratings";
 import FinancialHistory from "@/components/research/FinancialHistory";
-import { ResearchSummaryView, Verdicts } from "@/components/research/Verdicts";
+import { Checklist, ResearchSummaryView } from "@/components/research/Verdicts";
 import { useMoney, useSettings } from "@/hooks/useSettings";
 import SourceTag from "@/components/SourceTag";
 import PriceChart, { RANGE_LABELS } from "@/components/research/PriceChart";
@@ -201,6 +201,9 @@ function Skeleton({ h = 120 }: { h?: number }) {
 }
 
 // ── Page ────────────────────────────────────────────────────────────────────
+
+const STRATEGY_TITLE = { "long-term": "As a long-term investment", swing: "As a swing trade" } as const;
+const STRATEGY_NOUN = { "long-term": "long-term", swing: "swing trade" } as const;
 
 /** Next passes route params as a promise; use() reads it (the page suspends until it resolves) */
 export default function StockResearchPage({ params }: { params: Promise<{ ticker: string }> }) {
@@ -492,18 +495,19 @@ export default function StockResearchPage({ params }: { params: Promise<{ ticker
 
   // ── Tab contents ──────────────────────────────────────────────────────────
 
+  const otherStrategy = strategy === "long-term" ? "swing" : "long-term";
   const callCard = (
     <section className="bg-white rounded-2xl border border-[#E5E5E5] p-5">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">The numbers say</p>
-        <div className="inline-flex items-center rounded-full p-0.5 gap-0.5" role="group" aria-label="Judge as">
-          {(["long-term", "swing"] as const).map((st) => (
-            <button key={st} onClick={() => setStrategy(st)}
-              className={`px-3 py-1 rounded-full text-[12px] font-medium ${strategy === st ? "bg-[#2D8CFF] text-white font-semibold" : "text-[#2D8CFF] hover:bg-[#EAF4FF]"}`}>
-              {st === "long-term" ? "Long-term" : "Swing trade"}
-            </button>
-          ))}
+      <div className="flex items-baseline justify-between gap-x-3 gap-y-1 flex-wrap">
+        <div>
+          <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">{STRATEGY_TITLE[strategy]}</p>
+          <p className="text-[11px] text-[#A3A3A3] mt-0.5">
+            {strategyOverride ? "Switched on this page" : watchItem?.intent === strategy ? "From your watchlist tag" : "Your strategy in Settings"}
+          </p>
         </div>
+        <button onClick={() => setStrategy(strategyOverride ? null : otherStrategy)} className="text-[12px] font-semibold text-[#2D8CFF] hover:underline">
+          {strategyOverride ? `Back to the ${STRATEGY_NOUN[defaultStrategy]} view` : `See it ${STRATEGY_TITLE[otherStrategy].toLowerCase()}`}
+        </button>
       </div>
 
       {loadingCall ? <div className="mt-4"><Skeleton h={160} /></div> : (
@@ -550,9 +554,9 @@ export default function StockResearchPage({ params }: { params: Promise<{ ticker
           {analysis && (
             <div className="mt-3">
               <button onClick={() => setShowChecklist((v) => !v)} className="text-[12px] font-semibold text-[#2D8CFF] hover:underline">
-                {showChecklist ? "Hide the strategy checklist" : "See the strategy checklist"}
+                {showChecklist ? "Hide the checklist" : `See the ${STRATEGY_NOUN[strategy]} checklist`}
               </button>
-              {showChecklist && <div className="mt-3"><Verdicts long={analysis.long} swing={analysis.swing} primary={strategy} /></div>}
+              {showChecklist && <div className="mt-3"><Checklist v={strategy === "swing" ? analysis.swing : analysis.long} /></div>}
             </div>
           )}
         </>
@@ -762,18 +766,19 @@ export default function StockResearchPage({ params }: { params: Promise<{ ticker
   ];
 
   return (
-    <div className="max-w-[1280px] mx-auto">
+    <div>
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-2">
         <button onClick={() => window.history.back()} aria-label="Back" className="-ml-2 p-2 rounded-full text-[#2D8CFF] hover:bg-[#EAF4FF] transition-colors">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M15 18l-6-6 6-6" /></svg>
         </button>
-        {verdict && !loadingCall && (
-          <button onClick={() => setTab("overview")} title={`${verdict.call} for a ${strategy === "long-term" ? "long-term investor" : "swing trader"}`}
-            className={`shrink-0 text-[13px] font-bold tracking-wide px-4 py-1.5 rounded-full ${CALL_STYLE[verdict.call]}`}>
-            {verdict.call.toUpperCase()}
-          </button>
-        )}
+        <WatchButton
+          ticker={ticker}
+          lists={lists}
+          defaultIntent={strategy}
+          meta={{ exchange: exchange ?? undefined, currency: ccy, addedPrice: price ?? undefined }}
+          onSaved={setLists}
+        />
       </div>
 
       <section className="mb-4">
@@ -793,6 +798,16 @@ export default function StockResearchPage({ params }: { params: Promise<{ ticker
               {up ? "▲" : "▼"} {sym}{Math.abs(q.change).toFixed(2)} ({Math.abs(q.changePercent).toFixed(2)}%)
             </span>
             <span className="text-[#525252]">Today</span>
+          </p>
+        )}
+        {shares > 0 && (
+          <p className="text-[13px] text-[#525252] mt-1">
+            <Link href="/portfolio" className="hover:underline">
+              You own <span className="font-semibold text-[#0A0A0A]">{shares}</span> share{shares !== 1 ? "s" : ""} · avg {px(cost / shares)}
+            </Link>
+            {holdingPL !== null && (
+              <> · <span className={`font-semibold tabular-nums ${holdingPL >= 0 ? "text-[#00B341]" : "text-[#F04E23]"}`}>{holdingPL >= 0 ? "+" : ""}{money.fmt(holdingPL)}</span></>
+            )}
           </p>
         )}
         {quote && <SourceTag className="mt-1" source={quote.source} asOf={quote.asOf} cached={quote.cached} />}
@@ -823,26 +838,9 @@ export default function StockResearchPage({ params }: { params: Promise<{ ticker
           {headline.map((m) => <Metric key={m.label} {...m} />)}
         </div>
 
-        {/* Your position, then your plan */}
-        <div className="space-y-2 border-t border-[#F0F0F0] mt-4 pt-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            {shares > 0 && (
-              <span className="text-[13px] bg-[#F7F7F8] text-[#0A0A0A] border border-[#E5E5E5] px-3 py-1.5 rounded-full font-medium">
-                You own {shares} share{shares !== 1 ? "s" : ""} · avg cost {px(cost / shares)}
-                {holdingPL !== null && (
-                  <> · <span className={holdingPL >= 0 ? "text-[#00B341]" : "text-[#F04E23]"}>{holdingPL >= 0 ? "+" : ""}{money.fmt(holdingPL)}</span></>
-                )}
-              </span>
-            )}
-            <WatchButton
-              ticker={ticker}
-              lists={lists}
-              defaultIntent={strategy}
-              meta={{ exchange: exchange ?? undefined, currency: ccy, addedPrice: price ?? undefined }}
-              onSaved={setLists}
-            />
-          </div>
-          {watchItem && (watchItem.targetPrice != null || watchItem.invalidation != null || watchItem.thesis || watchItem.note) && (
+        {/* Your note from the watchlist */}
+        {watchItem && (watchItem.targetPrice != null || watchItem.invalidation != null || watchItem.thesis || watchItem.note) && (
+          <div className="border-t border-[#F0F0F0] mt-4 pt-4">
             <div className="flex items-center gap-x-4 gap-y-1 flex-wrap bg-[#FAFAFA] border border-[#E5E5E5] rounded-xl px-3 py-2">
               <span className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider">Your note</span>
               {watchItem.targetPrice != null && (
@@ -858,13 +856,14 @@ export default function StockResearchPage({ params }: { params: Promise<{ ticker
                 <Link href="/watchlist" className="text-[12px] font-semibold text-[#2D8CFF] hover:underline ml-auto">Edit →</Link>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       {/* ── Tabs ── */}
       <div className="sticky top-14 lg:top-16 z-40 bg-white/95 backdrop-blur -mx-4 px-4 sm:mx-0 sm:px-0 py-2 mb-4 border-b border-[#F0F0F0]">
-        <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist">
+        <div className="relative">
+        <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pr-10 sm:pr-0" role="tablist">
           {TABS.map((t) => {
             const tone = t.key !== "overview" && t.key !== "news" && !loadingCall ? signalTone(signals[t.key as ScoredTab], bm) : null;
             const active = tab === t.key;
@@ -878,6 +877,8 @@ export default function StockResearchPage({ params }: { params: Promise<{ ticker
               </button>
             );
           })}
+        </div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white sm:hidden" aria-hidden />
         </div>
       </div>
 

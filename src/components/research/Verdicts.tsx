@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Check, ResearchPoint, ResearchSummary, SourceRef, Verdict } from "@/lib/analysis";
 
 function fmtDate(iso: string | null) {
@@ -25,80 +25,30 @@ const ICON: Record<Check["status"], { mark: string; cls: string; label: string }
   unknown: { mark: "?", cls: "bg-[#F0F0F0] text-[#737373]", label: "Can't judge" },
 };
 
-function CheckBar({ v }: { v: Verdict }) {
-  // One segment per check, so the count is visible without becoming a single score
-  return (
-    <div className="flex gap-1" aria-hidden>
-      {v.checks.map((c) => (
-        <span key={c.id} className={`h-1.5 flex-1 rounded-full ${c.status === "pass" ? "bg-[#00B341]" : c.status === "fail" ? "bg-[#F04E23]" : "bg-[#E5E5E5]"}`} />
-      ))}
-    </div>
-  );
-}
-
-const title = (v: Verdict) => (v.strategy === "long-term" ? "As a long-term investment" : "As a swing trade");
 const tally = (v: Verdict) => `${v.checks.filter((c) => c.status === "pass").length} of ${v.checks.length} checks pass`;
 
-function VerdictCard({ v, primary, compact, onCollapse }: { v: Verdict; primary: boolean; compact: boolean; onCollapse?: () => void }) {
-  const [showChecks, setShowChecks] = useState(!compact);
-  useEffect(() => setShowChecks(!compact), [compact]);
-
+/** The pass/fail checks behind a verdict, each with its figure and source */
+export function Checklist({ v }: { v: Verdict }) {
   return (
-    <section className={`bg-white rounded-2xl border p-5 ${primary ? "border-[#2D8CFF] shadow-[0_0_0_3px_rgba(45,140,255,0.08)]" : "border-[#E5E5E5]"}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-[15px] font-bold text-[#0A0A0A]">{title(v)}</h2>
-          <p className="text-[12px] text-[#525252] mt-0.5">
-            {v.strategy === "long-term" ? "Judged on the business: growth, profits, cash, debt, valuation and the long trend." : "Judged on the chart: trend, momentum, volume, entry, risk and earnings timing."}
-          </p>
-        </div>
-        {primary && <span className="shrink-0 text-[10px] font-semibold text-[#2D8CFF] bg-[#EAF4FF] px-2 py-0.5 rounded">Your strategy</span>}
-        {onCollapse && <button onClick={onCollapse} className="shrink-0 text-[12px] font-semibold text-[#525252] hover:text-[#0A0A0A]">Hide</button>}
-      </div>
-      <p className="text-[13px] text-[#0A0A0A] font-medium mt-3">{v.summary}</p>
-      <div className="mt-3"><CheckBar v={v} /></div>
-      <button onClick={() => setShowChecks((o) => !o)} className="mt-2 text-[12px] font-semibold text-[#2D8CFF] hover:underline">
-        {showChecks ? "Hide the checks" : `See the ${v.checks.length} checks · ${tally(v)}`}
-      </button>
-      {showChecks && (
-        <ul className="mt-3 space-y-3">
-          {v.checks.map((c) => (
-            <li key={c.id} className="flex items-start gap-2.5">
-              <span className={`shrink-0 w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center ${ICON[c.status].cls}`} title={ICON[c.status].label} aria-label={ICON[c.status].label}>
-                {ICON[c.status].mark}
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-[#0A0A0A]">{c.label}</p>
-                <p className="text-[12px] text-[#525252]">{c.detail}</p>
-                <SourceLine source={c.source} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-/**
- * The investor's own strategy gets the full card; the other strategy folds to one line
- * until asked for. `compact` (the 5-minute view) also folds the checks behind a button.
- */
-export function Verdicts({ long, swing, primary, compact = false }: { long: Verdict; swing: Verdict; primary: "long-term" | "swing"; compact?: boolean }) {
-  const [otherOpen, setOtherOpen] = useState(false);
-  const [mine, other] = primary === "swing" ? [swing, long] : [long, swing];
-  return (
-    <div className="space-y-3">
-      <VerdictCard v={mine} primary compact={compact} />
-      {otherOpen ? (
-        <VerdictCard v={other} primary={false} compact={false} onCollapse={() => setOtherOpen(false)} />
-      ) : (
-        <button onClick={() => setOtherOpen(true)} className="w-full bg-white rounded-2xl border border-[#E5E5E5] hover:border-[#A3A3A3] px-5 py-3 text-left flex items-center gap-4">
-          <span className="text-[13px] font-semibold text-[#0A0A0A] shrink-0">{title(other)}</span>
-          <span className="flex-1 min-w-0 hidden sm:block"><CheckBar v={other} /></span>
-          <span className="text-[12px] text-[#525252] shrink-0 ml-auto sm:ml-0">{tally(other)} ▸</span>
-        </button>
-      )}
+    <div className="rounded-xl bg-[#FAFAFA] border border-[#F0F0F0] p-4">
+      <p className="text-[12px] text-[#525252]">
+        {v.strategy === "long-term" ? "Judged on the business: growth, profits, cash, debt, valuation and the long trend." : "Judged on the chart: trend, momentum, volume, entry, risk and earnings timing."}
+        {" "}<span className="font-semibold text-[#0A0A0A]">{tally(v)}.</span>
+      </p>
+      <ul className="mt-3 space-y-3">
+        {v.checks.map((c) => (
+          <li key={c.id} className="flex items-start gap-2.5">
+            <span className={`shrink-0 w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center ${ICON[c.status].cls}`} title={ICON[c.status].label} aria-label={ICON[c.status].label}>
+              {ICON[c.status].mark}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold text-[#0A0A0A]">{c.label}</p>
+              <p className="text-[12px] text-[#525252]">{c.detail}</p>
+              <SourceLine source={c.source} />
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

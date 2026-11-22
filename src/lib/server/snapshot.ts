@@ -22,13 +22,9 @@ export function snapshotQuote(ticker: string) {
 }
 
 export function snapshotMarket() {
-  const m = market as { indices?: WithSource[]; sectors?: WithSource[]; lastUpdated?: string };
+  const m = market as { indices?: WithSource[]; lastUpdated?: string };
   if (!m.indices) return null;
-  return {
-    ...m,
-    indices: m.indices.map((x) => label(x)),
-    sectors: (m.sectors ?? []).map((x) => label(x)),
-  };
+  return { indices: m.indices.map((x) => label(x)), lastUpdated: m.lastUpdated };
 }
 
 export function snapshotChart(ticker: string, range: string) {

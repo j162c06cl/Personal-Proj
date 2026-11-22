@@ -250,7 +250,6 @@ export interface ContextInput {
   holdings: Holding[];
   positions: PortfolioPosition[];
   watchlist: WatchlistItem[];
-  watchedSectors: string[];
 }
 
 const INTENT_LABEL: Record<WatchlistItem["intent"], string> = { "long-term": "Long-term", swing: "Swing", research: "Research later" };
@@ -291,8 +290,5 @@ export function contextReasons(c: ContextInput): Reason[] {
     }
   }
 
-  if (sector && c.watchedSectors.includes(sector)) {
-    out.push({ text: `In a sector you watch (${sector})`, tone: "good", kind: "context" });
-  }
   return out;
 }
