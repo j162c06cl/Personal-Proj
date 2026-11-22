@@ -12,7 +12,6 @@ import { categoryFrom, knownCategory } from "@/lib/categories";
 import { closeOnOrBefore, rangeCovering } from "@/lib/portfolioHistory";
 import { formatPercent } from "@/lib/formatters";
 import { defaultCurrency, formatMoney } from "@/lib/markets";
-import { useMediaQuery, WIDE } from "@/hooks/useMediaQuery";
 import { useStoredState } from "@/hooks/useStoredState";
 
 const SPARK_DAYS = 5;
@@ -64,9 +63,6 @@ export default function WatchlistPage() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
-  // On a laptop the list has a quick-look panel beside it; this is the stock shown there
-  const [selected, setSelected] = useState<string | null>(null);
-  const wide = useMediaQuery(WIDE);
   const [sort, setSort] = useStoredState("watchlist_sort", parseSort);
   const [show, setShow] = useStoredState("watchlist_show", parseShow);
   // Edit mode: rename the list, remove stocks, write notes, delete the list
@@ -272,12 +268,8 @@ export default function WatchlistPage() {
 
   if (!lists || !list) return null;
 
-  // A looked-up stock first, then the row picked in the list, then the list's first stock
-  const panelTicker = preview ?? (selected && items.some((i) => i.ticker === selected) ? selected : rows[0]?.item.ticker ?? null);
-
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 lg:items-start">
-    <div className="min-w-0">
+    <div>
       {/* Title */}
       <div className="flex items-center justify-between gap-3 mb-4">
         {editing ? (
@@ -426,16 +418,9 @@ export default function WatchlistPage() {
               );
             }
             const value = show === "today" ? r.today : r.since;
-            const shown = wide && r.item.ticker === panelTicker;
             return (
               <li key={r.item.ticker}>
-                <Link
-                  href={`/stock/${encodeURIComponent(r.item.ticker)}`}
-                  // On a laptop a click shows the stock in the panel; its "Full research" link opens the page
-                  onClick={(e) => { if (wide) { e.preventDefault(); setSelected(r.item.ticker); setPreview(null); } }}
-                  aria-current={shown ? "true" : undefined}
-                  className={`flex items-center gap-3 py-3 -mx-2 px-2 rounded-lg transition-colors ${shown ? "bg-[#F2F8FF]" : "hover:bg-[#FAFAFA]"}`}
-                >
+                <Link href={`/stock/${encodeURIComponent(r.item.ticker)}`} className="flex items-center gap-3 py-3 hover:bg-[#FAFAFA] -mx-2 px-2 rounded-lg transition-colors">
                   <div className="min-w-0 flex-1">
                     <p className="text-[16px] font-semibold text-[#0A0A0A]">{r.item.ticker}</p>
                     <p className="text-[13px] text-[#737373] truncate">{note || r.name || " "}</p>
@@ -465,28 +450,8 @@ export default function WatchlistPage() {
         </div>
       )}
 
-    </div>
-
-      {/* Laptop: quick look beside the list */}
-      <aside className="hidden lg:block lg:sticky lg:top-24" aria-label="Quick look">
-        {panelTicker ? (
-          <TickerPreview
-            key={panelTicker}
-            ticker={panelTicker}
-            watching={list.items.some((i) => i.ticker === panelTicker)}
-            listName={list.name}
-            onAdd={addPreviewed}
-            onClose={preview ? () => setPreview(null) : undefined}
-          />
-        ) : (
-          <div className="rounded-2xl border border-dashed border-[#E5E5E5] p-6 text-center text-[13px] text-[#737373]">
-            Search for a stock to see a quick look here.
-          </div>
-        )}
-      </aside>
-
-      {/* Phone and tablet: look-up drawer */}
-      {preview && !wide && (
+      {/* Look-up drawer: a searched stock, before it's added */}
+      {preview && (
         <div className="fixed inset-0 z-[60]">
           <div className="absolute inset-0 bg-black/25" onClick={() => setPreview(null)} />
           <aside className="absolute inset-y-0 right-0 w-full sm:w-[460px] bg-[#F7F7F8] shadow-2xl overflow-y-auto p-4" aria-label={`${preview} preview`}>
