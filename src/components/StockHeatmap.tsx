@@ -101,6 +101,21 @@ const GAP = 2;       // px between sector blocks
 const INNER_GAP = 1; // px between stock cells
 const HEADER = 18;   // px for sector label bar
 
+/** Today's move and size for each stock; blank cells if quotes can't be fetched */
+async function loadStocks(): Promise<StockWithData[]> {
+  const blank = (s: (typeof SCREENER_UNIVERSE)[number]) => ({ ticker: s.ticker, name: s.name, sector: s.sector, changePercent: null, marketCap: null });
+  try {
+    const quotes = await getQuotes(SCREENER_UNIVERSE.map((s) => s.ticker));
+    const map = new Map<string, QuoteData>(Object.entries(quotes).map(([t, q]) => [t, q.value]));
+    return SCREENER_UNIVERSE.map((s) => {
+      const d = map.get(s.ticker);
+      return { ...blank(s), changePercent: d?.changePercent ?? null, marketCap: d?.marketCap ?? null };
+    });
+  } catch {
+    return SCREENER_UNIVERSE.map(blank);
+  }
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 export default function StockHeatmap() {
   const [stocks, setStocks] = useState<StockWithData[]>([]);
@@ -120,36 +135,16 @@ export default function StockHeatmap() {
     return () => ro.disconnect();
   }, []);
 
-  // Fetch quotes
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const tickers = SCREENER_UNIVERSE.map((s) => s.ticker);
-
-    try {
-      const quotes = await getQuotes(tickers);
-      const map = new Map<string, QuoteData>(Object.entries(quotes).map(([t, q]) => [t, q.value]));
-
-      setStocks(
-        SCREENER_UNIVERSE.map((s) => {
-          const d = map.get(s.ticker);
-          return {
-            ticker: s.ticker,
-            name: s.name,
-            sector: s.sector,
-            changePercent: d?.changePercent ?? null,
-            marketCap: d?.marketCap ?? null,
-          };
-        })
-      );
-    } catch {
-      setStocks(
-        SCREENER_UNIVERSE.map((s) => ({ ticker: s.ticker, name: s.name, sector: s.sector, changePercent: null, marketCap: null }))
-      );
-    }
+  // Quotes for every stock in the map. It starts in the loading state; Refresh switches it back on.
+  const show = useCallback((rows: StockWithData[]) => {
+    setStocks(rows);
     setLoading(false);
   }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { loadStocks().then(show); }, [show]);
+  function refresh() {
+    setLoading(true);
+    loadStocks().then(show);
+  }
 
   // ── Layout computation ────────────────────────────────────────────────────
   // Full-width on the dashboard: wide and tall on desktop, closer to square on phones
@@ -223,7 +218,7 @@ export default function StockHeatmap() {
           <p className="text-xs text-gray-400 mt-0.5">Sized by market cap · colored by today&apos;s % change</p>
         </div>
         <button
-          onClick={fetchData}
+          onClick={refresh}
           disabled={loading}
           className="text-xs font-medium text-[#2D8CFF] hover:text-[#1A73E0] disabled:opacity-40 flex items-center gap-1 transition-colors"
         >

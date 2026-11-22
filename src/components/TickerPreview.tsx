@@ -31,10 +31,9 @@ export default function TickerPreview({
   const [quote, setQuote] = useState<Sourced<QuoteData> | null | undefined>(undefined);
   const [fund, setFund] = useState<Sourced<Fundamentals> | null | undefined>(undefined);
 
+  // Callers key this by ticker, so a new ticker starts from empty (loading) state
   useEffect(() => {
     let live = true;
-    setQuote(undefined);
-    setFund(undefined);
     getQuote(ticker).then((q) => live && setQuote(q));
     getFundamentals(ticker).then((f) => live && setFund(f));
     return () => { live = false; };

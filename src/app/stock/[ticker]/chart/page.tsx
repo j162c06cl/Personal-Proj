@@ -11,10 +11,10 @@ import { IndicatorId, computeIndicators } from "@/lib/marketData/indicators";
 import { analyseLevels, touchesAt } from "@/lib/marketData/levels";
 import { chartTrend } from "@/lib/marketData/trend";
 import {
-  DEFAULT_SETUP_CONFIG, Detection, SETUP_INFO, SetupCheck, SetupConfig, SetupType, changedRules, sanitizeSetupConfig, scanSetups,
+  Detection, SETUP_INFO, SetupCheck, SetupConfig, SetupType, changedRules, sanitizeSetupConfig, scanSetups,
   volumeRatios,
 } from "@/lib/marketData/setups";
-import { BacktestConfig, DEFAULT_BACKTEST_CONFIG, runBacktest, sanitizeBacktestConfig } from "@/lib/marketData/backtest";
+import { BacktestConfig, runBacktest, sanitizeBacktestConfig } from "@/lib/marketData/backtest";
 import { barStillForming } from "@/lib/marketData/time";
 import { AnchorPoint, ChartAnnotations, NOTE_MAX, barIndexAt, emptyAnnotations } from "@/lib/marketData/annotations";
 import { loadChartAnnotations, loadTradePlans, newId, saveChartAnnotations, saveTickerPlans } from "@/lib/store";
@@ -22,6 +22,8 @@ import { TradePlan, inferDirection, planFromSetup, planMetrics } from "@/lib/tra
 import TradePlanCard, { PlanDraft, draftNumbers } from "@/components/chart/TradePlanCard";
 import { QuoteData, Sourced } from "@/lib/types";
 import { currencySymbol } from "@/lib/markets";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { parseJson, useStoredState } from "@/hooks/useStoredState";
 import SourceTag from "@/components/SourceTag";
 import TickerAutocomplete from "@/components/TickerAutocomplete";
 import TimeframePicker from "@/components/chart/TimeframePicker";
@@ -59,21 +61,40 @@ const BACKTEST_KEY = "chart_eval_rules";
 
 const ZONE_NAMES: Record<string, string> = { "America/New_York": "New York", "Asia/Singapore": "Singapore" };
 
+// Choices remembered in this browser across visits (see useStoredState)
+const parseTimeframe = (raw: string | null): Timeframe => (isTimeframe(raw) ? raw : "1d");
+function parseIndicators(raw: string | null): ReadonlySet<IndicatorId> {
+  const ids = parseJson(raw);
+  return new Set(Array.isArray(ids) ? ids.filter(isIndicatorId) : DEFAULT_INDICATORS);
+}
+const saveIndicators = (ids: ReadonlySet<IndicatorId>) => JSON.stringify(Array.from(ids));
+const parseDetected = (raw: string | null) => raw !== "off";
+const saveDetected = (on: boolean) => (on ? "on" : "off");
+const parseSetupRules = (raw: string | null) => sanitizeSetupConfig(parseJson(raw));
+const parseBtRules = (raw: string | null) => sanitizeBacktestConfig(parseJson(raw));
+
 /** Next passes route params as a promise; use() reads it (the page suspends until it resolves) */
 export default function ChartPage({ params }: { params: Promise<{ ticker: string }> }) {
   const ticker = decodeURIComponent(use(params).ticker).toUpperCase();
+  // A fresh view per ticker, so drawings, plans and picks never carry over from the last stock
+  return <ChartView key={ticker} ticker={ticker} />;
+}
+
+function ChartView({ ticker }: { ticker: string }) {
   const router = useRouter();
-  const [timeframe, setTimeframe] = useState<Timeframe>("1d");
+  const [timeframe, saveTimeframe] = useStoredState(TIMEFRAME_KEY, parseTimeframe);
   const [series, setSeries] = useState<Sourced<CandleSeries> | null | undefined>(undefined);
-  const [loading, setLoading] = useState(true);
+  // Which timeframe (and retry) the bars on screen were loaded for; anything else is loading
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [quote, setQuote] = useState<Sourced<QuoteData> | null | undefined>(undefined);
   const [hover, setHover] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [retry, setRetry] = useState(0);
-  const [enabled, setEnabled] = useState<ReadonlySet<IndicatorId>>(() => new Set(DEFAULT_INDICATORS));
-  const [phone, setPhone] = useState(false);
-  const [touch, setTouch] = useState(false);
-  const [showDetected, setShowDetected] = useState(true);
+  const [enabled, setEnabled] = useStoredState(INDICATORS_KEY, parseIndicators, saveIndicators);
+  // The price panel is shorter on a phone (matches CHART_HEIGHT); touch screens say "tap"
+  const phone = useMediaQuery("(max-width: 639px)");
+  const touch = useMediaQuery("(pointer: coarse)");
+  const [showDetected, setShowDetected] = useStoredState(DETECTED_KEY, parseDetected, saveDetected);
   // The reader's drawings for this ticker, and which ticker they were loaded for
   const [drawings, setDrawings] = useState<ChartAnnotations>(emptyAnnotations);
   const drawingsFor = useRef<string | null>(null);
@@ -96,40 +117,13 @@ export default function ChartPage({ params }: { params: Promise<{ ticker: string
   /** Bar picked from a setup's candle list */
   const [focusBar, setFocusBar] = useState<ChartFocus | null>(null);
   /** The reader's setup rules (defaults unless changed) */
-  const [setupRules, setSetupRules] = useState<SetupConfig>(DEFAULT_SETUP_CONFIG);
+  const [setupRules, setSetupRules] = useStoredState(SETUP_RULES_KEY, parseSetupRules, JSON.stringify);
   /** The backtest's settings, and the backtest trade shown on the chart */
-  const [btRules, setBtRules] = useState<BacktestConfig>(DEFAULT_BACKTEST_CONFIG);
+  const [btRules, setBtRules] = useStoredState(BACKTEST_KEY, parseBtRules, JSON.stringify);
   const [shownTradeRef, setShownTradeRef] = useState<ShownTrade | null>(null);
-
-  // Remember the last timeframe, indicators and detected-levels choice across visits
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(TIMEFRAME_KEY);
-      if (isTimeframe(saved)) setTimeframe(saved);
-      const ids: unknown = JSON.parse(localStorage.getItem(INDICATORS_KEY) ?? "null");
-      if (Array.isArray(ids)) setEnabled(new Set(ids.filter(isIndicatorId)));
-      if (localStorage.getItem(DETECTED_KEY) === "off") setShowDetected(false);
-      const rules = localStorage.getItem(SETUP_RULES_KEY);
-      if (rules) setSetupRules(sanitizeSetupConfig(JSON.parse(rules)));
-      const btSaved = localStorage.getItem(BACKTEST_KEY);
-      if (btSaved) setBtRules(sanitizeBacktestConfig(JSON.parse(btSaved)));
-    } catch {}
-  }, []);
-
-  // The price panel is shorter on a phone (matches CHART_HEIGHT); touch screens say "tap"
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-    const update = () => setPhone(mq.matches);
-    update();
-    setTouch(window.matchMedia("(pointer: coarse)").matches);
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   useEffect(() => {
     let current = true;
-    drawingsFor.current = null;
-    setDrawings(emptyAnnotations());
     loadChartAnnotations(ticker).then((a) => {
       if (!current) return;
       setDrawings(a);
@@ -141,10 +135,6 @@ export default function ChartPage({ params }: { params: Promise<{ ticker: string
   // This ticker's saved trade plans; a plan being written belongs to the ticker it was started on
   useEffect(() => {
     let current = true;
-    plansFor.current = null;
-    setPlans([]);
-    setPlanDraft(null);
-    setShownPlanId(null);
     loadTradePlans().then((all) => {
       if (!current) return;
       setPlans(all.filter((p) => p.ticker === ticker));
@@ -152,17 +142,6 @@ export default function ChartPage({ params }: { params: Promise<{ ticker: string
     });
     return () => { current = false; };
   }, [ticker]);
-
-  // A half-finished drawing or a picked setup doesn't carry over to another chart
-  useEffect(() => {
-    setTool(null);
-    setAnchor(null);
-    setPlanClicks({});
-    setNoteTime(null);
-    setSelectedSetup(null);
-    setFocusBar(null);
-    setShownTradeRef(null);
-  }, [ticker, timeframe]);
 
   // Esc puts the drawing tool away
   useEffect(() => {
@@ -200,24 +179,21 @@ export default function ChartPage({ params }: { params: Promise<{ ticker: string
     saveTickerPlans(ticker, next).catch(() => {});
   }
 
-  function chooseSetupRules(next: SetupConfig) {
-    setSetupRules(next);
-    try { localStorage.setItem(SETUP_RULES_KEY, JSON.stringify(next)); } catch {}
-  }
-
-  function chooseBtRules(next: BacktestConfig) {
-    setBtRules(next);
-    try { localStorage.setItem(BACKTEST_KEY, JSON.stringify(next)); } catch {}
-  }
-
-  function chooseShowDetected(on: boolean) {
-    setShowDetected(on);
-    try { localStorage.setItem(DETECTED_KEY, on ? "on" : "off"); } catch {}
-  }
+  const chooseSetupRules = (next: SetupConfig) => setSetupRules(next);
+  const chooseBtRules = (next: BacktestConfig) => setBtRules(next);
+  const chooseShowDetected = (on: boolean) => setShowDetected(on);
 
   function chooseTimeframe(tf: Timeframe) {
-    setTimeframe(tf);
-    try { localStorage.setItem(TIMEFRAME_KEY, tf); } catch {}
+    if (tf === timeframe) return;
+    saveTimeframe(tf);
+    // A half-finished drawing or a picked setup doesn't carry over to another timeframe
+    setTool(null);
+    setAnchor(null);
+    setPlanClicks({});
+    setNoteTime(null);
+    setSelectedSetup(null);
+    setFocusBar(null);
+    setShownTradeRef(null);
   }
 
   function toggleIndicator(id: IndicatorId) {
@@ -225,7 +201,6 @@ export default function ChartPage({ params }: { params: Promise<{ ticker: string
     if (next.has(id)) next.delete(id);
     else next.add(id);
     setEnabled(next);
-    try { localStorage.setItem(INDICATORS_KEY, JSON.stringify(Array.from(next))); } catch {}
   }
 
   useEffect(() => {
@@ -237,14 +212,15 @@ export default function ChartPage({ params }: { params: Promise<{ ticker: string
   wanted.current = `${ticker}:${timeframe}`;
 
   // Keep the previous chart on screen while the next timeframe loads
+  const loadKey = `${timeframe}:${retry}`;
+  const loading = loadedKey !== loadKey;
   useEffect(() => {
     let current = true;
-    setLoading(true);
     getCandles(ticker, timeframe, { force: retry > 0 }).then((s) => {
       if (!current) return;
       setSeries(s);
       setHover(null);
-      setLoading(false);
+      setLoadedKey(`${timeframe}:${retry}`);
     });
     return () => { current = false; };
   }, [ticker, timeframe, retry]);

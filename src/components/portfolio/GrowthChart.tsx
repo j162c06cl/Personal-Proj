@@ -20,26 +20,38 @@ const INVESTED = "#A3A3A3";
 export default function GrowthChart({ positions, quotes, toUsd = {} }: { positions: PortfolioPosition[]; quotes: QuoteMap; toUsd?: Record<string, number> }) {
   const money = useMoney();
   const [period, setPeriod] = useState<Period>("All");
-  const [prices, setPrices] = useState<Record<string, { t: string; c: number }[]> | null>(null);
-  const [meta, setMeta] = useState<{ source: string; asOf: string; missing: string[] } | null>(null);
+  // Price history and where it came from, tagged with the holdings and period it was loaded for
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    prices: Record<string, { t: string; c: number }[]>;
+    meta: { source: string; asOf: string; missing: string[] };
+  } | null>(null);
 
   const tickers = useMemo(() => Array.from(new Set(positions.map((p) => p.ticker))).sort(), [positions]);
   const firstBuy = useMemo(() => positions.reduce((m, p) => (!m || p.purchaseDate < m ? p.purchaseDate : m), ""), [positions]);
   const range: ChartRange = period === "All" ? rangeCovering(firstBuy || new Date().toISOString().slice(0, 10)) : FIXED[period];
 
+  // Prices for other holdings or another period read as loading until the new ones arrive
+  const loadKey = `${tickers.join(",")}|${range}`;
+  const prices = loaded?.key === loadKey ? loaded.prices : null;
+  const meta = loaded?.meta ?? null;
+
   useEffect(() => {
     if (!tickers.length) return;
     let live = true;
-    setPrices(null);
+    const key = `${tickers.join(",")}|${range}`;
     Promise.all(tickers.map(async (t) => [t, await getChart(t, range)] as const)).then((rows) => {
       if (!live) return;
       const ok = rows.filter(([, c]) => c?.value.points.length);
-      setPrices(Object.fromEntries(ok.map(([t, c]) => [t, c!.value.points.map((p) => ({ t: p.t, c: p.c }))])));
       const newest = ok.reduce<(typeof ok)[number][1]>((m, [, c]) => (!m || (c && c.asOf > m.asOf) ? c : m), null);
-      setMeta({
-        source: newest?.source ?? "",
-        asOf: newest?.asOf ?? "",
-        missing: rows.filter(([, c]) => !c?.value.points.length).map(([t]) => t),
+      setLoaded({
+        key,
+        prices: Object.fromEntries(ok.map(([t, c]) => [t, c!.value.points.map((p) => ({ t: p.t, c: p.c }))])),
+        meta: {
+          source: newest?.source ?? "",
+          asOf: newest?.asOf ?? "",
+          missing: rows.filter(([, c]) => !c?.value.points.length).map(([t]) => t),
+        },
       });
     });
     return () => { live = false; };
