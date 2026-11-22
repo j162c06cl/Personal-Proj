@@ -20,7 +20,7 @@ Built with Next.js 16, React 19, TypeScript, Tailwind CSS and Recharts. No accou
 
 ![Screener](docs/screenshots/screener.png)
 
-**Watchlists.** Create, rename, duplicate and delete named lists. Each stock carries a status (Researching, Watching, Setup ready, Archived), a strategy, notes, a thesis, a target price and an invalidation level. The table sorts by status, price, today's move, 5-day change, volume, market cap, 52-week position, distance to target and change since added, shows prices in each listing's own currency with their timestamps, and links every stock to its analyser page. On a laptop, clicking a stock shows a quick look beside the list (price, 52-week range, key numbers, business summary) with a link to its full page.
+**Watchlists.** Named lists (Stocks, ETF, REIT and Dividend to start) that you can add to, rename and delete. Searching for a stock shows a quick look first (price, 52-week range, market cap, P/E, dividend, analyst target and a business summary), so you can check it before adding it. Each row shows the ticker, your note or the company name, a 5-day price line, the price in the listing's own currency, and a pill with either today's move or the change since you added it. Lists sort by order added, A–Z or biggest movers, and the sort, the pill and the open list are remembered. **Edit** removes stocks, adds a note to each one, renames the list or deletes it. A stock added with **+ Watch** from the Screener or a stock page keeps a note and the strategy it was found under, and its stock page judges it by that strategy. Every row links to the stock's analyser page; on a laptop, clicking a row shows its quick look beside the list instead, with a link to the full page.
 
 ![Watchlist](docs/screenshots/watchlist.png)
 
