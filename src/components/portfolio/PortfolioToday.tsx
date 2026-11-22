@@ -99,13 +99,13 @@ export function PortfolioSummary({ positions, quotes }: { positions: PortfolioPo
 
   // Weekends / pre-market: the latest prices are from an earlier session, so say which one.
   // Sessions are named by their New York trading date (Friday's close is Saturday morning in Asia).
-  const sessionLabel = useMemo(() => {
+  const sessionLabel = (() => {
     if (!totals?.latestAsOf) return "Today";
     const ny = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleDateString("en-US", { timeZone: "America/New_York", ...o });
     const session = new Date(totals.latestAsOf);
     if (ny(session, {}) === ny(new Date(), {})) return "Today";
     return `Last session (${ny(session, { weekday: "short", month: "short", day: "numeric" })})`;
-  }, [totals?.latestAsOf]);
+  })();
 
   const cards = [
     { label: "Portfolio value", value: totals ? money.fmt(totals.value) : null, sub: totals ? `${totals.priced} of ${positions.length} positions priced` : "", cls: "text-[#0A0A0A]", plain: true },

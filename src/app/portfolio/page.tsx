@@ -41,20 +41,16 @@ export default function PortfolioPage() {
   const money = useMoney();
   const sym = money.currency === "SGD" ? "S$" : "$";
 
-  const fetchQuotes = useCallback(async (tickers: string[], force = false) => {
-    if (!tickers.length) return;
-    setLoading(true);
-    const map = await getQuotes(tickers, { force });
+  const storeQuotes = useCallback((map: QuoteMap) => {
     setQuotes((prev) => ({ ...prev, ...map }));
     setQuotesLoaded(true);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
     if (!ready || !rawPositions.length) return;
     const tickers = Array.from(new Set(rawPositions.map((p) => p.ticker)));
-    fetchQuotes(tickers);
-  }, [ready, rawPositions, fetchQuotes]);
+    getQuotes(tickers).then(storeQuotes);
+  }, [ready, rawPositions, storeQuotes]);
 
   // Every position records its listing's exchange and currency, filled in from the quote once known
   useEffect(() => {
@@ -165,9 +161,12 @@ export default function PortfolioPage() {
     setEditingPosition(null);
   }
 
-  function handleRefresh() {
+  async function handleRefresh() {
     const tickers = Array.from(new Set(positions.map((p) => p.ticker)));
-    fetchQuotes(tickers, true);
+    if (!tickers.length) return;
+    setLoading(true);
+    storeQuotes(await getQuotes(tickers, { force: true }));
+    setLoading(false);
   }
 
   if (!ready) return null;
@@ -236,7 +235,7 @@ export default function PortfolioPage() {
 
           <h2 className="text-[20px] font-semibold tracking-tight text-[#0A0A0A] mt-10 mb-4">Positions</h2>
           {/* Table */}
-          {loading && enriched.every((e) => e.currentPrice === null) ? (
+          {(loading || !quotesLoaded) && enriched.every((e) => e.currentPrice === null) ? (
             <LoadingSpinner text="Fetching market data…" />
           ) : (
             <PortfolioTable positions={enriched} onEdit={handleEdit} onDelete={removePosition} fmt={money.fmt} />

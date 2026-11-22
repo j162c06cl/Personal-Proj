@@ -47,10 +47,12 @@ function NumField({
   const parsed = text.trim() === "" ? NaN : Number(text);
   const error = !Number.isFinite(parsed) ? "Enter a number" : validate?.(parsed) ?? null;
 
-  // Follow outside changes (e.g. a reset)
-  useEffect(() => {
+  // Follow outside changes (e.g. a reset), adjusting during render rather than in an effect
+  const [shownValue, setShownValue] = useState(value);
+  if (value !== shownValue) {
+    setShownValue(value);
     setText((t) => (Number(t) === value && t.trim() !== "" ? t : String(value)));
-  }, [value]);
+  }
 
   return (
     <label className="flex flex-col gap-1">

@@ -66,22 +66,29 @@ export default function WatchButton({
 
   const { lists: onLists } = watchedIn(all, ticker);
 
-  // Prefill from the chosen list's entry when the stock is already there
-  useEffect(() => {
-    if (!open || !all) return;
-    const existing = all.find((l) => l.id === listId)?.items.find((i) => i.ticker === ticker);
+  /** Picks a list, prefilled from the stock's entry there if it's already on it */
+  function chooseList(id: string) {
+    setListId(id);
+    if (!all) return;
+    const existing = all.find((l) => l.id === id)?.items.find((i) => i.ticker === ticker);
     setIntent(existing?.intent ?? defaultIntent);
     setTag(existing?.tag ?? "watching");
     setNote(existing?.note || defaultNote);
-  }, [open, listId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
+  function toggle() {
+    // Opening starts on the last list used, else a list the stock is on, else the first list
+    if (!open && all) chooseList(all.some((l) => l.id === listId) ? listId : onLists[0]?.id ?? all[0]?.id ?? "__new");
+    setOpen(!open);
+  }
+
+  // A click outside closes the form
   useEffect(() => {
     if (!open) return;
-    if (all && !all.some((l) => l.id === listId)) setListId(onLists[0]?.id ?? all[0]?.id ?? "__new");
     const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   async function save() {
     setSaving(true);
@@ -105,7 +112,7 @@ export default function WatchButton({
   return (
     <div className="relative inline-block" ref={ref}>
       <button
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        onClick={(e) => { e.stopPropagation(); toggle(); }}
         title={watching ? `On ${onLists.map((l) => l.name).join(", ")}` : "Add to a watchlist"}
         className={`${btn} rounded-xl font-semibold border transition-colors whitespace-nowrap ${
           watching
@@ -123,7 +130,7 @@ export default function WatchButton({
           <p className="text-[11px] font-semibold text-[#525252] uppercase tracking-wider mb-1.5">List</p>
           <select
             value={listId}
-            onChange={(e) => setListId(e.target.value)}
+            onChange={(e) => chooseList(e.target.value)}
             className="w-full mb-2 px-2.5 py-2 text-[13px] bg-white border border-[#E5E5E5] rounded-xl focus:outline-none focus:border-[#2D8CFF]"
           >
             {(all ?? []).map((l) => (

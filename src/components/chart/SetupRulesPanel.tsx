@@ -7,7 +7,12 @@ import { DEFAULT_SETUP_CONFIG, ParamDef, SETUP_PARAMS, SetupConfig, changedRules
  *  isn't clamped at "1" on the way */
 export function NumberField({ def, value, onCommit }: { def: ParamDef; value: number; onCommit: (v: number) => void }) {
   const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
+  // Follow outside changes (e.g. a reset), adjusting during render rather than in an effect
+  const [shownValue, setShownValue] = useState(value);
+  if (value !== shownValue) {
+    setShownValue(value);
+    setDraft(String(value));
+  }
   const commit = () => {
     const v = Number(draft);
     if (draft.trim() !== "" && Number.isFinite(v)) onCommit(v);

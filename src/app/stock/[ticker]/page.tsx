@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { getChart, getFinancials, getFundamentals, getNews, getQuote } from "@/lib/data";
 import { loadPortfolio, loadWatchlists } from "@/lib/store";
@@ -205,13 +205,27 @@ function Skeleton({ h = 120 }: { h?: number }) {
 const STRATEGY_TITLE = { "long-term": "As a long-term investment", swing: "As a swing trade" } as const;
 const STRATEGY_NOUN = { "long-term": "long-term", swing: "swing trade" } as const;
 
+// The open tab lives in the URL hash, so refresh and back keep it. replaceState doesn't fire
+// "hashchange", so switching tabs announces itself with its own event.
+const TAB_EVENT = "research-tab-change";
+function subscribeHash(onChange: () => void) {
+  window.addEventListener("hashchange", onChange);
+  window.addEventListener(TAB_EVENT, onChange);
+  return () => {
+    window.removeEventListener("hashchange", onChange);
+    window.removeEventListener(TAB_EVENT, onChange);
+  };
+}
+const readHash = () => window.location.hash.slice(1);
+
 /** Next passes route params as a promise; use() reads it (the page suspends until it resolves) */
 export default function StockResearchPage({ params }: { params: Promise<{ ticker: string }> }) {
   const ticker = decodeURIComponent(use(params).ticker).toUpperCase();
   const { settings } = useSettings();
   const money = useMoney();
 
-  const [tab, setTabState] = useState<TabKey>("overview");
+  const hash = useSyncExternalStore(subscribeHash, readHash, () => "");
+  const tab: TabKey = TABS.some((t) => t.key === hash) ? (hash as TabKey) : "overview";
   const [range, setRange] = useState<ChartRange>("6mo");
   const [strategyOverride, setStrategy] = useState<"long-term" | "swing" | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
@@ -225,14 +239,9 @@ export default function StockResearchPage({ params }: { params: Promise<{ ticker
   const [lists, setLists] = useState<Watchlist[] | null>(null);
   const [showFullSummary, setShowFullSummary] = useState(false);
 
-  // The open tab lives in the URL hash so refresh and back keep it
-  useEffect(() => {
-    const h = window.location.hash.slice(1);
-    if (TABS.some((t) => t.key === h)) setTabState(h as TabKey);
-  }, []);
   const setTab = (t: TabKey) => {
-    setTabState(t);
     window.history.replaceState(null, "", `#${t}`);
+    window.dispatchEvent(new Event(TAB_EVENT));
   };
 
   useEffect(() => {

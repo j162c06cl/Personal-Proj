@@ -13,6 +13,7 @@ import { closeOnOrBefore, rangeCovering } from "@/lib/portfolioHistory";
 import { formatPercent } from "@/lib/formatters";
 import { defaultCurrency, formatMoney } from "@/lib/markets";
 import { useMediaQuery, WIDE } from "@/hooks/useMediaQuery";
+import { useStoredState } from "@/hooks/useStoredState";
 
 const SPARK_DAYS = 5;
 
@@ -24,6 +25,10 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: "name", label: "A–Z" },
   { id: "move", label: "Biggest movers" },
 ];
+
+// Sort and what the pill shows, remembered in this browser
+const parseSort = (raw: string | null): SortKey => (raw === "name" || raw === "move" ? raw : "added");
+const parseShow = (raw: string | null): Show => (raw === "since" ? "since" : "today");
 
 // Moves that round to 0.00% read as flat, not as a red "-0.00%"
 const flat = (v: number) => Math.abs(v) < 0.005;
@@ -62,8 +67,8 @@ export default function WatchlistPage() {
   // On a laptop the list has a quick-look panel beside it; this is the stock shown there
   const [selected, setSelected] = useState<string | null>(null);
   const wide = useMediaQuery(WIDE);
-  const [sort, setSort] = useState<SortKey>("added");
-  const [show, setShow] = useState<Show>("today");
+  const [sort, setSort] = useStoredState("watchlist_sort", parseSort);
+  const [show, setShow] = useStoredState("watchlist_show", parseShow);
   // Edit mode: rename the list, remove stocks, write notes, delete the list
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -73,13 +78,24 @@ export default function WatchlistPage() {
   const list = lists?.find((l) => l.id === activeId) ?? lists?.[0] ?? null;
   const items = useMemo(() => list?.items ?? [], [list]);
 
-  const fetchQuotes = useCallback(async (tickers: string[], force = false) => {
-    if (!tickers.length) return;
+  const storeQuotes = useCallback((map: QuoteMap) => setQuotes((prev) => ({ ...prev, ...map })), []);
+  const fetchQuotes = async (tickers: string[], force = false) => {
+    if (tickers.length) storeQuotes(await getQuotes(tickers, { force }));
+  };
+
+  /** The refresh button: spin while prices are fetched past the cache */
+  async function refreshPrices() {
     setLoading(true);
-    const map = await getQuotes(tickers, { force });
-    setQuotes((prev) => ({ ...prev, ...map }));
+    await fetchQuotes(items.map((i) => i.ticker), true);
     setLoading(false);
-  }, []);
+  }
+
+  /** Switches list, leaving edit mode, and remembers the choice */
+  function chooseList(id: string) {
+    setActiveId(id);
+    setEditing(false);
+    try { localStorage.setItem("watchlist_active", id); } catch {}
+  }
 
   useEffect(() => {
     loadWatchlists().then((ls) => {
@@ -88,25 +104,12 @@ export default function WatchlistPage() {
       try { saved = localStorage.getItem("watchlist_active"); } catch {}
       setActiveId(ls.find((l) => l.id === saved)?.id ?? ls[0]?.id ?? "");
     });
-    try {
-      const s = localStorage.getItem("watchlist_sort");
-      if (s === "added" || s === "name" || s === "move") setSort(s);
-      if (localStorage.getItem("watchlist_show") === "since") setShow("since");
-    } catch {}
   }, []);
-
-  useEffect(() => {
-    if (!activeId) return;
-    try { localStorage.setItem("watchlist_active", activeId); } catch {}
-    setEditing(false);
-  }, [activeId]);
-
-  useEffect(() => { try { localStorage.setItem("watchlist_sort", sort); localStorage.setItem("watchlist_show", show); } catch {} }, [sort, show]);
 
   const tickerKey = useMemo(() => items.map((i) => i.ticker).sort().join(","), [items]);
   useEffect(() => {
-    if (tickerKey) fetchQuotes(tickerKey.split(","));
-  }, [tickerKey, fetchQuotes]);
+    if (tickerKey) getQuotes(tickerKey.split(",")).then(storeQuotes);
+  }, [tickerKey, storeQuotes]);
 
   function commit(next: Watchlist[]) {
     setLists(next);
@@ -137,7 +140,7 @@ export default function WatchlistPage() {
     if (!lists) return;
     const l: Watchlist = { id: newId(), name: newName.trim() || `List ${lists.length + 1}`, createdAt: new Date().toISOString(), items: [] };
     commit([...lists, l]);
-    setActiveId(l.id);
+    chooseList(l.id);
     setCreating(false);
     setNewName("");
   }
@@ -154,7 +157,7 @@ export default function WatchlistPage() {
     // Always keep one list to add to
     const next = rest.length ? rest : [{ id: newId(), name: "My watchlist", createdAt: new Date().toISOString(), items: [] }];
     commit(next);
-    setActiveId(next[0].id);
+    chooseList(next[0].id);
   }
 
   function startEditing() {
@@ -292,7 +295,7 @@ export default function WatchlistPage() {
         <div className="flex items-center gap-1 shrink-0">
           {!editing && items.length > 0 && (
             <button
-              onClick={() => fetchQuotes(items.map((i) => i.ticker), true)}
+              onClick={refreshPrices}
               disabled={loading}
               title="Refresh prices"
               aria-label="Refresh prices"
@@ -319,7 +322,7 @@ export default function WatchlistPage() {
             key={l.id}
             role="tab"
             aria-selected={l.id === list.id}
-            onClick={() => setActiveId(l.id)}
+            onClick={() => chooseList(l.id)}
             className={`shrink-0 px-3.5 py-1.5 rounded-full text-[14px] font-semibold transition-colors ${
               l.id === list.id ? "bg-[#2D8CFF] text-white" : "text-[#2D8CFF] hover:bg-[#EAF4FF]"
             }`}

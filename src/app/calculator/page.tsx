@@ -13,6 +13,7 @@ import { rsi } from "@/lib/indicators";
 import { knownCategory } from "@/lib/categories";
 import { addManyToWatchlist, flattenLists, loadPortfolio, loadScreens, loadWatchlists, newId, saveScreens } from "@/lib/store";
 import { useSettings } from "@/hooks/useSettings";
+import { useStoredState } from "@/hooks/useStoredState";
 import { Market, PortfolioPosition, SavedScreen, ScreenStrategy, ScreenerRow, Sourced, Watchlist } from "@/lib/types";
 
 // How many candidates get fundamentals or price history looked up when a filter needs them
@@ -104,6 +105,9 @@ function statColumns(r: Result, strategy: ScreenStrategy): Stat[] {
   ];
 }
 
+/** The market last screened, remembered in this browser */
+const parseMarket = (raw: string | null): Market => (raw === "SG" ? "SG" : "US");
+
 const statLine = (stats: Stat[]) => stats.filter((s) => s.value !== null).map((s) => `${s.short} ${s.value}`);
 
 export default function ScreenerPage() {
@@ -111,13 +115,16 @@ export default function ScreenerPage() {
   // Starts on the strategy from Settings until one is picked here
   const [picked, setStrategy] = useState<ScreenStrategy | null>(null);
   const strategy: ScreenStrategy = picked ?? (settings?.profile.strategy === "swing" ? "swing" : "long-term");
-  const [market, setMarket] = useState<Market>("US");
+  const [market, setMarket] = useStoredState("screener_market", parseMarket);
   const [setupId, setSetupId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [screens, setScreens] = useState<SavedScreen[]>([]);
   const [activeScreen, setActiveScreen] = useState<string | null>(null);
-  const [data, setData] = useState<Sourced<ScreenerData> | null | undefined>(undefined);
-  const [loading, setLoading] = useState(false);
+  // The screen's stocks, tagged with the market they're for; another market reads as loading
+  const [result, setResult] = useState<{ market: Market; data: Sourced<ScreenerData> | null } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const data = result?.market === market ? result.data : undefined;
+  const loading = refreshing || data === undefined;
   const [extra, setExtra] = useState<Record<string, Extra & { fund?: boolean; chart?: boolean }>>({});
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -132,12 +139,7 @@ export default function ScreenerPage() {
   const [bulkList, setBulkList] = useState("");
   const [bulkMsg, setBulkMsg] = useState<string | null>(null);
 
-  // Restore the last market
   useEffect(() => {
-    try {
-      const m = localStorage.getItem("screener_market");
-      if (m === "US" || m === "SG") setMarket(m);
-    } catch {}
     loadScreens().then(setScreens);
     loadWatchlists().then((ls) => { setLists(ls); setBulkList(ls[0]?.id ?? ""); });
     loadPortfolio().then(async (ps) => {
@@ -153,19 +155,27 @@ export default function ScreenerPage() {
     });
   }, []);
 
-  useEffect(() => { try { localStorage.setItem("screener_market", market); } catch {} }, [market]);
-
-  const load = useCallback(async (force = false) => {
-    setLoading(true);
-    const d = await getScreenerData(market, { force });
-    setData(d);
-    setLoading(false);
+  useEffect(() => {
+    let live = true;
+    getScreenerData(market).then((d) => { if (live) setResult({ market, data: d }); });
+    return () => { live = false; };
   }, [market]);
 
-  useEffect(() => { load(); }, [load]);
+  async function refresh() {
+    setRefreshing(true);
+    const d = await getScreenerData(market, { force: true });
+    setResult({ market, data: d });
+    setRefreshing(false);
+  }
 
-  // Fresh results start at the top of the list
-  useEffect(() => { setShown(30); setExpanded(null); }, [strategy, market, setupId, filters]);
+  // Fresh results start at the top of the list (adjusted during render, not in an effect)
+  const viewKey = JSON.stringify([strategy, market, setupId, filters]);
+  const [listedView, setListedView] = useState(viewKey);
+  if (listedView !== viewKey) {
+    setListedView(viewKey);
+    setShown(30);
+    setExpanded(null);
+  }
 
   // The filter sheet closes on Escape
   useEffect(() => {
@@ -439,7 +449,7 @@ export default function ScreenerPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3 mb-4">
         <h1 className="text-[32px] font-semibold tracking-tight text-[#0A0A0A]">Screener</h1>
-        <button onClick={() => load(true)} disabled={loading} title="Refresh" aria-label="Refresh"
+        <button onClick={refresh} disabled={loading} title="Refresh" aria-label="Refresh"
           className="p-2 text-[#2D8CFF] hover:bg-[#EAF4FF] rounded-full disabled:opacity-50 transition-colors">
           <svg className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -570,7 +580,7 @@ export default function ScreenerPage() {
       ) : !data ? (
         <div className="py-16 text-center">
           <p className="text-[15px] font-semibold text-[#0A0A0A]">The screener isn&apos;t available right now</p>
-          <button onClick={() => load(true)} className="mt-3 text-[14px] font-semibold text-white bg-[#2D8CFF] hover:bg-[#1A73E0] px-4 py-2 rounded-full">Try again</button>
+          <button onClick={refresh} className="mt-3 text-[14px] font-semibold text-white bg-[#2D8CFF] hover:bg-[#1A73E0] px-4 py-2 rounded-full">Try again</button>
         </div>
       ) : displayed.length === 0 ? (
         <div className="py-16 text-center">

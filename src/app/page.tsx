@@ -82,16 +82,24 @@ export default function DashboardPage() {
   const [trendQuotes, setTrendQuotes] = useState<QuoteMap>({});
   const [refreshKey, setRefreshKey] = useState(0);
 
-  async function load(force = false) {
-    setLoading(true); setErr(false);
-    const [m, t] = await Promise.all([getMarket({ force }), getTrending({ force })]);
-    if (m) setMarket(m); else setErr(true);
+  const fetchAll = (force: boolean) => Promise.all([getMarket({ force }), getTrending({ force })]);
+
+  function show([m, t]: Awaited<ReturnType<typeof fetchAll>>, force: boolean) {
+    if (m) { setMarket(m); setErr(false); } else setErr(true);
     setTrending(t);
     if (t?.value.tickers.length) getQuotes(t.value.tickers, { force }).then(setTrendQuotes);
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  /** Refresh and Retry: show the spinner, then fetch past the cache */
+  function reload() {
+    setLoading(true);
+    setErr(false);
+    fetchAll(true).then((r) => show(r, true));
+  }
+
+  // The page starts in the loading state, so the first fetch needs no state change up front
+  useEffect(() => { fetchAll(false).then((r) => show(r, false)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const indices = market?.value.indices ?? [];
   const upcoming = ECONOMIC_EVENTS.filter((e) => getDays(e.date) >= 0).slice(0, UPCOMING_COUNT);
@@ -119,7 +127,7 @@ export default function DashboardPage() {
             </span>
           )}
           <button
-            onClick={() => { load(true); setRefreshKey((k) => k + 1); }}
+            onClick={() => { reload(); setRefreshKey((k) => k + 1); }}
             disabled={loading}
             className="flex items-center gap-1.5 text-[14px] font-semibold text-[#525252] border border-[#E5E5E5] bg-white hover:border-[#2D8CFF] hover:text-[#0A0A0A] px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
           >
@@ -137,7 +145,7 @@ export default function DashboardPage() {
           {err ? (
             <div className="bg-[#FFF0EB] border border-[#FFC9B8] rounded-2xl p-4 text-[13px] text-[#F04E23]">
               Could not load market data.{" "}
-              <button onClick={() => load(true)} className="underline font-semibold">Retry</button>
+              <button onClick={reload} className="underline font-semibold">Retry</button>
             </div>
           ) : !market ? (
             <div className="flex gap-3 overflow-x-auto pb-1">
