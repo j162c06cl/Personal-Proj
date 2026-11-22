@@ -14,6 +14,3 @@ export function useMediaQuery(query: string): boolean {
     () => false,
   );
 }
-
-/** Tailwind's `lg` breakpoint: laptop and wider */
-export const WIDE = "(min-width: 1024px)";

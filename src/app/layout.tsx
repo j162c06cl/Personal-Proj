@@ -17,10 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={`${inter.className} bg-white text-[#0A0A0A] min-h-screen`}>
         <NavBar />
-        <main className="w-full px-4 sm:px-6 lg:px-8 pt-4 lg:pt-6 pb-28 lg:pb-10">
-          {/* One page width everywhere; the nav bar lines up with it */}
-          <div className="max-w-[1280px] mx-auto">{children}</div>
-        </main>
+        <main className="w-full px-4 sm:px-6 lg:px-8 pt-4 lg:pt-6 pb-28 lg:pb-10">{children}</main>
       </body>
     </html>
   );

@@ -577,7 +577,7 @@ function ChartView({ ticker }: { ticker: string }) {
   const ready = !!(s && chartData && candles.length);
 
   return (
-    <div className="max-w-[1280px] mx-auto">
+    <div>
       <Link href={`/stock/${encodeURIComponent(ticker)}`} className="text-[13px] font-semibold text-[#2D8CFF] hover:underline">
         ← {ticker} research
       </Link>
