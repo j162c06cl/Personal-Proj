@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import TickerAutocomplete from "@/components/TickerAutocomplete";
-import TickerPreview from "@/components/TickerPreview";
 import SourceTag from "@/components/SourceTag";
 import { Watchlist, WatchlistItem } from "@/lib/types";
-import { loadWatchlists, newId, newItem, saveWatchlists } from "@/lib/store";
+import { loadWatchlists, newId, saveWatchlists } from "@/lib/store";
 import { getChart, getFundamentals, getQuotes, QuoteMap } from "@/lib/data";
 import { categoryColor, categoryFrom, knownCategory } from "@/lib/categories";
 import { closeOnOrBefore, rangeCovering } from "@/lib/portfolioHistory";
@@ -94,13 +94,13 @@ function ChangePill({ v }: { v: number | null }) {
 }
 
 export default function WatchlistPage() {
+  const router = useRouter();
   const [lists, setLists] = useState<Watchlist[] | null>(null);
   const [activeId, setActiveId] = useState<string>("");
   const [quotes, setQuotes] = useState<QuoteMap>({});
   const [closes, setCloses] = useState<Record<string, number[]>>({});
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
-  const [preview, setPreview] = useState<string | null>(null);
   const [sort, setSort] = useStoredState("watchlist_sort", parseSort);
   const [show, setShow] = useStoredState("watchlist_show", parseShow);
   // Edit mode: rename the list, remove stocks, write notes, delete the list
@@ -246,30 +246,13 @@ export default function WatchlistPage() {
     return () => { live = false; };
   }, [tickerKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function openPreview(ticker: string) {
+  /** A searched stock opens its page; its + Watch button adds it to the list open here */
+  function openStock(ticker: string) {
     const t = ticker.trim().toUpperCase();
-    if (t) { setPreview(t); setQuery(""); }
-  }
-
-  function addPreviewed(meta: { category: string | null; price: number | null; exchange: string | null; currency: string | null }) {
-    if (!lists || !list || !preview || list.items.some((i) => i.ticker === preview)) return;
-    const item = newItem(preview, {
-      ...(meta.category ? { category: meta.category } : {}),
-      ...(meta.price !== null ? { addedPrice: meta.price } : {}),
-      ...(meta.exchange ? { exchange: meta.exchange } : {}),
-      ...(meta.currency ? { currency: meta.currency } : {}),
-    });
-    commit(lists.map((l) => (l.id === list.id ? { ...l, items: [...l.items, item] } : l)));
-    fetchQuotes([preview]);
+    if (!t) return;
     setQuery("");
+    router.push(`/stock/${encodeURIComponent(t)}`);
   }
-
-  useEffect(() => {
-    if (!preview) return;
-    const close = (e: KeyboardEvent) => { if (e.key === "Escape") setPreview(null); };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [preview]);
 
   const rows = useMemo(() => {
     const out = items.map((item, order) => {
@@ -390,9 +373,9 @@ export default function WatchlistPage() {
           <TickerAutocomplete
             value={query}
             onChange={setQuery}
-            onSelect={(t) => openPreview(t)}
-            onKeyDown={(e) => { if (e.key === "Enter") openPreview(query); }}
-            placeholder="Add a stock"
+            onSelect={openStock}
+            onKeyDown={(e) => { if (e.key === "Enter") openStock(query); }}
+            placeholder="Search for a stock"
             inputClassName="w-full pl-10 pr-8 py-2.5 text-[15px] bg-[#F7F7F8] border border-transparent rounded-full focus:outline-none focus:bg-white focus:border-[#2D8CFF]"
           />
         </div>
@@ -422,7 +405,7 @@ export default function WatchlistPage() {
       {items.length === 0 ? (
         <div className="py-16 text-center">
           <p className="text-[16px] font-semibold text-[#0A0A0A]">Nothing here yet</p>
-          <p className="text-[14px] text-[#737373] mt-1">Search above to add a stock, or tap + Watch in the screener or on any stock page.</p>
+          <p className="text-[14px] text-[#737373] mt-1">Search above to open a stock, then tap + Watch on its page to add it here.</p>
         </div>
       ) : (
         <ul className="divide-y divide-[#F0F0F0] border-t border-[#F0F0F0]">
@@ -496,22 +479,6 @@ export default function WatchlistPage() {
         </div>
       )}
 
-      {/* Look-up drawer: a searched stock, before it's added */}
-      {preview && (
-        <div className="fixed inset-0 z-[60]">
-          <div className="absolute inset-0 bg-black/25" onClick={() => setPreview(null)} />
-          <aside className="absolute inset-y-0 right-0 w-full sm:w-[460px] bg-[#F7F7F8] shadow-2xl overflow-y-auto p-4" aria-label={`${preview} preview`}>
-            <TickerPreview
-              key={preview}
-              ticker={preview}
-              watching={list.items.some((i) => i.ticker === preview)}
-              listName={list.name}
-              onAdd={addPreviewed}
-              onClose={() => setPreview(null)}
-            />
-          </aside>
-        </div>
-      )}
     </div>
   );
 }
