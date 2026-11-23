@@ -98,12 +98,6 @@ export const SCREENER_UNIVERSE: ScreenerStock[] = [
   { ticker: "GLD",   name: "SPDR Gold Trust",              sector: "ETF",              type: "ETF"   },
 ];
 
-export const SCREENER_SECTORS = [
-  "Technology", "Communication", "Consumer Disc.", "Consumer Staples",
-  "Healthcare", "Financials", "Energy", "Industrials", "Utilities",
-  "Materials", "Real Estate", "ETF",
-];
-
 /** Singapore Exchange: Straits Times Index members and other large SGX listings. Some trade in USD. */
 export const SG_UNIVERSE: ScreenerStock[] = [
   { ticker: "D05.SI",  name: "DBS Group",                          sector: "Financials",       type: "Stock" },

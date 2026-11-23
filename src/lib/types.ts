@@ -54,34 +54,6 @@ export interface QuoteData {
   asOf?: string;
 }
 
-export interface HistoricalResult {
-  ticker: string;
-  date: string;
-  closingPrice: number;
-  currentPrice: number;
-  actualDate?: string;
-}
-
-export interface SearchResult {
-  ticker: string;
-  name: string;
-  type: string;
-  exchange?: string;
-}
-
-export interface CalculatorResult {
-  ticker: string;
-  purchaseDate: string;
-  actualDate: string;
-  priceAtPurchase: number;
-  currentPrice: number;
-  sharesOwned: number;
-  currentValue: number;
-  profitLoss: number;
-  percentReturn: number;
-  investmentAmount: number;
-}
-
 /** Legacy (v2) named-list watchlist; only read during migration */
 export interface WatchlistDef {
   id: string;
@@ -171,11 +143,9 @@ export interface SavedScreen {
 
 export type BaseCurrency = "USD" | "SGD";
 export type Strategy = "long-term" | "swing" | "mixed";
-export type ResearchMinutes = 5 | 15 | 30;
 
 export interface InvestorProfile {
   strategy: Strategy;
-  researchMinutes: ResearchMinutes;
 }
 
 export interface Settings {
