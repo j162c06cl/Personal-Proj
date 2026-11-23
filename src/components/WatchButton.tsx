@@ -61,8 +61,14 @@ export default function WatchButton({
   }
 
   function toggle() {
-    // Opening starts on the last list used, else a list the stock is on, else the first list
-    if (!open && all) chooseList(all.some((l) => l.id === listId) ? listId : onLists[0]?.id ?? all[0]?.id ?? "__new");
+    // Opening starts on the last list picked here, else a list the stock is on, else the
+    // watchlist last open on the Watchlist page, else the first list
+    if (!open && all) {
+      let lastOpen: string | null = null;
+      try { lastOpen = localStorage.getItem("watchlist_active"); } catch {}
+      const valid = (id: string | null | undefined) => !!id && all.some((l) => l.id === id);
+      chooseList(valid(listId) ? listId : onLists[0]?.id ?? (valid(lastOpen) ? lastOpen! : all[0]?.id ?? "__new"));
+    }
     setOpen(!open);
   }
 

@@ -42,6 +42,24 @@ test("watchlist: the list fills the page, and a row opens the stock page", async
   await page.waitForURL(/\/stock\//);
   check("laptop: clicking a row opens the stock page", page.url().endsWith(`/stock/${second}`), page.url());
 
+  // Search goes straight to the stock page, with no preview first (a fixed result, so no live lookup)
+  await page.route("**/api/search?*", (r) => r.fulfill({ json: { results: [{ ticker: "NFLX", name: "Netflix, Inc.", type: "Equity", exchange: "NASDAQ", exchangeCode: "NMS" }] } }));
+  await open(page, "/watchlist");
+  await page.getByRole("tab", { name: "ETF" }).click();
+  await page.getByPlaceholder("Search for a stock").fill("netflix");
+  await page.getByRole("button", { name: /Netflix/ }).click();
+  await page.waitForURL(/\/stock\/NFLX$/);
+  check("laptop: picking a searched stock opens its page", page.url().endsWith("/stock/NFLX"), page.url());
+  // + Watch there starts on the list that was open (ETF), so the stock lands where it was searched from
+  await page.getByRole("button", { name: "+ Watch" }).click();
+  const list = page.locator("select").filter({ has: page.locator("option", { hasText: "+ New list" }) }).first();
+  check("+ Watch starts on the watchlist that was open", (await list.locator("option:checked").innerText()).trim() === "ETF", await list.locator("option:checked").innerText());
+  await open(page, "/watchlist");
+  await page.getByPlaceholder("Search for a stock").fill("msft");
+  await page.getByPlaceholder("Search for a stock").press("Enter");
+  await page.waitForURL(/\/stock\/MSFT$/);
+  check("laptop: Enter in the search opens that ticker's page", page.url().endsWith("/stock/MSFT"), page.url());
+
   const phone = await newContext(browser, PHONE);
   const p = await phone.newPage();
   const phoneErrors = trackErrors(p, [], "phone ");
