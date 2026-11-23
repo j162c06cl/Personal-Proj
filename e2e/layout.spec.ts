@@ -3,7 +3,7 @@
 import { test, check, checkNoErrors, box, newContext, overflow, PHONE, trackErrors } from "./support";
 import type { Page } from "@playwright/test";
 
-const PAGES = ["/", "/watchlist", "/calculator", "/portfolio", "/settings", "/stock/AAPL", "/stock/AAPL/chart"];
+const PAGES = ["/", "/watchlist", "/screener", "/portfolio", "/settings", "/stock/AAPL", "/stock/AAPL/chart"];
 const open = (p: Page, path: string) => p.goto(path, { waitUntil: "networkidle", timeout: 120_000 });
 
 test("every page fills the screen's width, lined up with the nav bar", async ({ page, errors }) => {
@@ -76,14 +76,14 @@ test("stock page: one verdict for your strategy, with the other a click away", a
 
 test("screener: starts on your Settings strategy, explains it, and shows columns on a laptop", async ({ page, errors }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await open(page, "/calculator");
+  await open(page, "/screener");
   check("long-term by default, with a line saying what it means", (await page.getByRole("button", { name: "Long-term investing" }).getAttribute("aria-pressed")) === "true" && /Stocks to hold for years/.test(await page.locator("main").innerText()));
   const header = page.locator("main div.hidden.lg\\:flex", { hasText: "Stock" });
   if (await header.count()) check("laptop: column headings over the results", /Market cap/i.test(await header.innerText()), await header.innerText());
 
   await open(page, "/settings");
   await page.getByRole("button", { name: "Swing", exact: true }).click();
-  await open(page, "/calculator");
+  await open(page, "/screener");
   check("swing in Settings starts the screener on swing trading", (await page.getByRole("button", { name: "Swing trading" }).getAttribute("aria-pressed")) === "true" && /Trades lasting days to weeks/.test(await page.locator("main").innerText()));
   checkNoErrors(errors);
 });

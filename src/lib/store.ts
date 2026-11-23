@@ -10,7 +10,7 @@ import { TradePlan, sanitizePlans } from "./tradePlan";
 
 export const DEFAULT_SETTINGS: Settings = {
   baseCurrency: "USD",
-  profile: { strategy: "long-term", researchMinutes: 15 },
+  profile: { strategy: "long-term" },
   benchmarks: DEFAULT_BENCHMARKS,
 };
 
@@ -86,20 +86,6 @@ export function newItem(ticker: string, fields: Partial<WatchlistItem> = {}): Wa
   };
 }
 
-/** Converts v2 named lists into intent-tagged items, keeping the old list name on each item. */
-export function listsToItems(lists: WatchlistDef[]): WatchlistItem[] {
-  const seen = new Set<string>();
-  const items: WatchlistItem[] = [];
-  for (const l of lists) {
-    for (const t of l.tickers) {
-      if (seen.has(t)) continue;
-      seen.add(t);
-      items.push(newItem(t, { intent: intentForListName(l.name), tag: "watching", legacyList: l.name }));
-    }
-  }
-  return items;
-}
-
 /** v2 named lists become real lists again, each item's intent guessed from the list name. */
 export function defsToWatchlists(defs: WatchlistDef[]): Watchlist[] {
   const now = new Date().toISOString();
@@ -137,10 +123,6 @@ export function flattenLists(lists: Watchlist[]): WatchlistItem[] {
   const out: WatchlistItem[] = [];
   for (const l of lists) for (const i of l.items) if (!seen.has(i.ticker)) { seen.add(i.ticker); out.push(i); }
   return out;
-}
-
-export async function loadWatchlist(): Promise<WatchlistItem[]> {
-  return flattenLists(await loadWatchlists());
 }
 
 /** Adds a stock to one list (or updates it there). Returns all lists. */
@@ -250,10 +232,7 @@ const listeners = new Set<(s: Settings) => void>();
 function mergeSettings(partial: Partial<Settings> | undefined): Settings {
   return {
     baseCurrency: partial?.baseCurrency ?? DEFAULT_SETTINGS.baseCurrency,
-    profile: {
-      strategy: partial?.profile?.strategy ?? DEFAULT_SETTINGS.profile.strategy,
-      researchMinutes: partial?.profile?.researchMinutes ?? DEFAULT_SETTINGS.profile.researchMinutes,
-    },
+    profile: { strategy: partial?.profile?.strategy ?? DEFAULT_SETTINGS.profile.strategy },
     benchmarks: normalizeBenchmarks(partial?.benchmarks),
   };
 }

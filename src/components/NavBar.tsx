@@ -26,7 +26,7 @@ const ICONS = {
 const links = [
   { href: "/", label: "Dashboard" },
   { href: "/watchlist", label: "Watchlist" },
-  { href: "/calculator", label: "Screener" },
+  { href: "/screener", label: "Screener" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/retirement", label: "Retirement" },
   { href: "/glossary", label: "Glossary" },
@@ -37,7 +37,7 @@ const links = [
 const dock = [
   { href: "/", label: "Home", icon: ICONS.home },
   { href: "/watchlist", label: "Watchlist", icon: ICONS.watch },
-  { href: "/calculator", label: "Screener", icon: ICONS.screen },
+  { href: "/screener", label: "Screener", icon: ICONS.screen },
   { href: "/portfolio", label: "Portfolio", icon: ICONS.portfolio },
   { href: "/settings", label: "Settings", icon: ICONS.gear },
 ];

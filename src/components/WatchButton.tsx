@@ -4,22 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { addToWatchlist, loadWatchlists, newId, saveWatchlists } from "@/lib/store";
 import { WatchIntent, WatchTag, Watchlist, WatchlistItem } from "@/lib/types";
 
-export const INTENTS: { value: WatchIntent; label: string; hint: string }[] = [
-  { value: "long-term", label: "Long-term", hint: "Candidate to hold for years" },
-  { value: "swing",     label: "Swing",     hint: "Setup to trade over days to weeks" },
-  { value: "research",  label: "Undecided", hint: "Not sure which strategy fits yet" },
-];
-
-export const TAGS: { value: WatchTag; label: string; cls: string }[] = [
-  { value: "researching", label: "Researching", cls: "bg-[#F5F3FF] text-[#5B21B6] border-[#DDD6FE]" },
-  { value: "watching",    label: "Watching",    cls: "bg-[#EAF4FF] text-[#0B5CB5] border-[#BBD9FF]" },
-  { value: "setup-ready", label: "Setup ready", cls: "bg-[#E7F8EC] text-[#007A2B] border-[#B5E8C4]" },
-  { value: "archived",    label: "Archived",    cls: "bg-[#F5F5F5] text-[#525252] border-[#E5E5E5]" },
-];
-
-export const intentLabel = (i: WatchIntent) => INTENTS.find((x) => x.value === i)?.label ?? i;
-export const tagInfo = (t: WatchTag) => TAGS.find((x) => x.value === t) ?? TAGS[0];
-
 /** Lists that contain the ticker, and the item on the first of them */
 export function watchedIn(lists: Watchlist[] | null, ticker: string): { lists: Watchlist[]; item: WatchlistItem | null } {
   const on = (lists ?? []).filter((l) => l.items.some((i) => i.ticker === ticker));

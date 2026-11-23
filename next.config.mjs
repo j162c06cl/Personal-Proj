@@ -5,6 +5,10 @@ const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // Don't let `next dev` write an AGENTS.md (instructions for AI coding assistants) into the repo
   agentRules: false,
+  // The Screener used to live at /calculator; keep old links and bookmarks working
+  async redirects() {
+    return [{ source: "/calculator", destination: "/screener", permanent: true }];
+  },
 };
 
 export default nextConfig;

@@ -61,14 +61,6 @@ export async function dbSet<T>(store: StoreName, key: string, value: T): Promise
   }
 }
 
-export async function dbDelete(store: StoreName, key: string): Promise<void> {
-  try {
-    await run(store, "readwrite", (s) => s.delete(key));
-  } catch {
-    memory[store].delete(key);
-  }
-}
-
 export async function dbKeys(store: StoreName): Promise<string[]> {
   try {
     return (await run<IDBValidKey[]>(store, "readonly", (s) => s.getAllKeys())).map(String);

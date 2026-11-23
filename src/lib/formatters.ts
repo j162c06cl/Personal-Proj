@@ -31,11 +31,6 @@ export function formatDate(s: string): string {
   return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-export function formatNumber(n: number | null): string {
-  if (n === null || isNaN(n)) return "N/A";
-  return n.toFixed(2);
-}
-
 export function formatVolume(n: number | null): string {
   if (n === null || isNaN(n)) return "—";
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
